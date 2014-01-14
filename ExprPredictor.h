@@ -23,7 +23,8 @@ string getIntOptionStr( FactorIntType intOption );
 enum ObjType {
     SSE,    // sum of squared error
     CORR,   // Pearson correlation
-    CROSS_CORR  // cross correlation (maximum in a range of shifts)
+    CROSS_CORR,  // cross correlation (maximum in a range of shifts)
+    NORM_CORR	// normalised correlation
 };
 
 ObjType getObjOption( const string& objOptionStr );
@@ -315,6 +316,7 @@ public:
     static double min_delta_f_SSE;      // the minimum change of the objective function under SSE
     static double min_delta_f_Corr;     // the minimum change of the objective function under correlation
     static double min_delta_f_CrossCorr;    // the minimum change of the objective function under cross correlation
+    static double min_delta_f_NormCorr;    // the minimum change of the objective function under normalised correlation
     static int nSimplexIters;       // maximum number of iterations for Simplex optimizer
     static int nGradientIters;      // maximum number of iterations for Gradient optimizer
     static bool one_qbtm_per_crm;
@@ -360,8 +362,9 @@ private:
     
     // objective functions
     double compRMSE( const ExprPar& par );		// root mean square error between predicted and observed expressions
-    double compAvgCorr( const ExprPar& par );     // the average Pearson correlation
-    double compAvgCrossCorr( const ExprPar& par );    // the average cross correlation -based similarity
+    double compAvgCorr( const ExprPar& par );     	// the average Pearson correlation
+    double compAvgCrossCorr( const ExprPar& par );    	// the average cross correlation -based similarity
+    double compNormCorr( const ExprPar& par );		// the normalised correlation 
 
     // minimize the objective function, using the current model parameters as initial values
     int simplex_minimize( ExprPar& par_result, double& obj_result );	// simplex	

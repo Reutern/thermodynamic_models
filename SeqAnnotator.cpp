@@ -271,7 +271,7 @@ Matrix compWtmx( const Matrix& countMatrix, double pseudoCount )
             n += countMatrix( i, j );
         }
         for ( int j = 0; j < 4; j++ ) {
-            pwm( i, j ) = ( countMatrix( i, j ) + pseudoCount ) / ( n + 4.0 * pseudoCount );
+            pwm( i, j ) = ( countMatrix( i, j ) + pseudoCount ) / ( n + 4.0 * pseudoCount );	// pseudoCount ensures a minimum possibility of a nucleotide at every position 
         }	
     }
 

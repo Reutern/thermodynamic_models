@@ -39,6 +39,7 @@ ObjType getObjOption( const string& objOptionStr )
     if ( toupperStr( objOptionStr ) == "SSE" ) return SSE;
     if ( toupperStr( objOptionStr ) == "CORR" ) return CORR;
     if ( toupperStr( objOptionStr ) == "CROSS_CORR" ) return CROSS_CORR;
+    if ( toupperStr( objOptionStr ) == "NORM_CORR" ) return NORM_CORR;
 
     cerr << "objOptionStr is not a valid option of objective function" << endl; 
     exit(1);
@@ -49,6 +50,7 @@ string getObjOptionStr( ObjType objOption )
     if ( objOption == SSE ) return "SSE";
     if ( objOption == CORR ) return "Corr";
     if ( objOption == CROSS_CORR ) return "Cross_Corr";
+    if ( objOption == NORM_CORR ) return "Norm_Corr";
 
     return "Invalid";
 }
@@ -633,7 +635,7 @@ double ExprFunc::compPartFuncOffChrMod() const
             if ( siteOverlap( sites[ i ], sites[ j ], motifs ) ) continue;
             double dist = sites[i].start - sites[j].start;
             
-            // sum for Z0
+            // sum for Z0 
             sum0 += compFactorInt( sites[i], sites[j] ) * Z0[j];
             if ( dist > repressionDistThr ) sum0 += Z1[j]; 
 
@@ -924,6 +926,7 @@ double ExprPredictor::objFunc( const ExprPar& par )
     if ( objOption == SSE ) return compRMSE( par );	
     if ( objOption == CORR ) return -compAvgCorr( par );
     if ( objOption == CROSS_CORR ) return -compAvgCrossCorr( par ); 
+    if ( objOption == NORM_CORR ) return compNormCorr( par ); 
 }
 
 int ExprPredictor::train( const ExprPar& par_init )
@@ -1069,7 +1072,7 @@ int ExprPredictor::predict( const SiteVec& targetSites, int targetSeqLength, vec
 
 ModelType ExprPredictor::modelOption = LOGISTIC;
 int ExprPredictor::estBindingOption = 1;    // 1. estimate binding parameters; 0. not estimate binding parameters
-ObjType ExprPredictor::objOption = SSE;
+ObjType ExprPredictor::objOption = NORM_CORR;
 
 double ExprPredictor::exprSimCrossCorr( const vector< double >& x, const vector< double >& y )
 {
@@ -1102,6 +1105,7 @@ int ExprPredictor::nRandStarts = 5;
 double ExprPredictor::min_delta_f_SSE = 1.0E-8;
 double ExprPredictor::min_delta_f_Corr = 1.0E-8;
 double ExprPredictor::min_delta_f_CrossCorr = 1.0E-8;
+double ExprPredictor::min_delta_f_NormCorr = 1.0E-8;
 int ExprPredictor::nSimplexIters = 200;
 int ExprPredictor::nGradientIters = 50;
 bool ExprPredictor::one_qbtm_per_crm = false;
@@ -1313,6 +1317,8 @@ double ExprPredictor::compRMSE( const ExprPar& par )
         }
         double beta;
         squaredErr += least_square( predictedExprs, observedExprs, beta );
+	
+
     }	
 
     double rmse = sqrt( squaredErr / ( nSeqs() * nConds() ) ); 
@@ -1395,6 +1401,46 @@ double ExprPredictor::compAvgCrossCorr( const ExprPar& par )
 
     return totalSim / nSeqs();
 }
+
+double ExprPredictor::compNormCorr( const ExprPar& par ) 
+{
+    // create the expression function
+    ExprFunc* func = createExprFunc( par );
+            
+    // Pearson correlation of each sequence
+    double totalSim = 0;
+    for ( int i = 0; i < nSeqs(); i++ ) {
+        vector< double > predictedExprs;
+        vector< double > observedExprs;
+        for ( int j = 0; j < nConds(); j++ ) {
+		double predicted = -1;
+            	vector< double > concs = factorExprData.getCol( j );
+		for( int _i = 0; _i < sizeof ( indices_of_crm_in_gene ) / sizeof ( int ); _i++ ){
+			if( i == indices_of_crm_in_gene[ _i ] ){
+				gene_crm_fout << i << "\t" << j << "\t";
+            			predicted = func->predictExpr( seqSites[ i ], seqLengths[ i ], concs, i, gene_crm_fout );
+				break;
+			}
+		}	
+		if ( predicted < 0 ){
+            		predicted = func->predictExpr( seqSites[ i ], seqLengths[ i ], concs, i );
+		}
+		
+            
+            // predicted expression for the i-th sequence at the j-th condition
+            predictedExprs.push_back( predicted );
+            
+            // observed expression for the i-th sequence at the j-th condition
+            double observed = exprData( i, j );
+            observedExprs.push_back( observed );
+        }
+        totalSim += norm_corr( predictedExprs, observedExprs ); 
+//         cout << "Sequence " << i << "\t" << corr( predictedExprs, observedExprs ) << endl;
+    }	
+
+    return totalSim / nSeqs();
+}
+
 
 int ExprPredictor::simplex_minimize( ExprPar& par_result, double& obj_result ) 
 {
@@ -1619,6 +1665,7 @@ int ExprPredictor::gradient_minimize( ExprPar& par_result, double& obj_result )
         if ( objOption == SSE && delta_f < min_delta_f_SSE ) break;
         if ( objOption == CORR && delta_f < min_delta_f_Corr ) break;
         if ( objOption == CROSS_CORR && delta_f < min_delta_f_CrossCorr ) break;
+        if ( objOption == NORM_CORR && delta_f < min_delta_f_NormCorr ) break;
         
         status = gsl_multimin_test_gradient( s->gradient, 5e-4 );
 // 		if ( status == GSL_SUCCESS ) { cout << "converged to minimum at " << iter << endl; }

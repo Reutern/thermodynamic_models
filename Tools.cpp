@@ -894,6 +894,32 @@ int cross_corr( const vector< double >& x, const vector< double >& y, const vect
     return 0;
 }
 
+double norm_corr( const vector< double >& x, const vector< double >& y )
+{
+    if ( x.size() != y.size() ) return RET_ERROR; 
+    if ( x.size() == 0 ) return RET_ERROR;
+
+    int n = x.size();		// length of the vectors x and y
+
+    // Norms of x and y
+    double norm_2_x = 0; 
+    double norm_2_y = 0;
+    for ( int s = 0; s < n; s++ ) {
+        norm_2_x +=  x[s] * x[s];
+        norm_2_y +=  y[s] * y[s]; 
+    }
+    
+    // scalar-product of x and y 
+    double sum = 0;
+    for ( int s = 0; s < n ; s++ ) {
+        sum += x[s] * y[s] ;
+    }
+
+    double corr_xy = sum / sqrt( norm_2_x * norm_2_y );
+    
+    return corr_xy;
+}
+
 double least_square( const vector< double >& x, const vector< double >& y, double& beta )
 {
     assert( x.size() == y.size() );
