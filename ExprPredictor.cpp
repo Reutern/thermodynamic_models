@@ -295,6 +295,10 @@ void ExprPar::print( ostream& os, const vector< string >& motifNames, const IntM
 //     os.precision( 3 );
     
     // print the factor information
+    os << "Motif" << "\t" << "max Binding Wights K[A]" << "\t" << "transcriptional factor";	
+    if ( modelOption == CHRMOD_UNLIMITED || modelOption == CHRMOD_LIMITED ) os << "\t" << "repression Effects";
+    os << endl;    
+
     for ( int i = 0; i < nFactors(); i++ ) {
         os << motifNames[i] << "\t" << maxBindingWts[i] << "\t" << txpEffects[i];
         if ( modelOption == CHRMOD_UNLIMITED || modelOption == CHRMOD_LIMITED ) os << "\t" << repEffects[i];
