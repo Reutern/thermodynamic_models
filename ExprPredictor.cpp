@@ -926,7 +926,7 @@ double ExprPredictor::objFunc( const ExprPar& par )
     if ( objOption == SSE ) return compRMSE( par );	
     if ( objOption == CORR ) return -compAvgCorr( par );
     if ( objOption == CROSS_CORR ) return -compAvgCrossCorr( par ); 
-    if ( objOption == NORM_CORR ) return compNormCorr( par ); 
+    if ( objOption == NORM_CORR ) return -compNormCorr( par ); 
 }
 
 int ExprPredictor::train( const ExprPar& par_init )
@@ -1407,7 +1407,7 @@ double ExprPredictor::compNormCorr( const ExprPar& par )
     // create the expression function
     ExprFunc* func = createExprFunc( par );
             
-    // Pearson correlation of each sequence
+    // Normalised correlation of each sequence
     double totalSim = 0;
     for ( int i = 0; i < nSeqs(); i++ ) {
         vector< double > predictedExprs;
@@ -1435,7 +1435,7 @@ double ExprPredictor::compNormCorr( const ExprPar& par )
             observedExprs.push_back( observed );
         }
         totalSim += norm_corr( predictedExprs, observedExprs ); 
-//         cout << "Sequence " << i << "\t" << corr( predictedExprs, observedExprs ) << endl;
+      //  cout << "Sequence " << i << "\t" << norm_corr( predictedExprs, observedExprs ) << endl;
     }	
 
     return totalSim / nSeqs();

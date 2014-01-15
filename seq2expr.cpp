@@ -366,7 +366,7 @@ int main( int argc, char* argv[] )
     cout << "Estimated values of parameters:" << endl;
     ExprPar par = predictor->getPar();
     par.print( cout, motifNames, coopMat );
-    cout << "Performance = " << setprecision( 5 ) << ( ExprPredictor::objOption == SSE || ExprPredictor::objOption == NORM_CORR ? predictor->getObj() : -predictor->getObj() ) << endl;
+    cout << "Performance = " << setprecision( 5 ) << ( ExprPredictor::objOption == SSE ? predictor->getObj() : -predictor->getObj() ) << endl;
 
     // print the predictions
     ofstream fout( outFile.c_str() );
