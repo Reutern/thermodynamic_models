@@ -2,6 +2,8 @@
 #include <gsl/gsl_multimin.h>
 
 #include "ExprPredictor.h"
+#include "param.h"
+
 
 ModelType getModelOption( const string& modelOptionStr )
 {
@@ -960,10 +962,15 @@ int ExprPredictor::train( const ExprPar& par_init )
     ExprPar par_result;
     double obj_result;
     for ( int i = 0; i < nAlternations; i++ ) {
+	cout << "Minimisation step " << i+1 << " of " << nAlternations << endl; 
+	cout << "Simplex minimisation: " << endl; 
 	simplex_minimize( par_result, obj_result );
+	cout << endl;
         par_model = par_result; 
 //         par_model.adjust();
+	cout << "Gradient minimisation: " << endl; 
         gradient_minimize( par_result, obj_result );
+	cout << endl;
         par_model = par_result;
 //         par_model.adjust();
     }
@@ -1540,6 +1547,12 @@ int ExprPredictor::simplex_minimize( ExprPar& par_result, double& obj_result )
 // 		if ( status == GSL_SUCCESS ) { cout << "converged to minimum at " << iter << endl; }
 
         // print the current parameter and function values
+	#ifdef SHORT_OUTPUT
+	if(iter % SHORT_OUTPUT == 0){
+      		printf( "\r %i \t f() = %8.5f", iter, s->fval );	
+		fflush(stdout);
+	}	
+	#else
 	cout << "======================================" << endl;
 	cout << "======================================" << endl;
         cout << iter << "\t";
@@ -1549,6 +1562,7 @@ int ExprPredictor::simplex_minimize( ExprPar& par_result, double& obj_result )
 	par_curr.print( cout, motifNames, coopMat);
 	cout << "======================================" << endl;
 	cout << "======================================" << endl << endl;
+	#endif // SHORT_OUTPUT
     } while ( status == GSL_CONTINUE && iter < nSimplexIters );
 
     // get the results
@@ -1675,10 +1689,16 @@ int ExprPredictor::gradient_minimize( ExprPar& par_result, double& obj_result )
 // 		if ( status == GSL_SUCCESS ) { cout << "converged to minimum at " << iter << endl; }
 
          // print the current parameter and function values
+	#ifdef SHORT_OUTPUT
+	if(iter % SHORT_OUTPUT == 0){
+        	printf( "\r %i \t f() = %8.5f", iter, s->f );
+		fflush(stdout);
+	}
+	#else
 	cout << "========================================" << endl;
 	cout << "========================================" << endl;
         cout << iter << "\t";
-        printPar( par_curr );
+        //printPar( par_curr );           //Redundant information 
         printf( "\tf() = %8.5f\n", s->f );
 	cout << "========================================" << endl;
 	/*vector <string> motifNames;
@@ -1692,6 +1712,7 @@ int ExprPredictor::gradient_minimize( ExprPar& par_result, double& obj_result )
 	par_curr.print( cout, motifNames, coopMat);
 	cout << "========================================" << endl;
 	cout << "========================================" << endl << endl;
+	#endif // SHORT_OUTPUT
     } while ( status == GSL_CONTINUE && iter < nGradientIters );
 
     // get the results

@@ -20,7 +20,7 @@ Tools.o : Tools.h Tools.cpp
 	$(CC) $(CFLAGS) -c Tools.cpp
 SeqAnnotator.o : Tools.h SeqAnnotator.h SeqAnnotator.cpp
 	$(CC) $(CFLAGS) -c SeqAnnotator.cpp
-ExprPredictor.o : Tools.h SeqAnnotator.h ExprPredictor.h ExprPredictor.cpp
+ExprPredictor.o : Tools.h SeqAnnotator.h ExprPredictor.h param.h ExprPredictor.cpp 
 	$(CC) $(CFLAGS) -c ExprPredictor.cpp
 seq2expr.o : Tools.h SeqAnnotator.h ExprPredictor.h seq2expr.cpp
 	$(CC) $(CFLAGS) -c seq2expr.cpp
