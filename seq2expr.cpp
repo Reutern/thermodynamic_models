@@ -29,11 +29,8 @@ int main( int argc, char* argv[] )
 {
 
     // Set the timer
-    clock_t t1,t2;
+    long time_start = time(NULL);
   
-    t1=clock();     // first time capture
-
-
     // command line processing
     string seqFile, annFile, exprFile, motifFile, factorExprFile, coopFile, factorInfoFile, repressionFile, parFile, axis_wtFile;
     string outFile;     // output file
@@ -41,7 +38,7 @@ int main( int argc, char* argv[] )
     double factorIntSigma = 50.0;   // sigma parameter for the Gaussian interaction function
     double repressionDistThr = 250;
     int maxContact = 1;
-	double eTF = 0.3;
+	double eTF = 1.0;
 
 	string free_fix_indicator_filename;
 	ExprPredictor::one_qbtm_per_crm = false;
@@ -413,18 +410,17 @@ int main( int argc, char* argv[] )
             cout << norm_corr( observedExprs, targetExprs ) << endl; 
     }
 
-    t2=clock(); // Final time capture
 
-    int dhh=0;
-    int dmm=0;
-    int dss=0;
-    double difference= (((double)t2)-((double)t1)); // gives the time elapsed since t1 in milliseconds
-    double seconds = difference / CLOCKS_PER_SEC; // float value of seconds
-    dss = fmod(seconds,60); // the remainder is seconds to be displayed
-    double minutes= seconds/60;  // the total minutes in float
-    dmm= fmod(minutes,60);  // the remainder are minutes to be displayed
-    double hours= minutes/60; // the total hours in float
-    dhh= hours;  // the hours to be displayed
+
+
+    int dmm = 0;
+    int dss = 0;
+    long time_end = time(NULL) - time_start; // gives the time elapsed since time_start in seconds
+    dss =time_end % 60; // the remainder is seconds to be displayed
+    int minutes= time_end / 60;  // the total minutes in float
+    dmm= minutes % 60;  // the remainder are minutes to be displayed
+    int dhh = minutes / 60 ; // the total hours in float
+
 
     string string_dmm;
     string string_dss;
