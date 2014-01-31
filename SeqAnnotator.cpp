@@ -444,13 +444,6 @@ ostream& operator<<( ostream& os, const Site& site )
     return os;
 }
 
-bool siteOverlap( const Site& a, const Site& b, const vector< Motif >& motifs )
-{
-    if ( a.start + motifs[ a.factorIdx ].length() <= b.start ) return false;
-    if ( b.start + motifs[ b.factorIdx ].length() <= a.start ) return false;
-    
-    return true;	
-}
 
 int readSites( const string& file, const map< string, int >& factorIdxMap, vector< SiteVec >& sites, vector< string >& names, bool readEnergy )
 {

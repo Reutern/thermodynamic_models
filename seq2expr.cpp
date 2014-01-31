@@ -34,11 +34,11 @@ int main( int argc, char* argv[] )
     // command line processing
     string seqFile, annFile, exprFile, motifFile, factorExprFile, coopFile, factorInfoFile, repressionFile, parFile, axis_wtFile;
     string outFile;     // output file
-    double coopDistThr = 50;
+    int coopDistThr = 50;
     double factorIntSigma = 50.0;   // sigma parameter for the Gaussian interaction function
-    double repressionDistThr = 250;
+    int repressionDistThr = 250;
     int maxContact = 1;
-	double eTF = 1.0;
+	double eTF = 0.5;
 
 	string free_fix_indicator_filename;
 	ExprPredictor::one_qbtm_per_crm = false;
@@ -157,6 +157,7 @@ int main( int argc, char* argv[] )
     data.clear();
     rval = readMatrix( factorExprFile, labels, condNames, data );
     assert( rval != RET_ERROR );
+    cout << "labels" << endl;
     cout << labels.size() << " " << nFactors << " " << condNames.size() << " " << nConds << endl;
     assert( labels.size() == nFactors && condNames.size() == nConds );
     for ( int i = 0; i < nFactors; i++ ) assert( labels[i] == motifNames[i] );

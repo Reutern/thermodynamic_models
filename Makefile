@@ -1,4 +1,4 @@
-CC = g++
+CC = g++ -pg
 
 GSL_DIR = usr/include
 

@@ -65,7 +65,7 @@ string getSearchOptionStr( SearchType searchOption )
     return "Invalid";
 }
 
-double FactorIntFuncBinary::compFactorInt( double normalInt, double dist, bool orientation ) const
+double FactorIntFuncBinary::compFactorInt( double normalInt, int dist, bool orientation ) const
 {
     assert( dist >= 0 );
 	
@@ -74,7 +74,7 @@ double FactorIntFuncBinary::compFactorInt( double normalInt, double dist, bool o
     return spacingTerm * orientationTerm;	
 }
 
-double FactorIntFuncGaussian::compFactorInt( double normalInt, double dist, bool orientation ) const
+double FactorIntFuncGaussian::compFactorInt( double normalInt, int dist, bool orientation ) const
 {
     assert( dist >= 0 );
 
@@ -82,7 +82,7 @@ double FactorIntFuncGaussian::compFactorInt( double normalInt, double dist, bool
     return max( 1.0, GaussianInt );    
 }
 
-double FactorIntFuncGeometric::compFactorInt( double normalInt, double dist, bool orientation ) const
+double FactorIntFuncGeometric::compFactorInt( double normalInt, int dist, bool orientation ) const
 {
     assert( dist >= 0 );
 	
@@ -302,8 +302,8 @@ void ExprPar::print( ostream& os, const vector< string >& motifNames, const IntM
     os << endl;    
 
     for ( int i = 0; i < nFactors(); i++ ) {
-        os << motifNames[i] << "\t" << maxBindingWts[i] << "\t" << txpEffects[i];
-        if ( modelOption == CHRMOD_UNLIMITED || modelOption == CHRMOD_LIMITED ) os << "\t" << repEffects[i];
+        os << motifNames[i] << "\t \t " << maxBindingWts[i] << "\t \t " << txpEffects[i];
+        if ( modelOption == CHRMOD_UNLIMITED || modelOption == CHRMOD_LIMITED ) os << "\t \t " << repEffects[i];
         os << endl;
     }
 
@@ -314,6 +314,7 @@ void ExprPar::print( ostream& os, const vector< string >& motifNames, const IntM
     }
     
     // print the cooperative interactions
+    os << "Cooperativity Factor:"  << endl;
     for ( int i = 0; i < nFactors(); i++ ) {
         for ( int j = 0; j <= i; j++ ) {
             if ( coopMat( i, j ) ) os << motifNames[i] << "\t" << motifNames[j] << "\t" << factorIntMat( i, j ) << endl;
@@ -455,7 +456,7 @@ double ExprPar::delta = 0.0001;
 bool ExprPar::one_qbtm_per_crm = false;
 bool ExprFunc::one_qbtm_per_crm = false;
 
-ExprFunc::ExprFunc( const vector< Motif >& _motifs, const FactorIntFunc* _intFunc, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, double _repressionDistThr, const ExprPar& _par ) : motifs( _motifs ), intFunc( _intFunc ), actIndicators( _actIndicators ), maxContact( _maxContact ), repIndicators( _repIndicators ), repressionMat( _repressionMat ), repressionDistThr( _repressionDistThr ), par( _par )
+ExprFunc::ExprFunc( const vector< Motif >& _motifs, const FactorIntFunc* _intFunc, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr, const ExprPar& _par ) : motifs( _motifs ), intFunc( _intFunc ), actIndicators( _actIndicators ), maxContact( _maxContact ), repIndicators( _repIndicators ), repressionMat( _repressionMat ), repressionDistThr( _repressionDistThr ), par( _par )
 {
     int nFactors = par.nFactors();
     assert( motifs.size() == nFactors );
@@ -477,7 +478,7 @@ double ExprFunc::predictExpr( const SiteVec& _sites, int length, const vector< d
     sites = _sites;
     sites.insert( sites.begin(), Site() );  // start with a pseudo-site at position 0 
     boundaries.push_back( 0 );
-    double range = max( intFunc->getMaxDist(), repressionDistThr );
+    int range = max( intFunc->getMaxDist(), repressionDistThr );
     for ( int i = 1; i <= n; i++ ) {
         int j; 
         for ( j = i - 1; j >= 1; j-- ) {
@@ -538,7 +539,7 @@ double ExprFunc::predictExpr( const SiteVec& _sites, int length, const vector< d
     sites = _sites;
     sites.insert( sites.begin(), Site() );  // start with a pseudo-site at position 0 
     boundaries.push_back( 0 );
-    double range = max( intFunc->getMaxDist(), repressionDistThr );
+    int range = max( intFunc->getMaxDist(), repressionDistThr );
     for ( int i = 1; i <= n; i++ ) {
         int j; 
         for ( j = i - 1; j >= 1; j-- ) {
@@ -639,7 +640,7 @@ double ExprFunc::compPartFuncOffChrMod() const
         double sum0 = sum, sum1 = sum;
         for ( int j = boundaries[i] + 1; j < i; j++ ) {
             if ( siteOverlap( sites[ i ], sites[ j ], motifs ) ) continue;
-            double dist = sites[i].start - sites[j].start;
+            int dist = sites[i].start - sites[j].start;
             
             // sum for Z0 
             sum0 += compFactorInt( sites[i], sites[j] ) * Z0[j];
@@ -786,7 +787,7 @@ double ExprFunc::compPartFuncOnChrMod_Unlimited() const
         double sum = Zt[boundaries[i]]; 
         double sum0 = sum, sum1 = sum;
         for ( int j = boundaries[i] + 1; j < i; j++ ) {
-            double dist = sites[i].start - sites[j].start;
+            int dist = sites[i].start - sites[j].start;
             if ( siteOverlap( sites[ i ], sites[ j ], motifs ) ) continue;
 
             // sum for Z0
@@ -850,7 +851,7 @@ double ExprFunc::compPartFuncOnChrMod_Limited() const
 //             cout << "k = " << k << " i = " << i << endl;
             double sum0 = Zt[boundaries[i]][k], sum0A = k > 0 ? Zt[boundaries[i]][k-1] : 0, sum1 = sum0;
             for ( int j = boundaries[i] + 1; j < i; j++ ) {
-                double dist = sites[i].start - sites[j].start;
+                int dist = sites[i].start - sites[j].start;
                 if ( siteOverlap( sites[ i ], sites[ j ], motifs ) ) continue;
 
                 // sum for Z0
@@ -886,7 +887,7 @@ double ExprFunc::compFactorInt( const Site& a, const Site& b ) const
 // 	assert( !siteOverlap( a, b, motifs ) );
 	
     double maxInt = par.factorIntMat( a.factorIdx, b.factorIdx );
-    double dist = abs( a.start - b.start );
+    int dist = abs( a.start - b.start );
     bool orientation = ( a.strand == b.strand ); 
     return intFunc->compFactorInt( maxInt, dist, orientation );	
 }
@@ -899,7 +900,7 @@ bool ExprFunc::testRepression( const Site& a, const Site& b ) const
     return repressionMat( a.factorIdx, b.factorIdx ) && ( dist <= repressionDistThr );
 }
 
-ExprPredictor::ExprPredictor( const vector< SiteVec >& _seqSites, const vector< int >& _seqLengths, const Matrix& _exprData, const vector< Motif >& _motifs, const Matrix& _factorExprData, const FactorIntFunc* _intFunc, const IntMatrix& _coopMat, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, double _repressionDistThr, const vector < bool >& _indicator_bool, const vector <string>& _motifNames, const vector < int >& _axis_start, const vector < int >& _axis_end, const vector < double >& _axis_wts ) : seqSites( _seqSites ), seqLengths( _seqLengths ), exprData( _exprData ), motifs( _motifs ), factorExprData( _factorExprData ), intFunc( _intFunc ), coopMat( _coopMat ), actIndicators( _actIndicators ), maxContact( _maxContact ), repIndicators( _repIndicators ), repressionMat( _repressionMat ), repressionDistThr( _repressionDistThr ), indicator_bool ( _indicator_bool ), motifNames ( _motifNames ), axis_start ( _axis_start ), axis_end( _axis_end ), axis_wts( _axis_wts )
+ExprPredictor::ExprPredictor( const vector< SiteVec >& _seqSites, const vector< int >& _seqLengths, const Matrix& _exprData, const vector< Motif >& _motifs, const Matrix& _factorExprData, const FactorIntFunc* _intFunc, const IntMatrix& _coopMat, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr, const vector < bool >& _indicator_bool, const vector <string>& _motifNames, const vector < int >& _axis_start, const vector < int >& _axis_end, const vector < double >& _axis_wts ) : seqSites( _seqSites ), seqLengths( _seqLengths ), exprData( _exprData ), motifs( _motifs ), factorExprData( _factorExprData ), intFunc( _intFunc ), coopMat( _coopMat ), actIndicators( _actIndicators ), maxContact( _maxContact ), repIndicators( _repIndicators ), repressionMat( _repressionMat ), repressionDistThr( _repressionDistThr ), indicator_bool ( _indicator_bool ), motifNames ( _motifNames ), axis_start ( _axis_start ), axis_end( _axis_end ), axis_wts( _axis_wts )
 {
     assert( exprData.nRows() == nSeqs() );
     assert( factorExprData.nRows() == nFactors() && factorExprData.nCols() == nConds() );
@@ -1081,7 +1082,7 @@ int ExprPredictor::predict( const SiteVec& targetSites, int targetSeqLength, vec
 // 	}
 // }
 
-ModelType ExprPredictor::modelOption = LOGISTIC;
+ModelType ExprPredictor::modelOption = CHRMOD_LIMITED;
 int ExprPredictor::estBindingOption = 1;    // 1. estimate binding parameters; 0. not estimate binding parameters
 ObjType ExprPredictor::objOption = NORM_CORR;
 

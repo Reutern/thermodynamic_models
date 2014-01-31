@@ -44,27 +44,27 @@ string getSearchOptionStr( SearchType searchOption );
 class FactorIntFunc {
 public:
     // compute the factor interaction, given the normal interaction (when they are close enough)
-    virtual double compFactorInt( double normalInt, double dist, bool orientation ) const = 0;
+    virtual double compFactorInt( double normalInt, int dist, bool orientation ) const = 0;
 
     // the maximum distance beyond which there is no interaction
-    virtual double getMaxDist() const = 0;    
+    virtual int getMaxDist() const = 0;    
 };
 
 /* FactorIntFuncBinary class: binary distance function */
 class FactorIntFuncBinary : public FactorIntFunc {
 public:
     // constructors
-    FactorIntFuncBinary( double _distThr, double _orientationEffect = 1.0 ) : distThr( _distThr ), orientationEffect( _orientationEffect ) { assert( distThr > 0 ); }
+    FactorIntFuncBinary( int _distThr, double _orientationEffect = 1.0 ) : distThr( _distThr ), orientationEffect( _orientationEffect ) { assert( distThr > 0 ); }
 
     // compute the factor interaction
-    double compFactorInt( double normalInt, double dist, bool orientation ) const;
+    double compFactorInt( double normalInt, int dist, bool orientation ) const;
 
     // the maximum distance beyond which there is no interaction
-    double getMaxDist() const {
+    inline int getMaxDist() const {
         return distThr;
     } 
 private:
-    double distThr;		// if distance < thr, the "normal" value; otherwise 1 (no interaction)
+    int distThr;		// if distance < thr, the "normal" value; otherwise 1 (no interaction)
     double orientationEffect;	// the effect of orientation: if at different strands, the effect should be multiplied this value	
 };
 
@@ -72,19 +72,19 @@ private:
 class FactorIntFuncGaussian : public FactorIntFunc {
 public: 
     // constructors
-    FactorIntFuncGaussian( double _distThr, double _sigma ) : distThr( _distThr ), sigma( _sigma ) {
+    FactorIntFuncGaussian( int _distThr, double _sigma ) : distThr( _distThr ), sigma( _sigma ) {
         assert( distThr > 0 && sigma > 0 );
     }
 
     // compute the factor interaction
-    double compFactorInt( double normalInt, double dist, bool orientation ) const; 
+    double compFactorInt( double normalInt, int dist, bool orientation ) const; 
 
     // the maximum distance beyone which there is no interaction
-    double getMaxDist() const {
+    inline int getMaxDist() const {
         return distThr;
     } 
 private: 
-    double distThr;     // no interaction if distance is greater than thr. 
+    int distThr;     // no interaction if distance is greater than thr. 
     double sigma;       // standard deviation of 
 };
 
@@ -92,17 +92,17 @@ private:
 class FactorIntFuncGeometric : public FactorIntFunc {
 public:
     // constructors
-    FactorIntFuncGeometric( double _distThr, double _spacingEffect, double _orientationEffect ) : distThr( _distThr ), spacingEffect( _spacingEffect ), orientationEffect( _orientationEffect ) { assert( distThr > 0 ); }
+    FactorIntFuncGeometric( int _distThr, double _spacingEffect, double _orientationEffect ) : distThr( _distThr ), spacingEffect( _spacingEffect ), orientationEffect( _orientationEffect ) { assert( distThr > 0 ); }
 
     // compute the factor interaction
-    double compFactorInt( double normalInt, double dist, bool orientation ) const;
+    double compFactorInt( double normalInt, int dist, bool orientation ) const;
 
     // the maximum distance beyond which there is no interaction
-    double getMaxDist() const {
+    inline int getMaxDist() const {
         return distThr;
     } 
 private:
-    double distThr;		// if distance < thr, the "normal" value; otherwise decay with distance (by parameter spacingEffect)
+    int distThr;		// if distance < thr, the "normal" value; otherwise decay with distance (by parameter spacingEffect)
     double spacingEffect;		// the effect of spacing
     double orientationEffect;	// the effect of orientation: if at different strands, the effect should be multiplied this value
 };
@@ -187,7 +187,7 @@ public:
 class ExprFunc {
 public:
     // constructors
-    ExprFunc( const vector< Motif >& _motifs, const FactorIntFunc* _intFunc, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, double _repressionDistThr, const ExprPar& _par );
+    ExprFunc( const vector< Motif >& _motifs, const FactorIntFunc* _intFunc, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr, const ExprPar& _par );
 
     // access methods
     const vector< Motif >& getMotifs() const {
@@ -210,7 +210,7 @@ private:
     int maxContact;     // the maximum contact     
     const vector< bool >& repIndicators;    // 1 if the TF is in the repressor set
     const IntMatrix& repressionMat;    // repression matrix: R(f,f') = 1 if f can repress f'
-    double repressionDistThr;   // distance threshold for repression: d_R
+    int repressionDistThr;   // distance threshold for repression: d_R
 			
     // model parameters
     const ExprPar& par;
@@ -258,7 +258,7 @@ private:
 class ExprPredictor {
 public:
     // constructors
-    ExprPredictor( const vector< SiteVec >& _seqSites, const vector< int >& _seqLengths, const Matrix& _exprData, const vector< Motif >& _motifs, const Matrix& _factorExprData, const FactorIntFunc* _intFunc, const IntMatrix& _coopMat, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, double _repressionDistThr, const vector < bool >& _indicator_bool, const vector <string>& _motifNames, const vector < int >& _axis_start, const vector < int >& _axis_end, const vector < double >& _axis_wts  );
+    ExprPredictor( const vector< SiteVec >& _seqSites, const vector< int >& _seqLengths, const Matrix& _exprData, const vector< Motif >& _motifs, const Matrix& _factorExprData, const FactorIntFunc* _intFunc, const IntMatrix& _coopMat, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr, const vector < bool >& _indicator_bool, const vector <string>& _motifNames, const vector < int >& _axis_start, const vector < int >& _axis_end, const vector < double >& _axis_wts  );
 
     // access methods
     int nSeqs() const {
@@ -342,7 +342,7 @@ private:
     int maxContact;     // the maximum contact     
     const vector< bool >& repIndicators;    // 1 if the TF is in the repressor set
     const IntMatrix& repressionMat;    // repression matrix: R(f,f') = 1 if f can repress f'
-    double repressionDistThr;   // distance threshold for repression: d_R
+    int repressionDistThr;   // distance threshold for repression: d_R
     
     // model parameters and the value of the objective function
     ExprPar par_model;

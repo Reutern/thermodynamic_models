@@ -186,7 +186,13 @@ public:
 };
 
 // test if two sites overlap
-bool siteOverlap( const Site& a, const Site& b, const vector< Motif >& motifs );
+inline bool siteOverlap( const Site& a, const Site& b, const vector< Motif >& motifs )
+{
+    if ( a.start + motifs[ a.factorIdx ].length() <= b.start ) return false;
+    if ( b.start + motifs[ b.factorIdx ].length() <= a.start ) return false;
+    
+    return true;	
+}
 
 // representation of Sequence as a Site vector
 typedef vector< Site > SiteVec;		

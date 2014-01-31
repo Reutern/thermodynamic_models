@@ -894,6 +894,29 @@ int cross_corr( const vector< double >& x, const vector< double >& y, const vect
     return 0;
 }
 
+
+
+double least_square( const vector< double >& x, const vector< double >& y, double& beta )
+{
+    assert( x.size() == y.size() );
+    int n = x.size();
+
+    double numerator = 0, denom = 0;
+    for ( int i = 0; i < n; i++ ) {
+        numerator += x[i] * y[i];
+        denom += x[i] * x[i];
+    }
+    beta = numerator / denom;
+    //beta = 1;
+    double rss = 0;
+    for ( int i = 0; i < n; i++ ) {
+        rss += ( y[i] - beta * x[i] ) * ( y[i] - beta * x[i] );
+    }
+
+    return rss;
+}
+
+// The normalised correlation of to vectors (scalar-product divided by both norms)
 double norm_corr( const vector< double >& x, const vector< double >& y )
 {
     if ( x.size() != y.size() ) return RET_ERROR; 
@@ -918,26 +941,6 @@ double norm_corr( const vector< double >& x, const vector< double >& y )
     double corr_xy = sum / sqrt( norm_2_x * norm_2_y );
     
     return corr_xy;
-}
-
-double least_square( const vector< double >& x, const vector< double >& y, double& beta )
-{
-    assert( x.size() == y.size() );
-    int n = x.size();
-
-    double numerator = 0, denom = 0;
-    for ( int i = 0; i < n; i++ ) {
-        numerator += x[i] * y[i];
-        denom += x[i] * x[i];
-    }
-    beta = numerator / denom;
-    //beta = 1;
-    double rss = 0;
-    for ( int i = 0; i < n; i++ ) {
-        rss += ( y[i] - beta * x[i] ) * ( y[i] - beta * x[i] );
-    }
-
-    return rss;
 }
 
 // check if a vector of real numbers is probablity mass function: return false if not

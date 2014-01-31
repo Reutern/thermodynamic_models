@@ -301,11 +301,11 @@ double corr( const vector< double >& x, const vector< double >& y );
 // Cross correlation of two time series (vectors): x and y. The vector t stores the values of the time lag to be evaluted. 
 int cross_corr( const vector< double >& x, const vector< double >& y, const vector< int >& lag, vector< double >& cov, vector< double >& corr );
 
-// The normalised correlation of to vectors (scalar-product divided by both norms)
-double norm_corr( const vector< double >& x, const vector< double >& y );
-
 // least-square fit of two vectors: beta - coefficient, return RSS
 double least_square( const vector< double >& x, const vector< double >& y, double& beta );
+
+// The normalised correlation of to vectors (scalar-product divided by both norms)
+double norm_corr( const vector< double >& x, const vector< double >& y );
 
 // check if a vector of real numbers is probablity mass function
 bool isPmf( const vector< double > &p );
