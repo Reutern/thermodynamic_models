@@ -187,7 +187,7 @@ public:
 class ExprFunc {
 public:
     // constructors
-    ExprFunc( const vector< Motif >& _motifs, const FactorIntFunc* _intFunc, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr, const ExprPar& _par );
+    ExprFunc( const vector< Motif >& _motifs,  const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr,  int _coopDistThr, const ExprPar& _par );
 
     // access methods
     const vector< Motif >& getMotifs() const {
@@ -205,13 +205,13 @@ private:
     const vector< Motif >& motifs; 	
 
     // control parameters
-    const FactorIntFunc* intFunc;   // function to compute distance-dependent TF-TF interactions     
     const vector< bool >& actIndicators;    // 1 if the TF is in the activator set
     int maxContact;     // the maximum contact     
     const vector< bool >& repIndicators;    // 1 if the TF is in the repressor set
     const IntMatrix& repressionMat;    // repression matrix: R(f,f') = 1 if f can repress f'
     int repressionDistThr;   // distance threshold for repression: d_R
-			
+    int coopDistThr;    // distance threshold for interaction	
+		
     // model parameters
     const ExprPar& par;
 		    
@@ -258,7 +258,7 @@ private:
 class ExprPredictor {
 public:
     // constructors
-    ExprPredictor( const vector< SiteVec >& _seqSites, const vector< int >& _seqLengths, const Matrix& _exprData, const vector< Motif >& _motifs, const Matrix& _factorExprData, const FactorIntFunc* _intFunc, const IntMatrix& _coopMat, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr, const vector < bool >& _indicator_bool, const vector <string>& _motifNames, const vector < int >& _axis_start, const vector < int >& _axis_end, const vector < double >& _axis_wts  );
+    ExprPredictor( const vector< SiteVec >& _seqSites, const vector< int >& _seqLengths, const Matrix& _exprData, const vector< Motif >& _motifs, const Matrix& _factorExprData, const IntMatrix& _coopMat, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr, int _coopDistThr,const vector < bool >& _indicator_bool, const vector <string>& _motifNames, const vector < int >& _axis_start, const vector < int >& _axis_end, const vector < double >& _axis_wts  );
 
     // access methods
     int nSeqs() const {
@@ -320,7 +320,7 @@ public:
     static int nSimplexIters;       // maximum number of iterations for Simplex optimizer
     static int nGradientIters;      // maximum number of iterations for Gradient optimizer
     static bool one_qbtm_per_crm;
-    vector < bool > indicator_bool;
+    vector < bool > indicator_bool;	// States if Parameters are free or fixed for training
     vector <string> motifNames;
     vector < double > fix_pars;
     vector < double > free_pars;
@@ -336,13 +336,13 @@ private:
     const vector < double >& axis_wts;
 
     // control parameters 
-    const FactorIntFunc* intFunc;   // function to compute distance-dependent TF-TF interactions   
     const IntMatrix& coopMat;       // cooperativity matrix: C(f,f') = 1 if f and f' bind cooperatively    
     const vector< bool >& actIndicators;   // 1 if the TF is in the activator set
     int maxContact;     // the maximum contact     
     const vector< bool >& repIndicators;    // 1 if the TF is in the repressor set
     const IntMatrix& repressionMat;    // repression matrix: R(f,f') = 1 if f can repress f'
     int repressionDistThr;   // distance threshold for repression: d_R
+    int coopDistThr;   // distance threshold for cooperativity
     
     // model parameters and the value of the objective function
     ExprPar par_model;

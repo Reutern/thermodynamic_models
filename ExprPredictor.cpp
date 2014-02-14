@@ -5,6 +5,7 @@
 #include "param.h"
 
 
+
 ModelType getModelOption( const string& modelOptionStr )
 {
     if ( toupperStr( modelOptionStr ) == "LOGISTIC" ) return LOGISTIC;
@@ -424,7 +425,7 @@ void ExprPar::adjust()
     }
 }
 
-ModelType ExprPar::modelOption = CHRMOD_UNLIMITED;
+ModelType ExprPar::modelOption = DIRECT;
 SearchType ExprPar::searchOption = UNCONSTRAINED;
 int ExprPar::estBindingOption = 1;  // 1. estimate binding parameters; 0. not estimate binding parameters
  
@@ -456,7 +457,7 @@ double ExprPar::delta = 0.0001;
 bool ExprPar::one_qbtm_per_crm = false;
 bool ExprFunc::one_qbtm_per_crm = false;
 
-ExprFunc::ExprFunc( const vector< Motif >& _motifs, const FactorIntFunc* _intFunc, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr, const ExprPar& _par ) : motifs( _motifs ), intFunc( _intFunc ), actIndicators( _actIndicators ), maxContact( _maxContact ), repIndicators( _repIndicators ), repressionMat( _repressionMat ), repressionDistThr( _repressionDistThr ), par( _par )
+ExprFunc::ExprFunc( const vector< Motif >& _motifs, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr, int _coopDistThr, const ExprPar& _par ) : motifs( _motifs ), actIndicators( _actIndicators ), maxContact( _maxContact ), repIndicators( _repIndicators ), repressionMat( _repressionMat ), repressionDistThr( _repressionDistThr ), coopDistThr( _coopDistThr ), par( _par )
 {
     int nFactors = par.nFactors();
     assert( motifs.size() == nFactors );
@@ -478,7 +479,7 @@ double ExprFunc::predictExpr( const SiteVec& _sites, int length, const vector< d
     sites = _sites;
     sites.insert( sites.begin(), Site() );  // start with a pseudo-site at position 0 
     boundaries.push_back( 0 );
-    int range = max( intFunc->getMaxDist(), repressionDistThr );
+    int range = max(coopDistThr, repressionDistThr );
     for ( int i = 1; i <= n; i++ ) {
         int j; 
         for ( j = i - 1; j >= 1; j-- ) {
@@ -539,7 +540,7 @@ double ExprFunc::predictExpr( const SiteVec& _sites, int length, const vector< d
     sites = _sites;
     sites.insert( sites.begin(), Site() );  // start with a pseudo-site at position 0 
     boundaries.push_back( 0 );
-    int range = max( intFunc->getMaxDist(), repressionDistThr );
+    int range = max( coopDistThr, repressionDistThr );
     for ( int i = 1; i <= n; i++ ) {
         int j; 
         for ( j = i - 1; j >= 1; j-- ) {
@@ -888,8 +889,18 @@ double ExprFunc::compFactorInt( const Site& a, const Site& b ) const
 	
     double maxInt = par.factorIntMat( a.factorIdx, b.factorIdx );
     int dist = abs( a.start - b.start );
-    bool orientation = ( a.strand == b.strand ); 
-    return intFunc->compFactorInt( maxInt, dist, orientation );	
+    assert( dist >= 0 );
+
+    #if FactorIntFunc == 1 
+    double spacingTerm = ( dist < coopDistThr ? maxInt : 1.0 );
+    #endif // FactorIntFunc
+
+    #ifdef ORIENTATION
+    double orientationTerm = ( a.strand == b.strand ) ? 1.0 : orientationEffect;
+    return spacingTerm * orientationTerm;
+    #else
+    return spacingTerm;
+    #endif //ORIENTATION
 }
 
 bool ExprFunc::testRepression( const Site& a, const Site& b ) const
@@ -900,7 +911,7 @@ bool ExprFunc::testRepression( const Site& a, const Site& b ) const
     return repressionMat( a.factorIdx, b.factorIdx ) && ( dist <= repressionDistThr );
 }
 
-ExprPredictor::ExprPredictor( const vector< SiteVec >& _seqSites, const vector< int >& _seqLengths, const Matrix& _exprData, const vector< Motif >& _motifs, const Matrix& _factorExprData, const FactorIntFunc* _intFunc, const IntMatrix& _coopMat, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr, const vector < bool >& _indicator_bool, const vector <string>& _motifNames, const vector < int >& _axis_start, const vector < int >& _axis_end, const vector < double >& _axis_wts ) : seqSites( _seqSites ), seqLengths( _seqLengths ), exprData( _exprData ), motifs( _motifs ), factorExprData( _factorExprData ), intFunc( _intFunc ), coopMat( _coopMat ), actIndicators( _actIndicators ), maxContact( _maxContact ), repIndicators( _repIndicators ), repressionMat( _repressionMat ), repressionDistThr( _repressionDistThr ), indicator_bool ( _indicator_bool ), motifNames ( _motifNames ), axis_start ( _axis_start ), axis_end( _axis_end ), axis_wts( _axis_wts )
+ExprPredictor::ExprPredictor( const vector< SiteVec >& _seqSites, const vector< int >& _seqLengths, const Matrix& _exprData, const vector< Motif >& _motifs, const Matrix& _factorExprData,  const IntMatrix& _coopMat, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr, int _coopDistThr, const vector < bool >& _indicator_bool, const vector <string>& _motifNames, const vector < int >& _axis_start, const vector < int >& _axis_end, const vector < double >& _axis_wts ) : seqSites( _seqSites ), seqLengths( _seqLengths ), exprData( _exprData ), motifs( _motifs ), factorExprData( _factorExprData ), coopMat( _coopMat ), actIndicators( _actIndicators ), maxContact( _maxContact ), repIndicators( _repIndicators ), repressionMat( _repressionMat ), repressionDistThr( _repressionDistThr ), coopDistThr( _coopDistThr ) ,indicator_bool ( _indicator_bool ), motifNames ( _motifNames ), axis_start ( _axis_start ), axis_end( _axis_end ), axis_wts( _axis_wts )
 {
     assert( exprData.nRows() == nSeqs() );
     assert( factorExprData.nRows() == nFactors() && factorExprData.nCols() == nConds() );
@@ -1084,7 +1095,7 @@ int ExprPredictor::predict( const SiteVec& targetSites, int targetSeqLength, vec
 
 ModelType ExprPredictor::modelOption = CHRMOD_LIMITED;
 int ExprPredictor::estBindingOption = 1;    // 1. estimate binding parameters; 0. not estimate binding parameters
-ObjType ExprPredictor::objOption = NORM_CORR;
+ObjType ExprPredictor::objOption = SSE;
 
 double ExprPredictor::exprSimCrossCorr( const vector< double >& x, const vector< double >& y )
 {
@@ -1288,7 +1299,7 @@ void ExprPredictor::printPar( const ExprPar& par ) const
 
 ExprFunc* ExprPredictor::createExprFunc( const ExprPar& par ) const
 {	
-    return new ExprFunc( motifs, intFunc, actIndicators, maxContact, repIndicators, repressionMat, repressionDistThr, par );
+    return new ExprFunc( motifs, actIndicators, maxContact, repIndicators, repressionMat, repressionDistThr, coopDistThr, par );
 }
 
 int indices_of_crm_in_gene[] = {
@@ -1638,7 +1649,7 @@ int ExprPredictor::gradient_minimize( ExprPar& par_result, double& obj_result )
 		
 	// choose the method of optimization and set its parameters
 // 	const gsl_multimin_fdfminimizer_type* T = gsl_multimin_fdfminimizer_conjugate_pr;	
-    const gsl_multimin_fdfminimizer_type* T = gsl_multimin_fdfminimizer_vector_bfgs;
+    const gsl_multimin_fdfminimizer_type* T = gsl_multimin_fdfminimizer_vector_bfgs2; // Chose Broyden-Fletcher-Goldfarb-Shanno (BFGS) algorithm 
 		
     // create the minimizer
     gsl_multimin_fdfminimizer* s = gsl_multimin_fdfminimizer_alloc( T, my_func.n );

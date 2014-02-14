@@ -38,7 +38,7 @@ int main( int argc, char* argv[] )
     double factorIntSigma = 50.0;   // sigma parameter for the Gaussian interaction function
     int repressionDistThr = 250;
     int maxContact = 1;
-	double eTF = 0.5;
+	double eTF = 0.6;
 
 	string free_fix_indicator_filename;
 	ExprPredictor::one_qbtm_per_crm = false;
@@ -111,7 +111,7 @@ int main( int argc, char* argv[] )
     ExprPredictor::min_delta_f_SSE = 1.0E-10;
     ExprPredictor::min_delta_f_Corr = 1.0E-10;
     ExprPredictor::min_delta_f_CrossCorr = 1.0E-10;
-    ExprPredictor::nSimplexIters = 400;
+    ExprPredictor::nSimplexIters = 0;
     ExprPredictor::nGradientIters = 250;
 
     int rval;
@@ -345,7 +345,7 @@ int main( int argc, char* argv[] )
     else {
         cerr << "Interaction Function is invalid " << endl; exit( 1 ); 
     }
-    ExprPredictor* predictor = new ExprPredictor( seqSites, seqLengths, exprData, motifs, factorExprData, intFunc, coopMat, actIndicators, maxContact, repIndicators, repressionMat, repressionDistThr, indicator_bool, motifNames, axis_start, axis_end, axis_wts );
+    ExprPredictor* predictor = new ExprPredictor( seqSites, seqLengths, exprData, motifs, factorExprData, coopMat, actIndicators, maxContact, repIndicators, repressionMat, repressionDistThr, coopDistThr, indicator_bool, motifNames, axis_start, axis_end, axis_wts );
     // read the initial parameter values
     ExprPar par_init( nFactors, nSeqs );
     if ( !parFile.empty() ) {
