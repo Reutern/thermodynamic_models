@@ -1,4 +1,4 @@
-CC = g++ -pg
+CC = g++
 
 GSL_DIR = usr/include
 
@@ -15,6 +15,7 @@ all: $(BIN)
 
 clean:
 	rm -f $(BIN)
+	rm -f *.o
 
 Tools.o : Tools.h Tools.cpp
 	$(CC) $(CFLAGS) -c Tools.cpp

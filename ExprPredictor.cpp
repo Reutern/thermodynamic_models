@@ -590,7 +590,7 @@ double ExprFunc::predictExpr( const SiteVec& _sites, int length, const vector< d
     return promoterOcc;
 }
 
-ModelType ExprFunc::modelOption = QUENCHING;
+ModelType ExprFunc::modelOption = DIRECT;
 
 double ExprFunc::compPartFuncOff() const
 {
@@ -603,10 +603,10 @@ double ExprFunc::compPartFuncOff() const
     Z[0] = 1.0;
     vector< double > Zt( n + 1 );
     Zt[0] = 1.0;
-	
+
     // recurrence 
     for ( int i = 1; i <= n; i++ ) {
-        double sum = Zt[boundaries[i]];
+	double sum = Zt[boundaries[i]];
         for ( int j = boundaries[i] + 1; j < i; j++ ) {
                 if ( siteOverlap( sites[ i ], sites[ j ], motifs ) ) continue;
                 sum += compFactorInt( sites[ i ], sites[ j ] ) * Z[ j ];	
@@ -614,12 +614,6 @@ double ExprFunc::compPartFuncOff() const
         Z[i] = bindingWts[ i ] * sum;
         Zt[i] = Z[i] + Zt[i - 1];
     }
-	
-    // the partition function 
-// 	double Z_bind = 1;
-// 	for ( int i = 0; i < sites.size(); i++ ) {
-// 		Z_bind += Z[ i ];	
-// 	}
     return Zt[n];
 }
 
@@ -691,8 +685,7 @@ double ExprFunc::compPartFuncOnDirect() const
         Z[i] = bindingWts[ i ] * par.txpEffects[ sites[i].factorIdx ] * sum;
         Zt[i] = Z[i] + Zt[i - 1];
     }
-	
-    return Zt[n];    
+     return Zt[n];
 }
 
 double ExprFunc::compPartFuncOnQuenching() const
@@ -891,6 +884,7 @@ double ExprFunc::compFactorInt( const Site& a, const Site& b ) const
     int dist = abs( a.start - b.start );
     assert( dist >= 0 );
 
+    assert(  modelOption == DIRECT  );	// For now only Direct model implemented
     #if FactorIntFunc == 1 
     double spacingTerm = ( dist < coopDistThr ? maxInt : 1.0 );
     #endif // FactorIntFunc

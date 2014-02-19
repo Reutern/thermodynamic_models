@@ -36,9 +36,9 @@ int main( int argc, char* argv[] )
     string outFile;     // output file
     int coopDistThr = 50;
     double factorIntSigma = 50.0;   // sigma parameter for the Gaussian interaction function
-    int repressionDistThr = 250;
+    int repressionDistThr = 50;
     int maxContact = 1;
-	double eTF = 0.6;
+	double eTF = 1;
 
 	string free_fix_indicator_filename;
 	ExprPredictor::one_qbtm_per_crm = false;
@@ -111,7 +111,7 @@ int main( int argc, char* argv[] )
     ExprPredictor::min_delta_f_SSE = 1.0E-10;
     ExprPredictor::min_delta_f_Corr = 1.0E-10;
     ExprPredictor::min_delta_f_CrossCorr = 1.0E-10;
-    ExprPredictor::nSimplexIters = 0;
+    ExprPredictor::nSimplexIters = 400;
     ExprPredictor::nGradientIters = 250;
 
     int rval;
@@ -157,8 +157,6 @@ int main( int argc, char* argv[] )
     data.clear();
     rval = readMatrix( factorExprFile, labels, condNames, data );
     assert( rval != RET_ERROR );
-    cout << "labels" << endl;
-    cout << labels.size() << " " << nFactors << " " << condNames.size() << " " << nConds << endl;
     assert( labels.size() == nFactors && condNames.size() == nConds );
     for ( int i = 0; i < nFactors; i++ ) assert( labels[i] == motifNames[i] );
     Matrix factorExprData( data ); 
@@ -338,6 +336,14 @@ int main( int argc, char* argv[] )
     cout << "Search_Option = " << getSearchOptionStr( ExprPar::searchOption ) << endl;
     cout << "Num_Random_Starts = " << ExprPredictor::nRandStarts << endl;
     cout << "Energy Threshold Factor = " << eTF << endl;
+    cout << endl;
+    cout << "Statistics: " << endl; 
+    cout << "Factors "<< nFactors << "\t " << "Sequences " << nSeqs <<  endl;
+    cout << "Length \t sites \t Name" << endl;
+    for(int seqs_idx = 0; seqs_idx < nSeqs; seqs_idx++){
+	cout << seqLengths[seqs_idx] << " \t " << seqSites[seqs_idx].size() << " \t " << seqNames[seqs_idx] << endl;}
+    cout << endl;
+
     // create the expression predictor
     FactorIntFunc* intFunc; 
     if ( intOption == BINARY ) intFunc = new FactorIntFuncBinary( coopDistThr ); 
@@ -346,7 +352,8 @@ int main( int argc, char* argv[] )
         cerr << "Interaction Function is invalid " << endl; exit( 1 ); 
     }
     ExprPredictor* predictor = new ExprPredictor( seqSites, seqLengths, exprData, motifs, factorExprData, coopMat, actIndicators, maxContact, repIndicators, repressionMat, repressionDistThr, coopDistThr, indicator_bool, motifNames, axis_start, axis_end, axis_wts );
-    // read the initial parameter values
+   
+ // read the initial parameter values
     ExprPar par_init( nFactors, nSeqs );
     if ( !parFile.empty() ) {
         rval = par_init.load( parFile );
