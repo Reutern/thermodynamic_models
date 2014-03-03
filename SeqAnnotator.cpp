@@ -546,4 +546,12 @@ int SeqAnnotator::compEnergy( const Sequence& seq, SiteVec& sites ) const
     return 0;
 }
 
+int SeqAnnotator::printEnergy( ostream& os, SiteVec& sites ) const
+{
+    for ( int i = 0; i < sites.size(); i++ ) {
+	os << sites[i].factorIdx << "\t" << sites[i].wtRatio << "\t" << sites[i].energy << endl; 
+    }
+
+    return 0;
+}
 

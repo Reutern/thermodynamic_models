@@ -454,10 +454,10 @@ double ExprPar::max_basal_Thermo = 0.1;
 double ExprPar::delta = 0.0001;
 
 
-bool ExprPar::one_qbtm_per_crm = false;
-bool ExprFunc::one_qbtm_per_crm = false;
+bool ExprPar::one_qbtm_per_crm = true;
+bool ExprFunc::one_qbtm_per_crm = true;
 
-ExprFunc::ExprFunc( const vector< Motif >& _motifs, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr, int _coopDistThr, const ExprPar& _par ) : motifs( _motifs ), actIndicators( _actIndicators ), maxContact( _maxContact ), repIndicators( _repIndicators ), repressionMat( _repressionMat ), repressionDistThr( _repressionDistThr ), coopDistThr( _coopDistThr ), par( _par )
+ExprFunc::ExprFunc( const vector< Motif >& _motifs, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr, int _coopDistThr, const ExprPar& _par/*, const vector< Sequence >& _seqs */) : motifs( _motifs ), actIndicators( _actIndicators ), maxContact( _maxContact ), repIndicators( _repIndicators ), repressionMat( _repressionMat ), repressionDistThr( _repressionDistThr ), coopDistThr( _coopDistThr ), par( _par )//, seqs( _seqs )
 {
     int nFactors = par.nFactors();
     assert( motifs.size() == nFactors );
@@ -527,6 +527,7 @@ double ExprFunc::predictExpr( const SiteVec& _sites, int length, const vector< d
     double promoterOcc = efficiency * par.basalTxps[ seq_num ] / ( 1.0 + efficiency * par.basalTxps[ seq_num ] );
     return promoterOcc;
 }
+
 double ExprFunc::predictExpr( const SiteVec& _sites, int length, const vector< double >& factorConcs, int seq_num, std::ofstream& fout )
 {
     bindingWts.clear();
@@ -616,7 +617,73 @@ double ExprFunc::compPartFuncOff() const
     }
     return Zt[n];
 }
+/*
+int ExprFunc::compPartFunc_seq() const
+{
 
+    // The distance index
+    int dmax = max( coopDistThr, repressionDistThr );
+
+    // The binder index
+    int tmax = motifs.size();	
+    vector< int > motif_length( tmax ); 
+    for(  int t = 1; t < tmax; t++  ) { motif_length[t] = motifs[ t ].length(); } 
+   
+    // The Sequenz index
+    int imax = *max_element(motif_length);
+    int n = seqs.size();
+
+    // initialization of the partition sums with value 1
+    vector<vector<vector<int> > > Z_off (tmax,vector<vector<int> >(dmax,vector <int>(imax,1)));
+    vector<vector<vector<int> > > Z_on  (tmax,vector<vector<int> >(dmax,vector <int>(imax,1))); 
+
+    // recurrence 
+    int idx = 0;
+    int idx_1 = 0;
+    for ( int i = 1; i < n; i++ ) {
+
+	idx = i % imax;
+	idx_1 = (i-1) % imax;
+
+	for ( int t = 1; t < tmax; t++ ) {
+		   
+		   double sum_on = 0;
+		   double sum_off = 0;
+		   for (int d = 1; d < motif_length[t]; d++ ){
+			Z_on[t][d][idx] = Z_on[t][d-1][idx_1];
+			Z_off[t][d][idx] = Z_off[t][d-1][idx_1];
+		   } 
+		   for ( int d = motif_length[t]; d < damx-1; d++ ) {
+			Z_on[t][d][idx] = Z_on[t][d-1][idx_1];
+			Z_off[t][d][idx] = Z_off[t][d-1][idx_1];
+			for ( int t_alt = 1; t_alt < tmax; t_alt++ ){ 
+				sum_on  += compFactorInt( t_alt, t, d ) * Z_on[t_alt][d - motif_length[t]][ (idx - motif_length[t]) % imax] ;
+				sum_off += compFactorInt( t_alt, t, d ) * Z_off[t_alt][d - motif_length[t]][ (idx - motif_lenth[t]) % imax] ;
+			}
+		   }
+      		   Sequence elem( seqs, i, motif_length[t] , motifs[t].strand );
+        	   binding_weight = exp( motifs[ t ].energy( elem ) );
+  		
+	           Z_on[t][0][idx] = par.txpEffects[ t ] * conc[t] * binding_weight * sum_on;
+	           Z_off[t][0][idx] =  conc[t] * binding_weight * sum_off;
+ 
+		   Z_on[t][dmax][idx] = Z_on[t][dmax][idx_1] + Z_on[t][dmax-1][idx_1];
+		   Z_off[t][dmax][idx] = Z_off[t][dmax][idx_1] + Z_off[t][dmax-1][idx_1];
+	}
+    }
+    
+    result_Z_on = 0;
+    result_Z_off = 0;
+    for( int t = 1; t < tmax; t++ ) { 
+	for(int d = 1; d < dmax; d++ ) {
+		result_Z_on += Z_on[t][d][idx];
+		result_Z_off += Z_off[t][d][idx];
+	}        
+    }
+
+    return 1;
+}
+*/
 double ExprFunc::compPartFuncOffChrMod() const
 {
     int n = sites.size()- 1;
@@ -1125,7 +1192,7 @@ double ExprPredictor::min_delta_f_CrossCorr = 1.0E-8;
 double ExprPredictor::min_delta_f_NormCorr = 1.0E-8;
 int ExprPredictor::nSimplexIters = 200;
 int ExprPredictor::nGradientIters = 50;
-bool ExprPredictor::one_qbtm_per_crm = false;
+bool ExprPredictor::one_qbtm_per_crm = true;
 
 int ExprPredictor::randSamplePar( const gsl_rng* rng, ExprPar& par ) const
 {

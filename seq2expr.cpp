@@ -38,12 +38,12 @@ int main( int argc, char* argv[] )
     double factorIntSigma = 50.0;   // sigma parameter for the Gaussian interaction function
     int repressionDistThr = 50;
     int maxContact = 1;
-	double eTF = 1;
+	double eTF = 0.6;
 
 	string free_fix_indicator_filename;
-	ExprPredictor::one_qbtm_per_crm = false;
-	ExprPar::one_qbtm_per_crm = false;
-	ExprFunc::one_qbtm_per_crm = false;
+	ExprPredictor::one_qbtm_per_crm = true;
+	ExprPar::one_qbtm_per_crm = true;
+	ExprFunc::one_qbtm_per_crm = true;
 
     ExprPredictor::nAlternations = 5;
     for ( int i = 1; i < argc; i++ ) {
@@ -186,7 +186,20 @@ int main( int argc, char* argv[] )
             seqLengths[i] = seqs[i].size();
         }
     }
-	
+
+
+    #if SAVE_ENERGIES 
+    // Write site energies to site_energies.txt	
+    ofstream site_energies;
+    site_energies.open ("../data/site_energies.txt");
+    for ( int i = 0; i < nSeqs; i++ ) {
+	site_energies << "CRM: " << seqNames[i] << "\t" << seqSites[i].size() << endl;
+	ann.printEnergy(site_energies ,seqSites[i]);
+    }    
+    site_energies.close();
+    #endif //SAVE_ENERGIES
+
+
     // read the cooperativity matrix 
     int num_of_coop_pairs = 0;
     IntMatrix coopMat( nFactors, nFactors, false );

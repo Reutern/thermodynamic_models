@@ -187,7 +187,7 @@ public:
 class ExprFunc {
 public:
     // constructors
-    ExprFunc( const vector< Motif >& _motifs,  const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr,  int _coopDistThr, const ExprPar& _par );
+    ExprFunc( const vector< Motif >& _motifs,  const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr,  int _coopDistThr, const ExprPar& _par/*, const vector< Sequence >& _seqs */ );
 
     // access methods
     const vector< Motif >& getMotifs() const {
@@ -214,6 +214,9 @@ private:
 		
     // model parameters
     const ExprPar& par;
+
+    // the sequenz
+//    const vector< Sequence >& seqs;
 		    
     // the sequence whose expression is to be predicted
     SiteVec sites;

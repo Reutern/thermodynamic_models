@@ -212,6 +212,8 @@ public:
 
     // compute the energy of sites (update the input sites)
     int compEnergy( const Sequence& seq, SiteVec& sites ) const;
+    int printEnergy( ostream& os, SiteVec& sites ) const;
+
 private:
     vector< Motif > motifs;	// all the TF binding motifs
     vector< double > energyThrFactors;	// energy thresholds for all the motifs
