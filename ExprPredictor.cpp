@@ -517,10 +517,11 @@ double ExprFunc::predictExpr( const SiteVec& _sites, int length, const vector< d
 
     // Thermodynamic models: Direct, Quenching, ChrMod_Unlimited and ChrMod_Limited
     // compute the partition functions
-    double Z_off = compPartFuncOff();
-//     cout << "Z_off = " << Z_off << endl;       
-    double Z_on = compPartFuncOn();
-//     cout << "Z_on = " << Z_on << endl;
+    //double Z_off = compPartFuncOff();
+    //double Z_on = compPartFuncOn();
+
+    double Z_off, Z_on;
+    compPartFunc_seq(Z_on, Z_off, seq_num, factorConcs);
 
     // compute the expression (promoter occupancy)
     double efficiency = Z_on / Z_off;
@@ -580,7 +581,7 @@ double ExprFunc::predictExpr( const SiteVec& _sites, int length, const vector< d
     // Thermodynamic models: Direct, Quenching, ChrMod_Unlimited and ChrMod_Limited
     // compute the partition functions
  
-   //double Z_off = compPartFuncOff();
+    //double Z_off = compPartFuncOff();
     //double Z_on = compPartFuncOn();
 
     double Z_off, Z_on;
@@ -1066,11 +1067,18 @@ int ExprPredictor::train( const ExprPar& par_init )
 	simplex_minimize( par_result, obj_result );
 	cout << endl;
         par_model = par_result; 
+
+	ofstream fparam_sm( "param.save" );
+	par_model.print( fparam_sm, motifNames, coopMat );
+        fparam_sm.close();
 //         par_model.adjust();
 	cout << "Gradient minimisation: " << endl; 
         gradient_minimize( par_result, obj_result );
 	cout << endl;
         par_model = par_result;
+	ofstream fparam_gm( "param.save" );
+	par_model.print( fparam_gm, motifNames, coopMat );
+        fparam_gm.close();
 //         par_model.adjust();
     }
 	

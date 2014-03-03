@@ -38,7 +38,7 @@ int main( int argc, char* argv[] )
     double factorIntSigma = 50.0;   // sigma parameter for the Gaussian interaction function
     int repressionDistThr = 50;
     int maxContact = 1;
-	double eTF = 1.0;
+	double eTF = 0.1;
 
 	string free_fix_indicator_filename;
 	ExprPredictor::one_qbtm_per_crm = false;
