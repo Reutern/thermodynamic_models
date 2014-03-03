@@ -187,7 +187,7 @@ public:
 class ExprFunc {
 public:
     // constructors
-    ExprFunc( const vector< Motif >& _motifs,  const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr,  int _coopDistThr, const ExprPar& _par/*, const vector< Sequence >& _seqs */ );
+    ExprFunc( const vector< Motif >& _motifs,  const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr,  int _coopDistThr, const ExprPar& _par, const vector< Sequence >& _seqs  );
 
     // access methods
     const vector< Motif >& getMotifs() const {
@@ -216,7 +216,7 @@ private:
     const ExprPar& par;
 
     // the sequenz
-//    const vector< Sequence >& seqs;
+    const vector< Sequence >& seqs;
 		    
     // the sequence whose expression is to be predicted
     SiteVec sites;
@@ -228,7 +228,10 @@ private:
     // compute the partition function when the basal transcriptional machinery (BTM) is not bound
     double compPartFuncOff() const;
 
-	// compute the partition function when the BTM is not bound: ChrMod model 
+    // compute the partition function with BTM bound and unbound on a sequence basis 
+    int compPartFunc_seq(double &result_Z_on, double &result_Z_off, int seq_num, const vector< double >& factorConcs) const;
+
+    // compute the partition function when the BTM is not bound: ChrMod model 
     double compPartFuncOffChrMod() const; 
     
     // compute the partition function when the BTM is bound 
@@ -248,6 +251,7 @@ private:
     
     // compute the TF-TF interaction between two occupied sites
     double compFactorInt( const Site& a, const Site& b ) const;
+    double compFactorInt( int t_1, int t_2, int _dist  ) const;
 
     // test if one site represses another site
     bool testRepression( const Site& a, const Site& b ) const;
@@ -261,7 +265,7 @@ private:
 class ExprPredictor {
 public:
     // constructors
-    ExprPredictor( const vector< SiteVec >& _seqSites, const vector< int >& _seqLengths, const Matrix& _exprData, const vector< Motif >& _motifs, const Matrix& _factorExprData, const IntMatrix& _coopMat, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr, int _coopDistThr,const vector < bool >& _indicator_bool, const vector <string>& _motifNames, const vector < int >& _axis_start, const vector < int >& _axis_end, const vector < double >& _axis_wts  );
+    ExprPredictor( const vector< SiteVec >& _seqSites, const vector< int >& _seqLengths, const Matrix& _exprData, const vector< Motif >& _motifs, const Matrix& _factorExprData, const IntMatrix& _coopMat, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr, int _coopDistThr,const vector < bool >& _indicator_bool, const vector <string>& _motifNames, const vector < int >& _axis_start, const vector < int >& _axis_end, const vector < double >& _axis_wts, const vector< Sequence >& _seqs  );
 
     // access methods
     int nSeqs() const {
@@ -347,6 +351,9 @@ private:
     int repressionDistThr;   // distance threshold for repression: d_R
     int coopDistThr;   // distance threshold for cooperativity
     
+    // the sequenz
+    const vector< Sequence >& seqs;
+
     // model parameters and the value of the objective function
     ExprPar par_model;
     double obj_model;	

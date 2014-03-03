@@ -3,7 +3,7 @@
 
 #include "ExprPredictor.h"
 #include "param.h"
-
+#include <sys/time.h>
 
 
 ModelType getModelOption( const string& modelOptionStr )
@@ -457,7 +457,7 @@ double ExprPar::delta = 0.0001;
 bool ExprPar::one_qbtm_per_crm = true;
 bool ExprFunc::one_qbtm_per_crm = true;
 
-ExprFunc::ExprFunc( const vector< Motif >& _motifs, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr, int _coopDistThr, const ExprPar& _par/*, const vector< Sequence >& _seqs */) : motifs( _motifs ), actIndicators( _actIndicators ), maxContact( _maxContact ), repIndicators( _repIndicators ), repressionMat( _repressionMat ), repressionDistThr( _repressionDistThr ), coopDistThr( _coopDistThr ), par( _par )//, seqs( _seqs )
+ExprFunc::ExprFunc( const vector< Motif >& _motifs, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr, int _coopDistThr, const ExprPar& _par, const vector< Sequence >& _seqs ) : motifs( _motifs ), actIndicators( _actIndicators ), maxContact( _maxContact ), repIndicators( _repIndicators ), repressionMat( _repressionMat ), repressionDistThr( _repressionDistThr ), coopDistThr( _coopDistThr ), par( _par ), seqs( _seqs )
 {
     int nFactors = par.nFactors();
     assert( motifs.size() == nFactors );
@@ -579,10 +579,12 @@ double ExprFunc::predictExpr( const SiteVec& _sites, int length, const vector< d
 
     // Thermodynamic models: Direct, Quenching, ChrMod_Unlimited and ChrMod_Limited
     // compute the partition functions
-    double Z_off = compPartFuncOff();
-//     cout << "Z_off = " << Z_off << endl;       
-    double Z_on = compPartFuncOn();
-//     cout << "Z_on = " << Z_on << endl;
+ 
+   //double Z_off = compPartFuncOff();
+    //double Z_on = compPartFuncOn();
+
+    double Z_off, Z_on;
+    compPartFunc_seq(Z_on, Z_off, seq_num, factorConcs);
 
     // compute the expression (promoter occupancy)
     double efficiency = Z_on / Z_off;
@@ -617,8 +619,8 @@ double ExprFunc::compPartFuncOff() const
     }
     return Zt[n];
 }
-/*
-int ExprFunc::compPartFunc_seq() const
+
+int ExprFunc::compPartFunc_seq(double &result_Z_on, double &result_Z_off, int _seq_num, const vector< double >& factorConcs) const
 {
 
     // The distance index
@@ -630,12 +632,12 @@ int ExprFunc::compPartFunc_seq() const
     for(  int t = 1; t < tmax; t++  ) { motif_length[t] = motifs[ t ].length(); } 
    
     // The Sequenz index
-    int imax = *max_element(motif_length);
+    int imax = *max_element(motif_length.begin(),motif_length.end());
     int n = seqs.size();
 
     // initialization of the partition sums with value 1
-    vector<vector<vector<int> > > Z_off (tmax,vector<vector<int> >(dmax,vector <int>(imax,1)));
-    vector<vector<vector<int> > > Z_on  (tmax,vector<vector<int> >(dmax,vector <int>(imax,1))); 
+    vector<vector<vector<int> > > Z_off (tmax,vector<vector<int> >(dmax + 1,vector <int>(imax,1)));
+    vector<vector<vector<int> > > Z_on  (tmax,vector<vector<int> >(dmax + 1,vector <int>(imax,1))); 
 
     // recurrence 
     int idx = 0;
@@ -646,6 +648,7 @@ int ExprFunc::compPartFunc_seq() const
 	idx_1 = (i-1) % imax;
 
 	for ( int t = 1; t < tmax; t++ ) {
+		   int idx_t = (idx - motif_length[t]) % imax;
 		   
 		   double sum_on = 0;
 		   double sum_off = 0;
@@ -653,19 +656,20 @@ int ExprFunc::compPartFunc_seq() const
 			Z_on[t][d][idx] = Z_on[t][d-1][idx_1];
 			Z_off[t][d][idx] = Z_off[t][d-1][idx_1];
 		   } 
-		   for ( int d = motif_length[t]; d < damx-1; d++ ) {
+		   for ( int d = motif_length[t]; d < dmax-1; d++ ) {
 			Z_on[t][d][idx] = Z_on[t][d-1][idx_1];
 			Z_off[t][d][idx] = Z_off[t][d-1][idx_1];
 			for ( int t_alt = 1; t_alt < tmax; t_alt++ ){ 
-				sum_on  += compFactorInt( t_alt, t, d ) * Z_on[t_alt][d - motif_length[t]][ (idx - motif_length[t]) % imax] ;
-				sum_off += compFactorInt( t_alt, t, d ) * Z_off[t_alt][d - motif_length[t]][ (idx - motif_lenth[t]) % imax] ;
+				sum_on  += compFactorInt( t_alt, t, d ) * Z_on[t_alt][d - motif_length[t]][idx_t] ;
+				sum_off += compFactorInt( t_alt, t, d ) * Z_off[t_alt][d - motif_length[t]][idx_t] ;
 			}
 		   }
-      		   Sequence elem( seqs, i, motif_length[t] , motifs[t].strand );
-        	   binding_weight = exp( motifs[ t ].energy( elem ) );
-  		
-	           Z_on[t][0][idx] = par.txpEffects[ t ] * conc[t] * binding_weight * sum_on;
-	           Z_off[t][0][idx] =  conc[t] * binding_weight * sum_off;
+
+      		   Sequence elem( seqs[_seq_num], i, motif_length[t] , true );
+        	   double binding_weight = exp( -motifs[ t ].energy( elem ) );
+
+	           Z_on[t][0][idx] = par.txpEffects[ t ] *  par.maxBindingWts[ t ] * factorConcs[t] * binding_weight * sum_on;
+	           Z_off[t][0][idx] =  par.maxBindingWts[ t ] * factorConcs[t] * binding_weight * sum_off;
  
 		   Z_on[t][dmax][idx] = Z_on[t][dmax][idx_1] + Z_on[t][dmax-1][idx_1];
 		   Z_off[t][dmax][idx] = Z_off[t][dmax][idx_1] + Z_off[t][dmax-1][idx_1];
@@ -675,15 +679,15 @@ int ExprFunc::compPartFunc_seq() const
     result_Z_on = 0;
     result_Z_off = 0;
     for( int t = 1; t < tmax; t++ ) { 
-	for(int d = 1; d < dmax; d++ ) {
+	for(int d = 1; d < dmax+1; d++ ) {
 		result_Z_on += Z_on[t][d][idx];
 		result_Z_off += Z_off[t][d][idx];
 	}        
     }
-
     return 1;
 }
-*/
+
+
 double ExprFunc::compPartFuncOffChrMod() const
 {
     int n = sites.size()- 1;
@@ -964,6 +968,28 @@ double ExprFunc::compFactorInt( const Site& a, const Site& b ) const
     #endif //ORIENTATION
 }
 
+double ExprFunc::compFactorInt( int t_1, int t_2, int _dist  ) const
+{
+
+	
+    double maxInt = par.factorIntMat( t_1, t_2 );
+    int dist = _dist;
+    assert( dist >= 0 );
+
+    assert(  modelOption == DIRECT  );	// For now only Direct model implemented
+    #if FactorIntFunc == 1 
+    double spacingTerm = ( dist < coopDistThr ? maxInt : 1.0 );
+    #endif // FactorIntFunc
+
+    #ifdef ORIENTATION
+    double orientationTerm = ( a.strand == b.strand ) ? 1.0 : orientationEffect;
+    return spacingTerm * orientationTerm;
+    #else
+    return spacingTerm;
+    #endif //ORIENTATION
+}
+
+
 bool ExprFunc::testRepression( const Site& a, const Site& b ) const
 {
 // 	assert( !siteOverlap( a, b, motifs ) );
@@ -972,7 +998,7 @@ bool ExprFunc::testRepression( const Site& a, const Site& b ) const
     return repressionMat( a.factorIdx, b.factorIdx ) && ( dist <= repressionDistThr );
 }
 
-ExprPredictor::ExprPredictor( const vector< SiteVec >& _seqSites, const vector< int >& _seqLengths, const Matrix& _exprData, const vector< Motif >& _motifs, const Matrix& _factorExprData,  const IntMatrix& _coopMat, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr, int _coopDistThr, const vector < bool >& _indicator_bool, const vector <string>& _motifNames, const vector < int >& _axis_start, const vector < int >& _axis_end, const vector < double >& _axis_wts ) : seqSites( _seqSites ), seqLengths( _seqLengths ), exprData( _exprData ), motifs( _motifs ), factorExprData( _factorExprData ), coopMat( _coopMat ), actIndicators( _actIndicators ), maxContact( _maxContact ), repIndicators( _repIndicators ), repressionMat( _repressionMat ), repressionDistThr( _repressionDistThr ), coopDistThr( _coopDistThr ) ,indicator_bool ( _indicator_bool ), motifNames ( _motifNames ), axis_start ( _axis_start ), axis_end( _axis_end ), axis_wts( _axis_wts )
+ExprPredictor::ExprPredictor( const vector< SiteVec >& _seqSites, const vector< int >& _seqLengths, const Matrix& _exprData, const vector< Motif >& _motifs, const Matrix& _factorExprData,  const IntMatrix& _coopMat, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr, int _coopDistThr, const vector < bool >& _indicator_bool, const vector <string>& _motifNames, const vector < int >& _axis_start, const vector < int >& _axis_end, const vector < double >& _axis_wts, const vector< Sequence >& _seqs  ) : seqSites( _seqSites ), seqLengths( _seqLengths ), exprData( _exprData ), motifs( _motifs ), factorExprData( _factorExprData ), coopMat( _coopMat ), actIndicators( _actIndicators ), maxContact( _maxContact ), repIndicators( _repIndicators ), repressionMat( _repressionMat ), repressionDistThr( _repressionDistThr ), coopDistThr( _coopDistThr ) ,indicator_bool ( _indicator_bool ), motifNames ( _motifNames ), axis_start ( _axis_start ), axis_end( _axis_end ), axis_wts( _axis_wts ), seqs(_seqs)
 {
     assert( exprData.nRows() == nSeqs() );
     assert( factorExprData.nRows() == nFactors() && factorExprData.nCols() == nConds() );
@@ -1360,7 +1386,7 @@ void ExprPredictor::printPar( const ExprPar& par ) const
 
 ExprFunc* ExprPredictor::createExprFunc( const ExprPar& par ) const
 {	
-    return new ExprFunc( motifs, actIndicators, maxContact, repIndicators, repressionMat, repressionDistThr, coopDistThr, par );
+    return new ExprFunc( motifs, actIndicators, maxContact, repIndicators, repressionMat, repressionDistThr, coopDistThr, par, seqs );
 }
 
 int indices_of_crm_in_gene[] = {

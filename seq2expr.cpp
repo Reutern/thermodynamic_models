@@ -38,12 +38,12 @@ int main( int argc, char* argv[] )
     double factorIntSigma = 50.0;   // sigma parameter for the Gaussian interaction function
     int repressionDistThr = 50;
     int maxContact = 1;
-	double eTF = 0.6;
+	double eTF = 1.0;
 
 	string free_fix_indicator_filename;
-	ExprPredictor::one_qbtm_per_crm = true;
-	ExprPar::one_qbtm_per_crm = true;
-	ExprFunc::one_qbtm_per_crm = true;
+	ExprPredictor::one_qbtm_per_crm = false;
+	ExprPar::one_qbtm_per_crm = false;
+	ExprFunc::one_qbtm_per_crm = false;
 
     ExprPredictor::nAlternations = 5;
     for ( int i = 1; i < argc; i++ ) {
@@ -86,9 +86,9 @@ int main( int argc, char* argv[] )
         else if ( !strcmp( "-ff", argv[i] ) )
             free_fix_indicator_filename = argv[++i];    
         else if ( !strcmp( "-oq", argv[i] ) ){
-            	ExprPredictor::one_qbtm_per_crm = true;    
-		ExprPar::one_qbtm_per_crm = true;
-		ExprFunc::one_qbtm_per_crm = true;
+            	ExprPredictor::one_qbtm_per_crm = false;    
+		ExprPar::one_qbtm_per_crm = false;
+		ExprFunc::one_qbtm_per_crm = false;
 	}
         else if ( !strcmp( "-et", argv[i] ) )
             eTF = atof( argv[ ++i ] );    
@@ -350,13 +350,14 @@ int main( int argc, char* argv[] )
     cout << "Num_Random_Starts = " << ExprPredictor::nRandStarts << endl;
     cout << "Energy Threshold Factor = " << eTF << endl;
     cout << endl;
+    #if PRINT_STATISTICS
     cout << "Statistics: " << endl; 
     cout << "Factors "<< nFactors << "\t " << "Sequences " << nSeqs <<  endl;
     cout << "Length \t sites \t Name" << endl;
     for(int seqs_idx = 0; seqs_idx < nSeqs; seqs_idx++){
 	cout << seqLengths[seqs_idx] << " \t " << seqSites[seqs_idx].size() << " \t " << seqNames[seqs_idx] << endl;}
     cout << endl;
-
+    #endif // PRINT_STATISTICS
     // create the expression predictor
     FactorIntFunc* intFunc; 
     if ( intOption == BINARY ) intFunc = new FactorIntFuncBinary( coopDistThr ); 
@@ -364,7 +365,7 @@ int main( int argc, char* argv[] )
     else {
         cerr << "Interaction Function is invalid " << endl; exit( 1 ); 
     }
-    ExprPredictor* predictor = new ExprPredictor( seqSites, seqLengths, exprData, motifs, factorExprData, coopMat, actIndicators, maxContact, repIndicators, repressionMat, repressionDistThr, coopDistThr, indicator_bool, motifNames, axis_start, axis_end, axis_wts );
+    ExprPredictor* predictor = new ExprPredictor( seqSites, seqLengths, exprData, motifs, factorExprData, coopMat, actIndicators, maxContact, repIndicators, repressionMat, repressionDistThr, coopDistThr, indicator_bool, motifNames, axis_start, axis_end, axis_wts, seqs );
    
  // read the initial parameter values
     ExprPar par_init( nFactors, nSeqs );

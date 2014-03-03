@@ -4,7 +4,7 @@ INPUT_PATH="../data"
 OUTPUT_PATH="../data"
 
 
-./seq2expr \
+ ./seq2expr \
 -s $INPUT_PATH/seqs_segal.fa  \
 -e $INPUT_PATH/expr_segal.tab \
 -m $INPUT_PATH/factors_propria.wtmx \
@@ -15,4 +15,5 @@ OUTPUT_PATH="../data"
 -r $OUTPUT_PATH/rep.txt \
 -o Direct	# modelOption: Logistic, Direct, Quenching, ChrMod_Unlimited, ChrMod_Limite
 
-
+# Example Falgs
+# -s ../data/seqs_segal.fa  -e ../data/expr_segal.tab -m ../data/factors_propria.wtmx -c ../data/coop.txt -f ../data/factor_expr_segal.tab -fo ../data/obs_pre.txt -i ../data/factor_info.txt -r ../data/rep.txt -o Direct
