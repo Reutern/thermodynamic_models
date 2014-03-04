@@ -38,7 +38,7 @@ int main( int argc, char* argv[] )
     double factorIntSigma = 50.0;   // sigma parameter for the Gaussian interaction function
     int repressionDistThr = 50;
     int maxContact = 1;
-	double eTF = 0.1;
+	double eTF = 1.0;
 
 	string free_fix_indicator_filename;
 	ExprPredictor::one_qbtm_per_crm = false;
@@ -332,7 +332,7 @@ int main( int argc, char* argv[] )
 //     }
 
     // print the parameters for running the analysis
-    cout << "Parameters for running the program: " << endl; 
+    cout << "Program settings: " << endl; 
     cout << "Model = " << getModelOptionStr( ExprPredictor::modelOption ) << endl;
     if ( ExprPredictor::modelOption == QUENCHING || ExprPredictor::modelOption == CHRMOD_LIMITED ) {
         cout << "Maximum_Contact = " << maxContact << endl;

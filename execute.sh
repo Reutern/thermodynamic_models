@@ -7,7 +7,7 @@ OUTPUT_PATH="../data"
  ./seq2expr \
 -s $INPUT_PATH/seqs_segal.fa  \
 -e $INPUT_PATH/expr_segal.tab \
--m $INPUT_PATH/factors_propria.wtmx \
+-m $INPUT_PATH/factors_christophe.wtmx \
 -c $INPUT_PATH/coop.txt \
 -f $INPUT_PATH/factor_expr_segal.tab \
 -fo $OUTPUT_PATH/obs_pre.txt \

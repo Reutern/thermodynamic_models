@@ -472,8 +472,10 @@ double ExprFunc::predictExpr( const SiteVec& _sites, int length, const vector< d
     bindingWts.clear();
     boundaries.clear();
 	
+    int promoter_number = seq_num;
 	if( !one_qbtm_per_crm )
-		seq_num = 0;
+		promoter_number = 0;	// Only one promoter strength
+
     // store the sequence 
     int n = _sites.size();
     sites = _sites;
@@ -512,20 +514,26 @@ double ExprFunc::predictExpr( const SiteVec& _sites, int length, const vector< d
 //             totalEffect = totalEffect / (double)length;
         }
 //         return par.expRatio * logistic( log( par.basalTxp ) + totalEffect );
-        return logistic( par.basalTxps[ seq_num ] + totalEffect );
+        return logistic( par.basalTxps[ promoter_number ] + totalEffect );
     }
 
-    // Thermodynamic models: Direct, Quenching, ChrMod_Unlimited and ChrMod_Limited
-    // compute the partition functions
-    //double Z_off = compPartFuncOff();
-    //double Z_on = compPartFuncOn();
-
-    double Z_off, Z_on;
+    #if TOSCA  
+ timeval start, end;
+  gettimeofday(&start, 0);
+    double Z_off = 0;
+    double Z_on = 0;
     compPartFunc_seq(Z_on, Z_off, seq_num, factorConcs);
+  gettimeofday(&end, 0);
+  cout <<end.tv_usec-start.tv_usec << endl;
+    #else
+    double Z_off = compPartFuncOff();
+    double Z_on = compPartFuncOn();
+    #endif //TOSCA
+
 
     // compute the expression (promoter occupancy)
     double efficiency = Z_on / Z_off;
-    double promoterOcc = efficiency * par.basalTxps[ seq_num ] / ( 1.0 + efficiency * par.basalTxps[ seq_num ] );
+    double promoterOcc = efficiency * par.basalTxps[ promoter_number ] / ( 1.0 + efficiency * par.basalTxps[ promoter_number ] );
     return promoterOcc;
 }
 
@@ -534,8 +542,9 @@ double ExprFunc::predictExpr( const SiteVec& _sites, int length, const vector< d
     bindingWts.clear();
     boundaries.clear();
 	
+    int promoter_number = seq_num;
 	if( !one_qbtm_per_crm )
-		seq_num = 0;
+		promoter_number = 0;	// Only one promoter strength
 
     // store the sequence 
     int n = _sites.size();
@@ -575,22 +584,29 @@ double ExprFunc::predictExpr( const SiteVec& _sites, int length, const vector< d
 //             totalEffect = totalEffect / (double)length;
         }
 //         return par.expRatio * logistic( log( par.basalTxp ) + totalEffect );
-        return logistic( par.basalTxps[ seq_num ] + totalEffect );
+        return logistic( par.basalTxps[ promoter_number ] + totalEffect );
     }
 
     // Thermodynamic models: Direct, Quenching, ChrMod_Unlimited and ChrMod_Limited
     // compute the partition functions
- 
-    //double Z_off = compPartFuncOff();
-    //double Z_on = compPartFuncOn();
-
-    double Z_off, Z_on;
+    #if TOSCA  
+ timeval start, end;
+  gettimeofday(&start, 0);
+    double Z_off = 0;
+    double Z_on = 0;
     compPartFunc_seq(Z_on, Z_off, seq_num, factorConcs);
+  gettimeofday(&end, 0);
+  cout <<end.tv_usec-start.tv_usec << endl;
+
+    #else
+    double Z_off = compPartFuncOff();
+    double Z_on = compPartFuncOn();
+    #endif //TOSCA
 
     // compute the expression (promoter occupancy)
     double efficiency = Z_on / Z_off;
-    double promoterOcc = efficiency * par.basalTxps[ seq_num ] / ( 1.0 + efficiency * par.basalTxps[ seq_num ] );
-    fout << Z_on << "\t" << Z_off << "\t" << par.basalTxps [ seq_num ] << endl;
+    double promoterOcc = efficiency * par.basalTxps[ promoter_number ] / ( 1.0 + efficiency * par.basalTxps[ promoter_number ] );
+    fout << Z_on << "\t" << Z_off << "\t" << par.basalTxps [ promoter_number ] << endl;
     return promoterOcc;
 }
 
@@ -630,15 +646,15 @@ int ExprFunc::compPartFunc_seq(double &result_Z_on, double &result_Z_off, int _s
     // The binder index
     int tmax = motifs.size();	
     vector< int > motif_length( tmax ); 
-    for(  int t = 1; t < tmax; t++  ) { motif_length[t] = motifs[ t ].length(); } 
+    for(  int t = 0; t < tmax; t++  ) { motif_length[t] = motifs[ t ].length(); } 
    
     // The Sequenz index
     int imax = *max_element(motif_length.begin(),motif_length.end());
-    int n = seqs.size();
+    int n = seqs[_seq_num].size() - imax;
 
     // initialization of the partition sums with value 1
-    vector<vector<vector<int> > > Z_off (tmax,vector<vector<int> >(dmax + 1,vector <int>(imax,1)));
-    vector<vector<vector<int> > > Z_on  (tmax,vector<vector<int> >(dmax + 1,vector <int>(imax,1))); 
+    vector<vector<vector<double> > > Z_off (tmax,vector<vector<double> >(dmax + 1,vector <double>(imax,1.0)));
+    vector<vector<vector<double> > > Z_on  (tmax,vector<vector<double> >(dmax + 1,vector <double>(imax,1.0))); 
 
     // recurrence 
     int idx = 0;
@@ -648,7 +664,7 @@ int ExprFunc::compPartFunc_seq(double &result_Z_on, double &result_Z_off, int _s
 	idx = i % imax;
 	idx_1 = (i-1) % imax;
 
-	for ( int t = 1; t < tmax; t++ ) {
+	for ( int t = 0; t < tmax; t++ ) {
 		   int idx_t = (idx - motif_length[t]) % imax;
 		   
 		   double sum_on = 0;
@@ -657,17 +673,18 @@ int ExprFunc::compPartFunc_seq(double &result_Z_on, double &result_Z_off, int _s
 			Z_on[t][d][idx] = Z_on[t][d-1][idx_1];
 			Z_off[t][d][idx] = Z_off[t][d-1][idx_1];
 		   } 
-		   for ( int d = motif_length[t]; d < dmax-1; d++ ) {
+		   for ( int d = motif_length[t]; d < dmax; d++ ) {
 			Z_on[t][d][idx] = Z_on[t][d-1][idx_1];
 			Z_off[t][d][idx] = Z_off[t][d-1][idx_1];
-			for ( int t_alt = 1; t_alt < tmax; t_alt++ ){ 
+			for ( int t_alt = 0; t_alt < tmax; t_alt++ ){ 
 				sum_on  += compFactorInt( t_alt, t, d ) * Z_on[t_alt][d - motif_length[t]][idx_t] ;
 				sum_off += compFactorInt( t_alt, t, d ) * Z_off[t_alt][d - motif_length[t]][idx_t] ;
 			}
 		   }
 
       		   Sequence elem( seqs[_seq_num], i, motif_length[t] , true );
-        	   double binding_weight = exp( -motifs[ t ].energy( elem ) );
+	           Sequence elem_comp( seqs[_seq_num], i, motif_length[t] , false );
+        	   double binding_weight = exp( -motifs[ t ].energy( elem ) ) + exp( -motifs[ t ].energy( elem_comp ) );
 
 	           Z_on[t][0][idx] = par.txpEffects[ t ] *  par.maxBindingWts[ t ] * factorConcs[t] * binding_weight * sum_on;
 	           Z_off[t][0][idx] =  par.maxBindingWts[ t ] * factorConcs[t] * binding_weight * sum_off;
@@ -677,10 +694,11 @@ int ExprFunc::compPartFunc_seq(double &result_Z_on, double &result_Z_off, int _s
 	}
     }
     
+
     result_Z_on = 0;
     result_Z_off = 0;
-    for( int t = 1; t < tmax; t++ ) { 
-	for(int d = 1; d < dmax+1; d++ ) {
+    for( int t = 0; t < tmax; t++ ) { 
+	for(int d = 0; d < dmax+1; d++ ) {
 		result_Z_on += Z_on[t][d][idx];
 		result_Z_off += Z_off[t][d][idx];
 	}        
@@ -1190,7 +1208,7 @@ int ExprPredictor::predict( const SiteVec& targetSites, int targetSeqLength, vec
 
 ModelType ExprPredictor::modelOption = CHRMOD_LIMITED;
 int ExprPredictor::estBindingOption = 1;    // 1. estimate binding parameters; 0. not estimate binding parameters
-ObjType ExprPredictor::objOption = SSE;
+ObjType ExprPredictor::objOption = OBJECTIVE_FUNCTION;
 
 double ExprPredictor::exprSimCrossCorr( const vector< double >& x, const vector< double >& y )
 {
@@ -1405,7 +1423,7 @@ double ExprPredictor::compRMSE( const ExprPar& par )
 {
     // create the expression function
     ExprFunc* func = createExprFunc( par );
-            
+
     // error of each sequence
     double squaredErr = 0;
     for ( int i = 0; i < nSeqs(); i++ ) {
