@@ -459,6 +459,9 @@ bool ExprFunc::one_qbtm_per_crm = true;
 
 ExprFunc::ExprFunc( const vector< Motif >& _motifs, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr, int _coopDistThr, const ExprPar& _par, const vector< Sequence >& _seqs ) : motifs( _motifs ), actIndicators( _actIndicators ), maxContact( _maxContact ), repIndicators( _repIndicators ), repressionMat( _repressionMat ), repressionDistThr( _repressionDistThr ), coopDistThr( _coopDistThr ), par( _par ), seqs( _seqs )
 {
+
+    
+
     int nFactors = par.nFactors();
     assert( motifs.size() == nFactors );
     assert( actIndicators.size() == nFactors );
@@ -518,13 +521,13 @@ double ExprFunc::predictExpr( const SiteVec& _sites, int length, const vector< d
     }
 
     #if TOSCA  
- timeval start, end;
-  gettimeofday(&start, 0);
+   //timeval start, end;
+  //gettimeofday(&start, 0);
     double Z_off = 0;
     double Z_on = 0;
     compPartFunc_seq(Z_on, Z_off, seq_num, factorConcs);
-  gettimeofday(&end, 0);
-  cout <<end.tv_usec-start.tv_usec << endl;
+  //gettimeofday(&end, 0);
+  //cout <<end.tv_usec-start.tv_usec << endl;
     #else
     double Z_off = compPartFuncOff();
     double Z_on = compPartFuncOn();
@@ -590,14 +593,13 @@ double ExprFunc::predictExpr( const SiteVec& _sites, int length, const vector< d
     // Thermodynamic models: Direct, Quenching, ChrMod_Unlimited and ChrMod_Limited
     // compute the partition functions
     #if TOSCA  
- timeval start, end;
-  gettimeofday(&start, 0);
+ // timeval start, end;
+  //gettimeofday(&start, 0);
     double Z_off = 0;
     double Z_on = 0;
     compPartFunc_seq(Z_on, Z_off, seq_num, factorConcs);
-  gettimeofday(&end, 0);
-  cout <<end.tv_usec-start.tv_usec << endl;
-
+  //gettimeofday(&end, 0);
+  //cout <<end.tv_usec-start.tv_usec << endl;
     #else
     double Z_off = compPartFuncOff();
     double Z_on = compPartFuncOn();
@@ -1017,8 +1019,12 @@ bool ExprFunc::testRepression( const Site& a, const Site& b ) const
     return repressionMat( a.factorIdx, b.factorIdx ) && ( dist <= repressionDistThr );
 }
 
-ExprPredictor::ExprPredictor( const vector< SiteVec >& _seqSites, const vector< int >& _seqLengths, const Matrix& _exprData, const vector< Motif >& _motifs, const Matrix& _factorExprData,  const IntMatrix& _coopMat, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr, int _coopDistThr, const vector < bool >& _indicator_bool, const vector <string>& _motifNames, const vector < int >& _axis_start, const vector < int >& _axis_end, const vector < double >& _axis_wts, const vector< Sequence >& _seqs  ) : seqSites( _seqSites ), seqLengths( _seqLengths ), exprData( _exprData ), motifs( _motifs ), factorExprData( _factorExprData ), coopMat( _coopMat ), actIndicators( _actIndicators ), maxContact( _maxContact ), repIndicators( _repIndicators ), repressionMat( _repressionMat ), repressionDistThr( _repressionDistThr ), coopDistThr( _coopDistThr ) ,indicator_bool ( _indicator_bool ), motifNames ( _motifNames ), axis_start ( _axis_start ), axis_end( _axis_end ), axis_wts( _axis_wts ), seqs(_seqs)
+ExprPredictor::ExprPredictor( const vector< SiteVec >& _seqSites, const vector< int >& _seqLengths, const Matrix& _exprData, const vector< Motif >& _motifs, const Matrix& _factorExprData, const IntMatrix& _coopMat, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr, int _coopDistThr, const vector < bool >& _indicator_bool, const vector <string>& _motifNames, const vector < int >& _axis_start, const vector < int >& _axis_end, const vector < double >& _axis_wts, const vector< Sequence >& _seqs  ) : seqSites( _seqSites ), seqLengths( _seqLengths ), exprData( _exprData ), motifs( _motifs ), factorExprData( _factorExprData ), actIndicators( _actIndicators ), maxContact( _maxContact ), repIndicators( _repIndicators ), repressionMat( _repressionMat ), repressionDistThr( _repressionDistThr ), coopDistThr( _coopDistThr ) ,indicator_bool ( _indicator_bool ),  axis_start ( _axis_start ), axis_end( _axis_end ), axis_wts( _axis_wts ), seqs(_seqs)
 {
+
+    motifNames = _motifNames;
+    coopMat = _coopMat;
+
     assert( exprData.nRows() == nSeqs() );
     assert( factorExprData.nRows() == nFactors() && factorExprData.nCols() == nConds() );
     assert( coopMat.isSquare() && coopMat.isSymmetric() && coopMat.nRows() == nFactors() );
@@ -1057,7 +1063,11 @@ int ExprPredictor::train( const ExprPar& par_init )
 {
     par_model = par_init;
    
-   cout << "*** Diagnostic printing BEFORE adjust() ***" << endl;
+    signal(SIGINT, catch_signal);
+
+   // signal(SIGINT,  this.catch_param);
+
+    cout << "*** Diagnostic printing BEFORE adjust() ***" << endl;
     cout << "Parameters: " << endl;
     printPar( par_model );
     cout << endl;
@@ -1084,19 +1094,20 @@ int ExprPredictor::train( const ExprPar& par_init )
 	cout << "Simplex minimisation: " << endl; 
 	simplex_minimize( par_result, obj_result );
 	cout << endl;
-        par_model = par_result; 
 
-	ofstream fparam_sm( "param.save" );
-	par_model.print( fparam_sm, motifNames, coopMat );
-        fparam_sm.close();
+	// save result
+        par_model = par_result; 
+	save_param();	
+
 //         par_model.adjust();
 	cout << "Gradient minimisation: " << endl; 
         gradient_minimize( par_result, obj_result );
 	cout << endl;
+
+	// save result
         par_model = par_result;
-	ofstream fparam_gm( "param.save" );
-	par_model.print( fparam_gm, motifNames, coopMat );
-        fparam_gm.close();
+	save_param();
+
 //         par_model.adjust();
     }
 	
@@ -1245,6 +1256,11 @@ double ExprPredictor::min_delta_f_NormCorr = 1.0E-8;
 int ExprPredictor::nSimplexIters = 200;
 int ExprPredictor::nGradientIters = 50;
 bool ExprPredictor::one_qbtm_per_crm = true;
+
+// Initialise static members as empty
+ExprPar ExprPredictor::par_model;
+IntMatrix ExprPredictor::coopMat = IntMatrix();
+vector <string> ExprPredictor::motifNames = vector <string>();
 
 int ExprPredictor::randSamplePar( const gsl_rng* rng, ExprPar& par ) const
 {
@@ -1868,6 +1884,27 @@ int ExprPredictor::gradient_minimize( ExprPar& par_result, double& obj_result )
     
     return 0;
 }
+
+int ExprPredictor::save_param()
+{
+	ofstream fparam_sm( "param.save" );
+	par_model.print( fparam_sm, motifNames, getCoopMat() );
+        fparam_sm.close();
+	return 0;
+}
+
+
+// Signal handler functions 
+void ExprPredictor::catch_signal(int sig_num)
+{
+	std::cout << std::endl;
+	std::cout << "Exit signal thrown!" << std::endl;
+	save_param();
+	std::cout << "Parameters are saved!" << std::endl;
+	signal(SIGINT, SIG_DFL);
+}
+
+
 
 double gsl_obj_f( const gsl_vector* v, void* params )
 { 

@@ -25,6 +25,7 @@
 #include <time.h>
 #include <math.h> // for fmod
 
+
 int main( int argc, char* argv[] ) 
 {
 
@@ -365,8 +366,7 @@ int main( int argc, char* argv[] )
     else {
         cerr << "Interaction Function is invalid " << endl; exit( 1 ); 
     }
-    ExprPredictor* predictor = new ExprPredictor( seqSites, seqLengths, exprData, motifs, factorExprData, coopMat, actIndicators, maxContact, repIndicators, repressionMat, repressionDistThr, coopDistThr, indicator_bool, motifNames, axis_start, axis_end, axis_wts, seqs );
-   
+
  // read the initial parameter values
     ExprPar par_init( nFactors, nSeqs );
     if ( !parFile.empty() ) {
@@ -376,6 +376,11 @@ int main( int argc, char* argv[] )
             exit( 1 );
         } 
     }
+
+
+    // Initialise the predictor class
+    ExprPredictor* predictor = new ExprPredictor( seqSites, seqLengths, exprData, motifs, factorExprData, coopMat, actIndicators, maxContact, repIndicators, repressionMat, repressionDistThr, coopDistThr, indicator_bool, motifNames, axis_start, axis_end, axis_wts, seqs );
+   
 
     // random number generator
 	gsl_rng* rng;

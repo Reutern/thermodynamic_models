@@ -2,6 +2,8 @@
 #define EXPR_PREDICTOR_H
 
 #include "SeqAnnotator.h"
+#include <signal.h>
+
 enum ModelType {
     LOGISTIC,   // logistic regression
     DIRECT,     // direct interaction between TF and BTM, repressor works through BTM
@@ -277,7 +279,7 @@ public:
     int nConds() const {
          return exprData.nCols();
     }
-    const IntMatrix& getCoopMat() const {
+    static const IntMatrix& getCoopMat() {
         return coopMat;
     }
     const vector< bool >& getActIndicators() const {
@@ -289,7 +291,7 @@ public:
     const IntMatrix& getRepressionMat() const {
         return repressionMat;
     }
-    const ExprPar& getPar() const { return par_model; }
+    static const ExprPar& getPar() { return par_model; }
     double getObj() const { return obj_model; }
     
     // the objective function to be minimized
@@ -328,9 +330,10 @@ public:
     static int nGradientIters;      // maximum number of iterations for Gradient optimizer
     static bool one_qbtm_per_crm;
     vector < bool > indicator_bool;	// States if Parameters are free or fixed for training
-    vector <string> motifNames;
+    static vector <string> motifNames;
     vector < double > fix_pars;
     vector < double > free_pars;
+
 private:
     // training data
     const vector< SiteVec >& seqSites;		// the extracted sites for all sequences
@@ -343,7 +346,7 @@ private:
     const vector < double >& axis_wts;
 
     // control parameters 
-    const IntMatrix& coopMat;       // cooperativity matrix: C(f,f') = 1 if f and f' bind cooperatively    
+    static IntMatrix coopMat;       // cooperativity matrix: C(f,f') = 1 if f and f' bind cooperatively    
     const vector< bool >& actIndicators;   // 1 if the TF is in the activator set
     int maxContact;     // the maximum contact     
     const vector< bool >& repIndicators;    // 1 if the TF is in the repressor set
@@ -351,12 +354,12 @@ private:
     int repressionDistThr;   // distance threshold for repression: d_R
     int coopDistThr;   // distance threshold for cooperativity
     
+    // model parameters and the value of the objective function
+    static ExprPar par_model;
+    double obj_model;	
+
     // the sequenz
     const vector< Sequence >& seqs;
-
-    // model parameters and the value of the objective function
-    ExprPar par_model;
-    double obj_model;	
 
     // randomly sample parameter values (only those free parameters), the parameters should be initialized
     int randSamplePar( const gsl_rng* rng, ExprPar& par ) const; 
@@ -379,7 +382,14 @@ private:
     // minimize the objective function, using the current model parameters as initial values
     int simplex_minimize( ExprPar& par_result, double& obj_result );	// simplex	
     int gradient_minimize( ExprPar& par_result, double& obj_result );	// gradient: BFGS or conjugate gradient
-//  	int SA_minimize( ExprPar& par_result, double& obj_result ) const;	// simulated annealing 		
+//  	int SA_minimize( ExprPar& par_result, double& obj_result ) const;	// simulated annealing 
+
+    // function to save parameters to file
+    static int save_param();
+
+    // Signal handler
+    static void catch_signal(int sig_num);
+ //   static void catch_param(int sig_num);		
 };
 
 // the objective function and its gradient of ExprPredictor::simplex_minimize or gradient_minimize
