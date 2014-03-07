@@ -1062,27 +1062,29 @@ double ExprPredictor::objFunc( const ExprPar& par )
 int ExprPredictor::train( const ExprPar& par_init )
 {
     par_model = par_init;
-   
+    par_curr = par_init;
+    obj_model = objFunc( par_model );   
+
     signal(SIGINT, catch_signal);
 
-   // signal(SIGINT,  this.catch_param);
 
     cout << "*** Diagnostic printing BEFORE adjust() ***" << endl;
     cout << "Parameters: " << endl;
-    printPar( par_model );
+    printPar( par_curr );
     cout << endl;
-    cout << "Objective function value: " << objFunc( par_model ) << endl;
+    cout << "Objective function value: " << obj_model << endl;
     cout << "*******************************************" << endl << endl;
 
    if ( nAlternations > 0 && ExprPar::searchOption == CONSTRAINED ) par_model.adjust();
-    obj_model = objFunc( par_model );
     
     cout << "*** Diagnostic printing AFTER adjust() ***" << endl;
     cout << "Parameters: " << endl;
     printPar( par_model );
     cout << endl;
-    cout << "Objective function value: " << objFunc( par_model ) << endl;
+//    cout << "Objective function value: " << obj_model << endl;
     cout << "*******************************************" << endl << endl;
+
+
 
     if ( nAlternations == 0 ) return 0;
     
@@ -1258,7 +1260,7 @@ int ExprPredictor::nGradientIters = 50;
 bool ExprPredictor::one_qbtm_per_crm = true;
 
 // Initialise static members as empty
-ExprPar ExprPredictor::par_model;
+ExprPar ExprPredictor::par_curr;
 IntMatrix ExprPredictor::coopMat = IntMatrix();
 vector <string> ExprPredictor::motifNames = vector <string>();
 
@@ -1667,7 +1669,8 @@ int ExprPredictor::simplex_minimize( ExprPar& par_result, double& obj_result )
 	}
 
 
-        ExprPar par_curr = ExprPar ( pars, coopMat, actIndicators, repIndicators, nSeqs() );
+        par_curr = ExprPar ( pars, coopMat, actIndicators, repIndicators, nSeqs() );
+
 	//Hassan end
 	// check if the current values of parameters are valid
         //the following line should be uncommented if you remove all the changes by Hassan
@@ -1813,7 +1816,8 @@ int ExprPredictor::gradient_minimize( ExprPar& par_result, double& obj_result )
 		}
 	}
 
-        ExprPar par_curr = ExprPar ( pars, coopMat, actIndicators, repIndicators, nSeqs() );
+        par_curr = ExprPar ( pars, coopMat, actIndicators, repIndicators, nSeqs() );
+	
 	//Hassan end
         //ExprPar par_curr = ExprPar( gsl2vector( s->x ), coopMat, actIndicators, repIndicators );
         if ( ExprPar::searchOption == CONSTRAINED && !testPar( par_curr ) ) break;
@@ -1885,10 +1889,11 @@ int ExprPredictor::gradient_minimize( ExprPar& par_result, double& obj_result )
     return 0;
 }
 
+// function to save parameters to file
 int ExprPredictor::save_param()
 {
 	ofstream fparam_sm( "param.save" );
-	par_model.print( fparam_sm, motifNames, getCoopMat() );
+	par_curr.print( fparam_sm, motifNames, getCoopMat() );
         fparam_sm.close();
 	return 0;
 }

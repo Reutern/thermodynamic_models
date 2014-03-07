@@ -291,7 +291,7 @@ public:
     const IntMatrix& getRepressionMat() const {
         return repressionMat;
     }
-    static const ExprPar& getPar() { return par_model; }
+    const ExprPar& getPar() { return par_model; }
     double getObj() const { return obj_model; }
     
     // the objective function to be minimized
@@ -355,7 +355,8 @@ private:
     int coopDistThr;   // distance threshold for cooperativity
     
     // model parameters and the value of the objective function
-    static ExprPar par_model;
+    ExprPar par_model;
+    static ExprPar par_curr;
     double obj_model;	
 
     // the sequenz
