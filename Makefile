@@ -1,4 +1,4 @@
-CC = g++ #-g for gdb
+CC = g++ -fopenmp #-g for gdb
 
 GSL_DIR = usr/include
 

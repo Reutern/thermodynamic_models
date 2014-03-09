@@ -4,7 +4,7 @@
 #include "ExprPredictor.h"
 #include "param.h"
 #include <sys/time.h>
-
+#include <omp.h>
 
 ModelType getModelOption( const string& modelOptionStr )
 {
@@ -472,13 +472,23 @@ ExprFunc::ExprFunc( const vector< Motif >& _motifs, const vector< bool >& _actIn
 
 double ExprFunc::predictExpr( const SiteVec& _sites, int length, const vector< double >& factorConcs, int seq_num )
 {
-    bindingWts.clear();
-    boundaries.clear();
-	
-    int promoter_number = seq_num;
+
+   int promoter_number = seq_num;
 	if( !one_qbtm_per_crm )
 		promoter_number = 0;	// Only one promoter strength
 
+     #if TOSCA  
+  // timeval start, end;
+  //gettimeofday(&start, 0);
+    double Z_off = 0;
+    double Z_on = 0;
+    compPartFunc_seq(Z_on, Z_off, seq_num, factorConcs);
+  //gettimeofday(&end, 0);
+  //cout <<end.tv_usec-start.tv_usec << endl;
+    #else
+    bindingWts.clear();
+    boundaries.clear();
+	
     // store the sequence 
     int n = _sites.size();
     sites = _sites;
@@ -520,15 +530,7 @@ double ExprFunc::predictExpr( const SiteVec& _sites, int length, const vector< d
         return logistic( par.basalTxps[ promoter_number ] + totalEffect );
     }
 
-    #if TOSCA  
-   //timeval start, end;
-  //gettimeofday(&start, 0);
-    double Z_off = 0;
-    double Z_on = 0;
-    compPartFunc_seq(Z_on, Z_off, seq_num, factorConcs);
-  //gettimeofday(&end, 0);
-  //cout <<end.tv_usec-start.tv_usec << endl;
-    #else
+
     double Z_off = compPartFuncOff();
     double Z_on = compPartFuncOn();
     #endif //TOSCA
@@ -542,12 +544,24 @@ double ExprFunc::predictExpr( const SiteVec& _sites, int length, const vector< d
 
 double ExprFunc::predictExpr( const SiteVec& _sites, int length, const vector< double >& factorConcs, int seq_num, std::ofstream& fout )
 {
-    bindingWts.clear();
-    boundaries.clear();
-	
+
     int promoter_number = seq_num;
 	if( !one_qbtm_per_crm )
 		promoter_number = 0;	// Only one promoter strength
+
+     #if TOSCA  
+ // timeval start, end;
+  //gettimeofday(&start, 0);
+    double Z_off = 0;
+    double Z_on = 0;
+    compPartFunc_seq(Z_on, Z_off, seq_num, factorConcs);
+  //gettimeofday(&end, 0);
+  //cout <<end.tv_usec-start.tv_usec << endl;
+    #else
+
+    bindingWts.clear();
+    boundaries.clear();
+
 
     // store the sequence 
     int n = _sites.size();
@@ -592,15 +606,7 @@ double ExprFunc::predictExpr( const SiteVec& _sites, int length, const vector< d
 
     // Thermodynamic models: Direct, Quenching, ChrMod_Unlimited and ChrMod_Limited
     // compute the partition functions
-    #if TOSCA  
- // timeval start, end;
-  //gettimeofday(&start, 0);
-    double Z_off = 0;
-    double Z_on = 0;
-    compPartFunc_seq(Z_on, Z_off, seq_num, factorConcs);
-  //gettimeofday(&end, 0);
-  //cout <<end.tv_usec-start.tv_usec << endl;
-    #else
+
     double Z_off = compPartFuncOff();
     double Z_on = compPartFuncOn();
     #endif //TOSCA
@@ -665,7 +671,7 @@ int ExprFunc::compPartFunc_seq(double &result_Z_on, double &result_Z_off, int _s
 
 	idx = i % imax;
 	idx_1 = (i-1) % imax;
-
+//	#pragma omp parallel for
 	for ( int t = 0; t < tmax; t++ ) {
 		   int idx_t = (idx - motif_length[t]) % imax;
 		   
@@ -678,7 +684,8 @@ int ExprFunc::compPartFunc_seq(double &result_Z_on, double &result_Z_off, int _s
 		   for ( int d = motif_length[t]; d < dmax; d++ ) {
 			Z_on[t][d][idx] = Z_on[t][d-1][idx_1];
 			Z_off[t][d][idx] = Z_off[t][d-1][idx_1];
-			for ( int t_alt = 0; t_alt < tmax; t_alt++ ){ 
+			int t_alt;
+			for ( t_alt = 0; t_alt < tmax; t_alt++ ){ 
 				sum_on  += compFactorInt( t_alt, t, d ) * Z_on[t_alt][d - motif_length[t]][idx_t] ;
 				sum_off += compFactorInt( t_alt, t, d ) * Z_off[t_alt][d - motif_length[t]][idx_t] ;
 			}
@@ -1061,8 +1068,8 @@ double ExprPredictor::objFunc( const ExprPar& par )
 
 int ExprPredictor::train( const ExprPar& par_init )
 {
-    par_model = par_init;
-    par_curr = par_init;
+    par_model = par_init;	// Initialise the model parameter
+    par_curr = par_init;	// The working parameter, which get saved in case of an emergancy
     obj_model = objFunc( par_model );   
 
     signal(SIGINT, catch_signal);
@@ -1444,6 +1451,8 @@ double ExprPredictor::compRMSE( const ExprPar& par )
 
     // error of each sequence
     double squaredErr = 0;
+
+
     for ( int i = 0; i < nSeqs(); i++ ) {
         vector< double > predictedExprs;
         vector< double > observedExprs;
@@ -1525,33 +1534,35 @@ double ExprPredictor::compAvgCrossCorr( const ExprPar& par )
             
     // cross correlation similarity of each sequence
     double totalSim = 0;
+ 
+
     for ( int i = 0; i < nSeqs(); i++ ) {
-        vector< double > predictedExprs;
-        vector< double > observedExprs;
+        vector< double > predictedExprs (nConds(), -1);
+        vector< double > observedExprs (nConds(), 1);
+	//#pragma omp parallel private(concs) shared(predictedExprs)
         for ( int j = 0; j < nConds(); j++ ) {
 		double predicted = -1;
             	vector< double > concs = factorExprData.getCol( j );
 		for( int _i = 0; _i < sizeof ( indices_of_crm_in_gene ) / sizeof ( int ); _i++ ){
 			if( i == indices_of_crm_in_gene[ _i ] ){
 				gene_crm_fout << i << "\t" << j << "\t";
-            			predicted = func->predictExpr( seqSites[ i ], seqLengths[i], concs, i, gene_crm_fout );
+            			predictedExprs[j] = func->predictExpr( seqSites[ i ], seqLengths[i], concs, i, gene_crm_fout );
 				break;
 			}
 		}	
 		
-		if ( predicted < 0 ){
-            		predicted = func->predictExpr( seqSites[ i ], seqLengths[i], concs, i );
+		if ( predictedExprs[j] < 0 ){
+            		predictedExprs[j] = func->predictExpr( seqSites[ i ], seqLengths[i], concs, i );
 		}
             
-            // predicted expression for the i-th sequence at the j-th condition
-            predictedExprs.push_back( predicted );
-            
             // observed expression for the i-th sequence at the j-th condition
-            double observed = exprData( i, j );
-            observedExprs.push_back( observed );
+            observedExprs[j] = exprData( i, j );
         }
         totalSim += exprSimCrossCorr( predictedExprs, observedExprs ); 
     }	
+
+ 
+
 
     return totalSim / nSeqs();
 }
@@ -1563,34 +1574,42 @@ double ExprPredictor::compNormCorr( const ExprPar& par )
             
     // Normalised correlation of each sequence
     double totalSim = 0;
+  timeval start, end;
+    gettimeofday(&start, 0);
+
+
     for ( int i = 0; i < nSeqs(); i++ ) {
-        vector< double > predictedExprs;
-        vector< double > observedExprs;
-        for ( int j = 0; j < nConds(); j++ ) {
-		double predicted = -1;
-            	vector< double > concs = factorExprData.getCol( j );
-		for( int _i = 0; _i < sizeof ( indices_of_crm_in_gene ) / sizeof ( int ); _i++ ){
-			if( i == indices_of_crm_in_gene[ _i ] ){
-				gene_crm_fout << i << "\t" << j << "\t";
-            			predicted = func->predictExpr( seqSites[ i ], seqLengths[ i ], concs, i, gene_crm_fout );
-				break;
-			}
-		}	
-		if ( predicted < 0 ){
-            		predicted = func->predictExpr( seqSites[ i ], seqLengths[ i ], concs, i );
-		}
-		
-            
-            // predicted expression for the i-th sequence at the j-th condition
-            predictedExprs.push_back( predicted );
-            
+
+
+        vector< double > predictedExprs (nConds(), -1);
+        vector< double > observedExprs (nConds(), 1);
+        vector < vector < double > > concs (nConds(), vector <double> (factorExprData.nRows(), 0) );
+       
+        #pragma omp parallel for schedule(dynamic) //reduction(+:totalSim)
+        for (int j = 0; j < nConds(); j++ ) {
+
+            	concs[j] = factorExprData.getCol( j );
+		//for( int _i = 0; _i < sizeof ( indices_of_crm_in_gene ) / sizeof ( int ); _i++ ){
+		//	if( i == indices_of_crm_in_gene[ _i ] ){
+		//		gene_crm_fout << i << "\t" << j << "\t";
+           	//		predictedExprs[j] = func->predictExpr( seqSites[ i ], seqLengths[ i ], concs[j], i, gene_crm_fout );
+		//		break;
+		//	}
+		//}	
+		//if ( predictedExprs[j] < 0 ){
+            		predictedExprs[j] = func->predictExpr( seqSites[ i ], seqLengths[ i ], concs[j], i );
+		//}
+
             // observed expression for the i-th sequence at the j-th condition
-            double observed = exprData( i, j );
-            observedExprs.push_back( observed );
+            observedExprs[j] = exprData( i, j );
         }
-        totalSim += norm_corr( predictedExprs, observedExprs ); 
+
+	
+      totalSim += norm_corr( predictedExprs, observedExprs ); 
       //  cout << "Sequence " << i << "\t" << norm_corr( predictedExprs, observedExprs ) << endl;
     }	
+    gettimeofday(&end, 0);
+    cout << "Time " << end.tv_sec-start.tv_sec << endl;
 
     return totalSim / nSeqs();
 }
