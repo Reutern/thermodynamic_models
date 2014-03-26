@@ -482,7 +482,7 @@ double ExprFunc::predictExpr( const SiteVec& _sites, int length, const vector< d
   //gettimeofday(&start, 0);
     double Z_off = 0;
     double Z_on = 0;
-    compPartFunc_seq(Z_on, Z_off, seq_num, factorConcs);
+    compPartFunc_seq_interfactor(Z_on, Z_off, seq_num, factorConcs);
   //gettimeofday(&end, 0);
   //cout <<end.tv_usec-start.tv_usec << endl;
     #else
@@ -554,7 +554,7 @@ double ExprFunc::predictExpr( const SiteVec& _sites, int length, const vector< d
   //gettimeofday(&start, 0);
     double Z_off = 0;
     double Z_on = 0;
-    compPartFunc_seq(Z_on, Z_off, seq_num, factorConcs);
+    compPartFunc_seq_interfactor(Z_on, Z_off, seq_num, factorConcs);
   //gettimeofday(&end, 0);
   //cout <<end.tv_usec-start.tv_usec << endl;
     #else
@@ -645,7 +645,8 @@ double ExprFunc::compPartFuncOff() const
     return Zt[n];
 }
 
-int ExprFunc::compPartFunc_seq(double &result_Z_on, double &result_Z_off, int _seq_num, const vector< double >& factorConcs) const
+// TOSCA with interfactor cooperativity (very slow)
+int ExprFunc::compPartFunc_seq_interfactor(double &result_Z_on, double &result_Z_off, int _seq_num, const vector< double >& factorConcs) const
 {
 
     // The distance index
@@ -657,64 +658,122 @@ int ExprFunc::compPartFunc_seq(double &result_Z_on, double &result_Z_off, int _s
     for(  int t = 0; t < tmax; t++  ) { motif_length[t] = motifs[ t ].length(); } 
    
     // The Sequenz index
-    int imax = *max_element(motif_length.begin(),motif_length.end());
-    int n = seqs[_seq_num].size() - imax;
+    int n = seqs[_seq_num].size();
 
     // initialization of the partition sums with value 1
-    vector<vector<vector<double> > > Z_off (tmax,vector<vector<double> >(dmax + 1,vector <double>(imax,1.0)));
-    vector<vector<vector<double> > > Z_on  (tmax,vector<vector<double> >(dmax + 1,vector <double>(imax,1.0))); 
+    vector<vector<vector<double> > > Z_off (n+1,vector<vector<double> >(tmax,vector <double>(dmax + 1,1.0)));
+    vector<vector<vector<double> > > Z_on  (n+1,vector<vector<double> >(tmax,vector <double>(dmax + 1,1.0))); 
 
     // recurrence 
-    int idx = 0;
-    int idx_1 = 0;
-    for ( int i = 1; i < n; i++ ) {
+    int i = 1;
+    for (i = 1; i < n+1; i++ ) {
 
-	idx = i % imax;
-	idx_1 = (i-1) % imax;
 //	#pragma omp parallel for
 	for ( int t = 0; t < tmax; t++ ) {
-		   int idx_t = (idx - motif_length[t]) % imax;
-		   
-		   double sum_on = 0;
-		   double sum_off = 0;
-		   for (int d = 1; d < motif_length[t]; d++ ){
-			Z_on[t][d][idx] = Z_on[t][d-1][idx_1];
-			Z_off[t][d][idx] = Z_off[t][d-1][idx_1];
+		   int idx_t = (i - motif_length[t]);
+		   if(idx_t < 0) continue;		   
+
+		   double sum_on = 1;
+		   double sum_off = 1;
+		   for (int d = 1; d < dmax; d++ ){
+			Z_on[i][t][d] = Z_on[i-1][t][d-1];
+			Z_off[i][t][d] = Z_off[i-1][t][d-1];
 		   } 
-		   for ( int d = motif_length[t]; d < dmax; d++ ) {
-			Z_on[t][d][idx] = Z_on[t][d-1][idx_1];
-			Z_off[t][d][idx] = Z_off[t][d-1][idx_1];
-			int t_alt;
-			for ( t_alt = 0; t_alt < tmax; t_alt++ ){ 
-				sum_on  += compFactorInt( t_alt, t, d ) * Z_on[t_alt][d - motif_length[t]][idx_t] ;
-				sum_off += compFactorInt( t_alt, t, d ) * Z_off[t_alt][d - motif_length[t]][idx_t] ;
-			}
+
+		   for (int t_alt = 0; t_alt < tmax; t_alt++ ){ 
+			double int_factor = par.factorIntMat(t,t_alt);
+				for ( int d = motif_length[t]; d < dmax; d++ ) {
+					sum_on  += int_factor * Z_on[idx_t][t_alt][d - motif_length[t]] ;
+					sum_off += int_factor * Z_off[idx_t][t_alt][d - motif_length[t]] ;
+				}
 		   }
 
-      		   Sequence elem( seqs[_seq_num], i, motif_length[t] , true );
-	           Sequence elem_comp( seqs[_seq_num], i, motif_length[t] , false );
-        	   double binding_weight = exp( -motifs[ t ].energy( elem ) ) + exp( -motifs[ t ].energy( elem_comp ) );
+      		   Sequence elem( seqs[_seq_num], idx_t, motif_length[t] , true );
+	           Sequence elem_comp( seqs[_seq_num], idx_t, motif_length[t] , false );
+        	   double binding_weight = par.maxBindingWts[ t ] * factorConcs[t] * ( exp( -motifs[ t ].energy( elem ) ) + exp( -motifs[ t ].energy( elem_comp ) ) );
 
-	           Z_on[t][0][idx] = par.txpEffects[ t ] *  par.maxBindingWts[ t ] * factorConcs[t] * binding_weight * sum_on;
-	           Z_off[t][0][idx] =  par.maxBindingWts[ t ] * factorConcs[t] * binding_weight * sum_off;
+	           Z_on[i][t][0] = par.txpEffects[ t ] * binding_weight * sum_on;
+	           Z_off[i][t][0] =  binding_weight * sum_off;
  
-		   Z_on[t][dmax][idx] = Z_on[t][dmax][idx_1] + Z_on[t][dmax-1][idx_1];
-		   Z_off[t][dmax][idx] = Z_off[t][dmax][idx_1] + Z_off[t][dmax-1][idx_1];
+		   Z_on[i][t][dmax] = Z_on[i-1][t][dmax] + Z_on[i-1][t][dmax-1];
+		   Z_off[i][t][dmax] = Z_off[i-1][t][dmax] + Z_off[i-1][t][dmax-1];
 	}
     }
     
-
+    
     result_Z_on = 0;
     result_Z_off = 0;
     for( int t = 0; t < tmax; t++ ) { 
 	for(int d = 0; d < dmax+1; d++ ) {
-		result_Z_on += Z_on[t][d][idx];
-		result_Z_off += Z_off[t][d][idx];
+		result_Z_on += Z_on[n][t][d];
+		result_Z_off += Z_off[n][t][d];
 	}        
     }
+	
     return 1;
 }
 
+// TOSCA without interfactor cooperativity (fast version)
+int ExprFunc::compPartFunc_seq(double &result_Z_on, double &result_Z_off, int _seq_num, const vector< double >& factorConcs) const
+{
+
+    // The distance index
+    int dmax = max( coopDistThr, repressionDistThr );
+
+    // The binder index
+    int tmax = motifs.size();	
+    int n = seqs[_seq_num].size();
+
+
+    result_Z_on = 0;
+    result_Z_off = 0;
+
+    // recurrence 
+    int idx = 0;
+
+    for ( int t = 0; t < tmax; t++ ) {
+   // initialization of the partition sums with value 1
+    vector<vector<double> > Z_off (dmax + 1,vector <double>(n,1.0));
+    vector<vector<double> > Z_on  (dmax + 1,vector <double>(n,1.0)); 
+
+    int motif_length_tmp =  motifs[ t ].length();
+   
+	for ( int i = 1; i < n - motif_length_tmp; i++ ) {
+		   idx = i ;
+		   
+		   double sum_on = 1;
+		   double sum_off = 1;
+		   for (int d = 1; d < motif_length_tmp && d < i ; d++ ){
+			Z_on[d][idx] = Z_on[d-1][idx-1];
+			Z_off[d][idx] = Z_off[d-1][idx-1];
+		   } 
+		   for ( int d = motif_length_tmp; d < dmax && d < i; d++ ) {
+			Z_on[d][idx] = Z_on[d-1][idx-1];
+			Z_off[d][idx] = Z_off[d-1][idx-1];
+
+			sum_on  += compFactorInt( t, t, d ) * Z_on[d -motif_length_tmp][idx-motif_length_tmp] ;
+			sum_off += compFactorInt( t, t, d ) * Z_off[d - motif_length_tmp][idx-motif_length_tmp] ;
+			
+		   }
+
+      		   Sequence elem( seqs[_seq_num], i, motif_length_tmp , true );
+	           Sequence elem_comp( seqs[_seq_num], i, motif_length_tmp , false );
+        	   double binding_weight = par.maxBindingWts[ t ] * factorConcs[t] * (exp( -motifs[ t ].energy( elem ) ) + exp( -motifs[ t ].energy( elem_comp ) ));
+
+	           Z_on[0][idx] = par.txpEffects[ t ] *   binding_weight * sum_on;
+	           Z_off[0][idx] =  binding_weight * sum_off;
+ 
+		   Z_on[dmax][idx] = Z_on[dmax][idx-1] + Z_on[dmax-1][idx-1];
+		   Z_off[dmax][idx] = Z_off[dmax][idx-1] + Z_off[dmax-1][idx-1];
+	}
+	for(int d = 0; d < dmax+1; d++ ) {
+		result_Z_on += Z_on[d][idx];
+		result_Z_off += Z_off[d][idx];
+	}        
+    }
+    
+    return 1;
+}
 
 double ExprFunc::compPartFuncOffChrMod() const
 {
@@ -999,7 +1058,6 @@ double ExprFunc::compFactorInt( const Site& a, const Site& b ) const
 double ExprFunc::compFactorInt( int t_1, int t_2, int _dist  ) const
 {
 
-	
     double maxInt = par.factorIntMat( t_1, t_2 );
     int dist = _dist;
     assert( dist >= 0 );
@@ -1031,6 +1089,7 @@ ExprPredictor::ExprPredictor( const vector< SiteVec >& _seqSites, const vector< 
 
     motifNames = _motifNames;
     coopMat = _coopMat;
+
 
     assert( exprData.nRows() == nSeqs() );
     assert( factorExprData.nRows() == nFactors() && factorExprData.nCols() == nConds() );
@@ -1067,7 +1126,7 @@ double ExprPredictor::objFunc( const ExprPar& par )
 }
 
 int ExprPredictor::train( const ExprPar& par_init )
-{
+{   
     par_model = par_init;	// Initialise the model parameter
     par_curr = par_init;	// The working parameter, which get saved in case of an emergancy
     obj_model = objFunc( par_model );   
@@ -1083,12 +1142,14 @@ int ExprPredictor::train( const ExprPar& par_init )
     cout << "*******************************************" << endl << endl;
 
    if ( nAlternations > 0 && ExprPar::searchOption == CONSTRAINED ) par_model.adjust();
+
+    obj_model = objFunc( par_model ); 
     
     cout << "*** Diagnostic printing AFTER adjust() ***" << endl;
     cout << "Parameters: " << endl;
     printPar( par_model );
     cout << endl;
-//    cout << "Objective function value: " << obj_model << endl;
+    cout << "Objective function value: " << obj_model << endl;
     cout << "*******************************************" << endl << endl;
 
 
@@ -1108,9 +1169,9 @@ int ExprPredictor::train( const ExprPar& par_init )
         par_model = par_result; 
 	save_param();	
 
-//         par_model.adjust();
+        par_model.adjust();
 	cout << "Gradient minimisation: " << endl; 
-        gradient_minimize( par_result, obj_result );
+        //gradient_minimize( par_result, obj_result );
 	cout << endl;
 
 	// save result
@@ -1452,37 +1513,43 @@ double ExprPredictor::compRMSE( const ExprPar& par )
     // error of each sequence
     double squaredErr = 0;
 
+    //timeval start, end;
+    //gettimeofday(&start, 0);
+
 
     for ( int i = 0; i < nSeqs(); i++ ) {
-        vector< double > predictedExprs;
-        vector< double > observedExprs;
-        for ( int j = 0; j < nConds(); j++ ) {
-		double predicted = -1;
-            	vector< double > concs = factorExprData.getCol( j );
-		for( int _i = 0; _i < sizeof ( indices_of_crm_in_gene ) / sizeof ( int ); _i++ ){
-			if( i == indices_of_crm_in_gene[ _i ] ){
-				gene_crm_fout << i << "\t" << j << "\t";
-            			predicted = func->predictExpr( seqSites[ i ], seqLengths[i], concs, i, gene_crm_fout );
-				break;
-			}
-		}	
-		if ( predicted < 0 ){
-            		predicted = func->predictExpr( seqSites[ i ], seqLengths[i], concs, i );
-		}
-		
-            
-            // predicted expression for the i-th sequence at the j-th condition
-            predictedExprs.push_back( predicted );
-            
+
+        vector< double > predictedExprs (nConds(), -1);
+        vector< double > observedExprs (nConds(), 1);
+        vector < vector < double > > concs (nConds(), vector <double> (factorExprData.nRows(), 0) );
+        
+	#if TOSCA
+        #pragma omp parallel for schedule(dynamic)
+	#endif
+        for (int j = 0; j < nConds(); j++ ) {
+	
+            	concs[j] = factorExprData.getCol( j );
+		//for( int _i = 0; _i < sizeof ( indices_of_crm_in_gene ) / sizeof ( int ); _i++ ){
+		//	if( i == indices_of_crm_in_gene[ _i ] ){
+		//		gene_crm_fout << i << "\t" << j << "\t";
+           	//		predictedExprs[j] = func->predictExpr( seqSites[ i ], seqLengths[ i ], concs[j], i, gene_crm_fout );
+		//		break;
+		//	}
+		//}	
+		//if ( predictedExprs[j] < 0 ){
+            		predictedExprs[j] = func->predictExpr( seqSites[ i ], seqLengths[ i ], concs[j], i );
+		//}
+
             // observed expression for the i-th sequence at the j-th condition
-            double observed = exprData( i, j );
-            observedExprs.push_back( observed );
+            observedExprs[j] = exprData( i, j );
         }
+
         double beta;
         squaredErr += least_square( predictedExprs, observedExprs, beta );
 	
-
     }	
+    //gettimeofday(&end, 0);
+    //cout << "Time " << (end.tv_sec-start.tv_sec) << endl;
 
     double rmse = sqrt( squaredErr / ( nSeqs() * nConds() ) ); 
     return rmse;
@@ -1574,20 +1641,19 @@ double ExprPredictor::compNormCorr( const ExprPar& par )
             
     // Normalised correlation of each sequence
     double totalSim = 0;
-  timeval start, end;
-    gettimeofday(&start, 0);
+   // timeval start, end;
+    //gettimeofday(&start, 0);
 
 
     for ( int i = 0; i < nSeqs(); i++ ) {
 
-
         vector< double > predictedExprs (nConds(), -1);
         vector< double > observedExprs (nConds(), 1);
         vector < vector < double > > concs (nConds(), vector <double> (factorExprData.nRows(), 0) );
-       
-        #pragma omp parallel for schedule(dynamic) //reduction(+:totalSim)
+        
+        #pragma omp parallel for schedule(dynamic)//reduction(+:totalSim)
         for (int j = 0; j < nConds(); j++ ) {
-
+	
             	concs[j] = factorExprData.getCol( j );
 		//for( int _i = 0; _i < sizeof ( indices_of_crm_in_gene ) / sizeof ( int ); _i++ ){
 		//	if( i == indices_of_crm_in_gene[ _i ] ){
@@ -1608,8 +1674,8 @@ double ExprPredictor::compNormCorr( const ExprPar& par )
       totalSim += norm_corr( predictedExprs, observedExprs ); 
       //  cout << "Sequence " << i << "\t" << norm_corr( predictedExprs, observedExprs ) << endl;
     }	
-    gettimeofday(&end, 0);
-    cout << "Time " << end.tv_sec-start.tv_sec << endl;
+   //gettimeofday(&end, 0);
+    //cout << "Time " << (end.tv_sec-start.tv_sec) << endl;
 
     return totalSim / nSeqs();
 }
@@ -1712,7 +1778,7 @@ int ExprPredictor::simplex_minimize( ExprPar& par_result, double& obj_result )
         // print the current parameter and function values
 	#ifdef SHORT_OUTPUT
 	if(iter % SHORT_OUTPUT == 0){
-      		printf( "\r %i \t f() = %8.5f", iter, s->fval );	
+      		printf( "\r %zu \t f() = %8.5f", iter, s->fval );	
 		fflush(stdout);
 	}	
 	#else
@@ -1800,7 +1866,7 @@ int ExprPredictor::gradient_minimize( ExprPar& par_result, double& obj_result )
 		
 	// choose the method of optimization and set its parameters
 // 	const gsl_multimin_fdfminimizer_type* T = gsl_multimin_fdfminimizer_conjugate_pr;	
-    const gsl_multimin_fdfminimizer_type* T = gsl_multimin_fdfminimizer_vector_bfgs2; // Chose Broyden-Fletcher-Goldfarb-Shanno (BFGS) algorithm 
+    const gsl_multimin_fdfminimizer_type* T = gsl_multimin_fdfminimizer_vector_bfgs; // Chose Broyden-Fletcher-Goldfarb-Shanno (BFGS) algorithm 
 		
     // create the minimizer
     gsl_multimin_fdfminimizer* s = gsl_multimin_fdfminimizer_alloc( T, my_func.n );
@@ -1855,7 +1921,7 @@ int ExprPredictor::gradient_minimize( ExprPar& par_result, double& obj_result )
          // print the current parameter and function values
 	#ifdef SHORT_OUTPUT
 	if(iter % SHORT_OUTPUT == 0){
-        	printf( "\r %i \t f() = %8.5f", iter, s->f );
+        	printf( "\r %zu \t f() = %8.5f", iter, s->f );
 		fflush(stdout);
 	}
 	#else
@@ -2141,7 +2207,7 @@ double gsl_obj_f( const gsl_vector* v, void* params )
 void gsl_obj_df( const gsl_vector* v, void* params, gsl_vector* grad )
 {
     double step = 1.0E-3;
-    numeric_deriv( grad, gsl_obj_f, v, params, step );	
+    numeric_deriv( grad, gsl_obj_f, v, params, step );		
 }
 
 void gsl_obj_fdf( const gsl_vector* v, void* params, double* result, gsl_vector* grad )

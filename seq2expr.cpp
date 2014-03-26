@@ -39,7 +39,7 @@ int main( int argc, char* argv[] )
     double factorIntSigma = 50.0;   // sigma parameter for the Gaussian interaction function
     int repressionDistThr = 50;
     int maxContact = 1;
-	double eTF = 1.0;
+	double eTF = 0.5;
 
 	string free_fix_indicator_filename;
 	ExprPredictor::one_qbtm_per_crm = false;
@@ -112,7 +112,7 @@ int main( int argc, char* argv[] )
     ExprPredictor::min_delta_f_SSE = 1.0E-10;
     ExprPredictor::min_delta_f_Corr = 1.0E-10;
     ExprPredictor::min_delta_f_CrossCorr = 1.0E-10;
-    ExprPredictor::nSimplexIters = 400;
+    ExprPredictor::nSimplexIters = 1;
     ExprPredictor::nGradientIters = 250;
 
     int rval;
@@ -131,10 +131,10 @@ int main( int argc, char* argv[] )
     vector< string > condNames;  
     rval = readMatrix( exprFile, labels, condNames, data );
     assert( rval != RET_ERROR );
-    assert( labels.size() == nSeqs );
+  //  assert( labels.size() == nSeqs );
     for ( int i = 0; i < nSeqs; i++ ){
     	if( labels[ i ] != seqNames[ i ] ) cout << labels[i] << seqNames[i] << endl;
-	assert( labels[i] == seqNames[i] );
+	//assert( labels[i] == seqNames[i] );
     }
     Matrix exprData( data ); 
     int nConds = exprData.nCols();
@@ -191,6 +191,7 @@ int main( int argc, char* argv[] )
 
     #if SAVE_ENERGIES 
     // Write site energies to site_energies.txt	
+    cout << "Save site energies" << endl;
     ofstream site_energies;
     site_energies.open ("../data/site_energies.txt");
     for ( int i = 0; i < nSeqs; i++ ) {
@@ -198,6 +199,7 @@ int main( int argc, char* argv[] )
 	ann.printEnergy(site_energies ,seqSites[i]);
     }    
     site_energies.close();
+    cout << "Site energies saved" << endl;
     #endif //SAVE_ENERGIES
 
 
@@ -315,6 +317,7 @@ int main( int argc, char* argv[] )
 		}
 	}
 
+
     // CHECK POINT
 //     cout << "Sequences:" << endl;
 //     for ( int i = 0; i < seqs.size(); i++ ) cout << seqNames[i] << endl << seqs[i] << endl;
@@ -390,9 +393,8 @@ int main( int argc, char* argv[] )
 	gsl_rng_set( rng, time( 0 ) );		// set the seed equal to simulTime(0)
     
     // model fitting
-
-	
     predictor->train( par_init, rng );
+
 
     // print the training results
     cout << "Estimated values of parameters:" << endl;

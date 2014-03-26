@@ -1,6 +1,6 @@
 CC = g++ -fopenmp #-g for gdb
 
-GSL_DIR = usr/include
+GSL_DIR = usr/local
 
 INC = -I$(GSL_DIR)
 CFLAGS = -O3 $(INC) 

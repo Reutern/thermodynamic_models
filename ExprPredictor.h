@@ -233,6 +233,9 @@ private:
     // compute the partition function with BTM bound and unbound on a sequence basis 
     int compPartFunc_seq(double &result_Z_on, double &result_Z_off, int seq_num, const vector< double >& factorConcs) const;
 
+    // compute the partition function with BTM bound and unbound on a sequence basis (with interfactor interaction)
+    int compPartFunc_seq_interfactor(double &result_Z_on, double &result_Z_off, int seq_num, const vector< double >& factorConcs) const;
+
     // compute the partition function when the BTM is not bound: ChrMod model 
     double compPartFuncOffChrMod() const; 
     
