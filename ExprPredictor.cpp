@@ -689,7 +689,7 @@ int ExprFunc::compPartFunc_seq_interfactor(double &result_Z_on, double &result_Z
 		   }
 
       		   Sequence elem( seqs[_seq_num], idx_t, motif_length[t] , true );
-	           Sequence elem_comp( seqs[_seq_num], idx_t, motif_length[t] , false );
+	           Sequence elem_comp( elem, 0, motif_length[t] , false );
         	   double binding_weight = par.maxBindingWts[ t ] * factorConcs[t] * ( exp( -motifs[ t ].energy( elem ) ) + exp( -motifs[ t ].energy( elem_comp ) ) );
 
 	           Z_on[i][t][0] = par.txpEffects[ t ] * binding_weight * sum_on;
@@ -1513,8 +1513,8 @@ double ExprPredictor::compRMSE( const ExprPar& par )
     // error of each sequence
     double squaredErr = 0;
 
-    //timeval start, end;
-    //gettimeofday(&start, 0);
+    timeval start, end;
+    gettimeofday(&start, 0);
 
 
     for ( int i = 0; i < nSeqs(); i++ ) {
@@ -1548,8 +1548,8 @@ double ExprPredictor::compRMSE( const ExprPar& par )
         squaredErr += least_square( predictedExprs, observedExprs, beta );
 	
     }	
-    //gettimeofday(&end, 0);
-    //cout << "Time " << (end.tv_sec-start.tv_sec) << endl;
+    gettimeofday(&end, 0);
+    cout << "Time " << (end.tv_sec-start.tv_sec) << endl;
 
     double rmse = sqrt( squaredErr / ( nSeqs() * nConds() ) ); 
     return rmse;

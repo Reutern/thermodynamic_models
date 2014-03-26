@@ -58,10 +58,11 @@ vector< double > createNtDistr( double gcContent )
 
 Sequence::Sequence( const string& str )
 {
+    nts.resize(str.size());
     for ( int i = 0; i < str.size(); i++ ) {
         int nt = symbolToInt( str[ i ] );	// could be a NNN or gap
         if ( nt >= 0 && nt < ALPHABET_SIZE ) {
-            nts.push_back( nt );
+            nts[i] = nt ;
         } else {
             cerr << "Illegal symbol: " << nt << " in " << str << endl;
             exit( 0 );	
@@ -73,9 +74,11 @@ Sequence::Sequence( const Sequence& other, int start, int length, bool strand )
 {
     assert( start >= 0 && length >= 0 && ( start + length ) <= other.size() );	
 
+    nts.resize(length);
+
     for ( int i = 0; i < length; i++ ) {
-        if ( strand ) {	nts.push_back( other[ start + i ] ); }
-        else { nts.push_back( complement( other[ start + length - 1 - i ] ) ); }
+        if ( strand ) {	nts[i] = other[ start + i ] ; }
+        else { nts[i] = complement( other[ start + length - 1 - i ] ) ; }
     }	
 }
 
