@@ -112,7 +112,7 @@ int main( int argc, char* argv[] )
     ExprPredictor::min_delta_f_SSE = 1.0E-10;
     ExprPredictor::min_delta_f_Corr = 1.0E-10;
     ExprPredictor::min_delta_f_CrossCorr = 1.0E-10;
-    ExprPredictor::nSimplexIters = 1;
+    ExprPredictor::nSimplexIters = 400;
     ExprPredictor::nGradientIters = 250;
 
     int rval;

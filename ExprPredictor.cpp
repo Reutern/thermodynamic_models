@@ -661,20 +661,22 @@ int ExprFunc::compPartFunc_seq_interfactor(double &result_Z_on, double &result_Z
     int n = seqs[_seq_num].size();
 
     // initialization of the partition sums with value 1
-    vector<vector<vector<double> > > Z_off (n+1,vector<vector<double> >(tmax,vector <double>(dmax + 1,1.0)));
-    vector<vector<vector<double> > > Z_on  (n+1,vector<vector<double> >(tmax,vector <double>(dmax + 1,1.0))); 
+    vector<vector<vector<double> > > Z_off (n+1,vector<vector<double> >(tmax,vector <double>(dmax + 1,0.0)));
+    vector<vector<vector<double> > > Z_on  (n+1,vector<vector<double> >(tmax,vector <double>(dmax + 1,0.0))); 
+
+    //Z_on[motif_length[0]][0][dmax] = 1.0;
+    //Z_off[motif_length[0]][0][dmax] = 1.0;
 
     // recurrence 
-    int i = 1;
-    for (i = 1; i < n+1; i++ ) {
+    for (int i = 1; i < n+1; i++ ) {
 
 //	#pragma omp parallel for
 	for ( int t = 0; t < tmax; t++ ) {
 		   int idx_t = (i - motif_length[t]);
-		   if(idx_t < 0) continue;		   
+		   if(idx_t < 1) continue;	   
 
-		   double sum_on = 1;
-		   double sum_off = 1;
+		   double sum_on = 1.0;
+		   double sum_off = 1.0;
 		   for (int d = 1; d < dmax; d++ ){
 			Z_on[i][t][d] = Z_on[i-1][t][d-1];
 			Z_off[i][t][d] = Z_off[i-1][t][d-1];
@@ -682,15 +684,17 @@ int ExprFunc::compPartFunc_seq_interfactor(double &result_Z_on, double &result_Z
 
 		   for (int t_alt = 0; t_alt < tmax; t_alt++ ){ 
 			double int_factor = par.factorIntMat(t,t_alt);
-				for ( int d = motif_length[t]; d < dmax; d++ ) {
-					sum_on  += int_factor * Z_on[idx_t][t_alt][d - motif_length[t]] ;
-					sum_off += int_factor * Z_off[idx_t][t_alt][d - motif_length[t]] ;
+				for ( int d = motif_length[t]; d < dmax+1; d++ ) {
+					sum_on  += int_factor * Z_on[idx_t][t_alt][d] ;
+					sum_off += int_factor * Z_off[idx_t][t_alt][d] ;
 				}
 		   }
 
       		   Sequence elem( seqs[_seq_num], idx_t, motif_length[t] , true );
 	           Sequence elem_comp( elem, 0, motif_length[t] , false );
-        	   double binding_weight = par.maxBindingWts[ t ] * factorConcs[t] * ( exp( -motifs[ t ].energy( elem ) ) + exp( -motifs[ t ].energy( elem_comp ) ) );
+		   double e1 =  exp( -motifs[ t ].energy( elem ) );
+		   double e2 =  exp( -motifs[ t ].energy( elem_comp ) );
+        	   double binding_weight = par.maxBindingWts[ t ] * factorConcs[t] * ( e1+e2-e1*e2 );
 
 	           Z_on[i][t][0] = par.txpEffects[ t ] * binding_weight * sum_on;
 	           Z_off[i][t][0] =  binding_weight * sum_off;
@@ -701,15 +705,14 @@ int ExprFunc::compPartFunc_seq_interfactor(double &result_Z_on, double &result_Z
     }
     
     
-    result_Z_on = 0;
-    result_Z_off = 0;
+    result_Z_on = 1;
+    result_Z_off = 1;
     for( int t = 0; t < tmax; t++ ) { 
 	for(int d = 0; d < dmax+1; d++ ) {
 		result_Z_on += Z_on[n][t][d];
 		result_Z_off += Z_off[n][t][d];
 	}        
     }
-	
     return 1;
 }
 
@@ -1165,13 +1168,13 @@ int ExprPredictor::train( const ExprPar& par_init )
 	simplex_minimize( par_result, obj_result );
 	cout << endl;
 
-	// save result
+	//save result
         par_model = par_result; 
 	save_param();	
 
         par_model.adjust();
 	cout << "Gradient minimisation: " << endl; 
-        //gradient_minimize( par_result, obj_result );
+        gradient_minimize( par_result, obj_result );
 	cout << endl;
 
 	// save result
@@ -1513,8 +1516,8 @@ double ExprPredictor::compRMSE( const ExprPar& par )
     // error of each sequence
     double squaredErr = 0;
 
-    timeval start, end;
-    gettimeofday(&start, 0);
+    //timeval start, end;
+    //gettimeofday(&start, 0);
 
 
     for ( int i = 0; i < nSeqs(); i++ ) {
@@ -1548,8 +1551,8 @@ double ExprPredictor::compRMSE( const ExprPar& par )
         squaredErr += least_square( predictedExprs, observedExprs, beta );
 	
     }	
-    gettimeofday(&end, 0);
-    cout << "Time " << (end.tv_sec-start.tv_sec) << endl;
+    //gettimeofday(&end, 0);
+    //cout << "Time " << (end.tv_sec-start.tv_sec) << endl;
 
     double rmse = sqrt( squaredErr / ( nSeqs() * nConds() ) ); 
     return rmse;
