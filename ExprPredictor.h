@@ -26,7 +26,8 @@ enum ObjType {
     SSE,    // sum of squared error
     CORR,   // Pearson correlation
     CROSS_CORR,  // cross correlation (maximum in a range of shifts)
-    NORM_CORR	// normalised correlation
+    NORM_CORR,	// normalised correlation
+    PGP         // PGP score
 };
 
 ObjType getObjOption( const string& objOptionStr );
@@ -329,6 +330,7 @@ public:
     static double min_delta_f_Corr;     // the minimum change of the objective function under correlation
     static double min_delta_f_CrossCorr;    // the minimum change of the objective function under cross correlation
     static double min_delta_f_NormCorr;    // the minimum change of the objective function under normalised correlation
+    static double min_delta_f_PGP;            // the minimum change of the objective function under PGP
     static int nSimplexIters;       // maximum number of iterations for Simplex optimizer
     static int nGradientIters;      // maximum number of iterations for Gradient optimizer
     static bool one_qbtm_per_crm;
@@ -382,6 +384,7 @@ private:
     double compAvgCorr( const ExprPar& par );     	// the average Pearson correlation
     double compAvgCrossCorr( const ExprPar& par );    	// the average cross correlation -based similarity
     double compNormCorr( const ExprPar& par );		// the normalised correlation 
+    double compPGP( const ExprPar& par );              // the average cross correlation -based similarity
 
     // minimize the objective function, using the current model parameters as initial values
     int simplex_minimize( ExprPar& par_result, double& obj_result );	// simplex	

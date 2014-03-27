@@ -43,6 +43,7 @@ ObjType getObjOption( const string& objOptionStr )
     if ( toupperStr( objOptionStr ) == "CORR" ) return CORR;
     if ( toupperStr( objOptionStr ) == "CROSS_CORR" ) return CROSS_CORR;
     if ( toupperStr( objOptionStr ) == "NORM_CORR" ) return NORM_CORR;
+    if ( toupperStr( objOptionStr ) == "PGP" ) return PGP;
 
     cerr << "objOptionStr is not a valid option of objective function" << endl; 
     exit(1);
@@ -54,6 +55,7 @@ string getObjOptionStr( ObjType objOption )
     if ( objOption == CORR ) return "Corr";
     if ( objOption == CROSS_CORR ) return "Cross_Corr";
     if ( objOption == NORM_CORR ) return "Norm_Corr";
+    if ( objOption == PGP ) return "PGP";
 
     return "Invalid";
 }
@@ -1126,6 +1128,7 @@ double ExprPredictor::objFunc( const ExprPar& par )
     if ( objOption == CORR ) return -compAvgCorr( par );
     if ( objOption == CROSS_CORR ) return -compAvgCrossCorr( par ); 
     if ( objOption == NORM_CORR ) return -compNormCorr( par ); 
+    if ( objOption == PGP ) return -compPGP( par );
 }
 
 int ExprPredictor::train( const ExprPar& par_init )
@@ -1326,6 +1329,7 @@ double ExprPredictor::min_delta_f_SSE = 1.0E-8;
 double ExprPredictor::min_delta_f_Corr = 1.0E-8;
 double ExprPredictor::min_delta_f_CrossCorr = 1.0E-8;
 double ExprPredictor::min_delta_f_NormCorr = 1.0E-8;
+double ExprPredictor::min_delta_f_PGP = 1.0E-8;
 int ExprPredictor::nSimplexIters = 200;
 int ExprPredictor::nGradientIters = 50;
 bool ExprPredictor::one_qbtm_per_crm = true;
@@ -1680,6 +1684,30 @@ double ExprPredictor::compNormCorr( const ExprPar& par )
    //gettimeofday(&end, 0);
     //cout << "Time " << (end.tv_sec-start.tv_sec) << endl;
 
+    return totalSim / nSeqs();
+}
+
+double ExprPredictor::compPGP( const ExprPar& par )
+{
+    double totalSim = 0;
+    for ( int i = 0; i < nSeqs(); i++ )
+    {
+        vector< double > predictedExprs (nConds(), -1);
+        vector< double > observedExprs (nConds(), 1);
+        vector < vector < double > > concs (nConds(), vector <double> (factorExprData.nRows(), 0) );
+        
+	#if TOSCA
+        #pragma omp parallel for schedule(dynamic)
+	#endif
+        for (int j = 0; j < nConds(); j++ ) {
+            	concs[j] = factorExprData.getCol( j );
+            	predictedExprs[j] = func->predictExpr( seqSites[ i ], seqLengths[ i ], concs[j], i );
+		observedExprs[j] = exprData( i, j );
+        }
+
+        double beta;
+        totalSim += pgp( predictedExprs, observedExprs, beta );
+    }
     return totalSim / nSeqs();
 }
 

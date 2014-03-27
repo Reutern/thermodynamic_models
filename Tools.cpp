@@ -943,6 +943,71 @@ double norm_corr( const vector< double >& x, const vector< double >& y )
     return corr_xy;
 }
 
+double pgp( const vector<double>& profile1, const vector<double>& profile2, double& beta )
+{
+    double max2 = 0;
+    for ( int i = 0; i < profile2.size(); i++ )
+    {
+        if (profile2[i] > max2) max2 = profile2[i];
+    }
+
+    double max1 = 0;
+    for( int i = 0; i < profile1.size(); i++ )
+    {
+        if( profile1[ i ] > max1 ) max1 = profile1[ i ];
+    }
+
+    beta = max2/max1;
+
+    vector < double > scaled_profile1 = profile1;
+
+    for( int i = 0; i < profile1.size(); i++ )
+    {
+        scaled_profile1[ i ] *= beta;
+    }
+
+    double reward = 0;
+    double rewardnorm = 0;
+    for ( int i = 0; i < profile2.size(); i++ )
+    {
+        double p1 = scaled_profile1[i];           // prediction
+        double p2 = profile2[i];                  // real
+        if (p1 > max2) p1 = max2;
+        double minp12 = p1;
+        if (p2 < minp12) minp12 = p2;
+        reward += p2*minp12;
+        //cout << "DEBUG: " << p2 << "\t" << p1 <<"\t" << max2 << "\t" << minp12 << "\t" << reward << endl;
+        rewardnorm += p2*p2;
+    }
+    //cout << "DEBUG 1: " << reward << "\t" << rewardnorm << endl;
+    if (rewardnorm > 1e-10) reward /= rewardnorm;
+    else reward = 0;
+    //cout << "DEBUG 2: " << reward << endl;
+    double penalty = 0;
+    double penaltynorm = 0;
+    for ( int i = 0; i < profile2.size(); i++ )
+    {
+        double p1 = scaled_profile1[i];           // prediction
+        double p2 = profile2[i];                  // real
+        if (p1 > max2) p1 = max2;
+        double diff12 = p1 - p2;
+        if (diff12 < 0) diff12 = 0;
+        penalty += (max2-p2)*diff12;
+        penaltynorm += (max2-p2)*(max2-p2);
+    }
+    //cout << "DEBUG 3: " << penalty << "\t" << penaltynorm << endl;
+    if (penaltynorm > 1e-10) penalty /= penaltynorm;
+    else penalty = 0;
+    //cout << "DEBUG 4: " << penalty << endl;
+
+    double pgp = reward - penalty;
+    //if (pgp < 0) pgp = 0;
+
+    //assert(pgp >= 0 && pgp <= 1);
+    //return (1-pgp);
+    return (1+pgp)/2;
+}
+
 // check if a vector of real numbers is probablity mass function: return false if not
 bool isPmf( const vector< double > &p )
 {
