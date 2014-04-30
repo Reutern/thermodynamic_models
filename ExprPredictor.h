@@ -24,6 +24,7 @@ string getIntOptionStr( FactorIntType intOption );
 
 enum ObjType {
     SSE,    // sum of squared error
+    SSE_V,    // sum of squared error with variable variance
     CORR,   // Pearson correlation
     CROSS_CORR,  // cross correlation (maximum in a range of shifts)
     NORM_CORR,	// normalised correlation
@@ -381,6 +382,7 @@ private:
     
     // objective functions
     double compRMSE( const ExprPar& par );		// root mean square error between predicted and observed expressions
+    double compRMSE_variance( const ExprPar& par );	// root mean square error between predicted and observed expressions with the measurement error taken into account 
     double compAvgCorr( const ExprPar& par );     	// the average Pearson correlation
     double compAvgCrossCorr( const ExprPar& par );    	// the average cross correlation -based similarity
     double compNormCorr( const ExprPar& par );		// the normalised correlation 

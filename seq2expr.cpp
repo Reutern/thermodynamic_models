@@ -24,6 +24,8 @@
 #include "ExprPredictor.h"
 #include <time.h>
 #include <math.h> // for fmod
+#include "param.h" 
+
 
 
 int main( int argc, char* argv[] ) 
@@ -33,27 +35,31 @@ int main( int argc, char* argv[] )
     long time_start = time(NULL);
   
     // command line processing
-    string seqFile, annFile, exprFile, motifFile, factorExprFile, coopFile, factorInfoFile, repressionFile, parFile, axis_wtFile;
+    string seqFile, test_seqFile, annFile, exprFile, test_exprFile, motifFile, factorExprFile, coopFile, factorInfoFile, repressionFile, parFile, print_parFile, axis_wtFile;
     string outFile;     // output file
     int coopDistThr = 50;
     double factorIntSigma = 50.0;   // sigma parameter for the Gaussian interaction function
     int repressionDistThr = 50;
     int maxContact = 1;
-	double eTF = 0.5;
+	double eTF = 1.0;
 
 	string free_fix_indicator_filename;
 	ExprPredictor::one_qbtm_per_crm = false;
 	ExprPar::one_qbtm_per_crm = false;
 	ExprFunc::one_qbtm_per_crm = false;
 
-    ExprPredictor::nAlternations = 5;
+    ExprPredictor::nAlternations = 3;
     for ( int i = 1; i < argc; i++ ) {
         if ( !strcmp( "-s", argv[ i ] ) )
             seqFile = argv[ ++i ];
+        else if ( !strcmp( "-ts", argv[ i ] ) )
+            test_seqFile = argv[ ++i ];
         else if ( !strcmp( "-a", argv[ i ] ) )
             annFile = argv[ ++i ];      
         else if ( !strcmp( "-e", argv[ i ] ) )
             exprFile = argv[ ++i ];            
+        else if ( !strcmp( "-te", argv[ i ] ) )
+            test_exprFile = argv[ ++i ];            
         else if ( !strcmp( "-m", argv[ i ] ) )
             motifFile = argv[ ++i ];
         else if ( !strcmp( "-f", argv[ i ] ) )
@@ -74,6 +80,8 @@ int main( int argc, char* argv[] )
             outFile = argv[++i];    
         else if ( !strcmp( "-p", argv[i] ) )
             parFile = argv[++i]; 
+        else if ( !strcmp( "-pp", argv[i] ) )
+            print_parFile = argv[++i]; 
 	else if ( !strcmp( "-wt", argv[ i ]) )
 		axis_wtFile = argv[ ++ i ];
         else if ( !strcmp( "-ct", argv[i] ) )
@@ -95,7 +103,7 @@ int main( int argc, char* argv[] )
             eTF = atof( argv[ ++i ] );    
     }
     if ( seqFile.empty() || exprFile.empty() || motifFile.empty() || factorExprFile.empty() || outFile.empty() || ( ( ExprPredictor::modelOption == QUENCHING || ExprPredictor::modelOption == CHRMOD_UNLIMITED || ExprPredictor::modelOption == CHRMOD_LIMITED ) &&  factorInfoFile.empty() ) || ( ExprPredictor::modelOption == QUENCHING && repressionFile.empty() ) ) {
-        cerr << "Usage: " << argv[ 0 ] << " -s seqFile -e exprFile -m motifFile -f factorExprFile -fo outFile [-a annFile -o modelOption -c coopFile -i factorInfoFile -r repressionFile -oo objOption -mc maxContact -p parFile -rt repressionDistThr -na nAlternations -ct coopDistThr -sigma factorIntSigma]" << endl;
+        cerr << "Usage: " << argv[ 0 ] << " -s seqFile -ts test_seqFile -e exprFile -te test_exprFile -m motifFile -f factorExprFile -fo outFile [-a annFile -o modelOption -c coopFile -i factorInfoFile -r repressionFile -oo objOption -mc maxContact -p parFile -pp print_parFile -rt repressionDistThr -na nAlternations -ct coopDistThr -sigma factorIntSigma]" << endl;
         cerr << "modelOption: Logistic, Direct, Quenching, ChrMod_Unlimited, ChrMod_Limited" << endl;
         exit( 1 );
     }           
@@ -112,7 +120,7 @@ int main( int argc, char* argv[] )
     ExprPredictor::min_delta_f_SSE = 1.0E-10;
     ExprPredictor::min_delta_f_Corr = 1.0E-10;
     ExprPredictor::min_delta_f_CrossCorr = 1.0E-10;
-    ExprPredictor::nSimplexIters = 400;
+    ExprPredictor::nSimplexIters = 1000;
     ExprPredictor::nGradientIters = 250;
 
     int rval;
@@ -363,12 +371,12 @@ int main( int argc, char* argv[] )
     cout << endl;
     #endif // PRINT_STATISTICS
     // create the expression predictor
-    FactorIntFunc* intFunc; 
-    if ( intOption == BINARY ) intFunc = new FactorIntFuncBinary( coopDistThr ); 
-    else if ( intOption == GAUSSIAN ) intFunc = new FactorIntFuncGaussian( coopDistThr, factorIntSigma );
-    else {
-        cerr << "Interaction Function is invalid " << endl; exit( 1 ); 
-    }
+//    FactorIntFunc* intFunc; 
+//    if ( intOption == BINARY ) intFunc = new FactorIntFuncBinary( coopDistThr ); 
+//    else if ( intOption == GAUSSIAN ) intFunc = new FactorIntFuncGaussian( coopDistThr, factorIntSigma );
+//    else {
+//        cerr << "Interaction Function is invalid " << endl; exit( 1 ); 
+//    }
 
  // read the initial parameter values
     ExprPar par_init( nFactors, nSeqs );
@@ -397,9 +405,17 @@ int main( int argc, char* argv[] )
 
 
     // print the training results
-    cout << "Estimated values of parameters:" << endl;
+
     ExprPar par = predictor->getPar();
-    par.print( cout, motifNames, coopMat );
+    // print the parameter
+    ofstream pout( print_parFile.c_str() );
+    if ( !pout ) {
+        cout << "Estimated values of parameters:" << endl;
+        par.print( cout, motifNames, coopMat );
+    }
+    else {
+        par.print( pout, motifNames, coopMat );
+    }
     cout << "Performance = " << setprecision( 5 ) << ( ExprPredictor::objOption == SSE ? predictor->getObj() : -predictor->getObj() ) << endl;
 
     // print the predictions
@@ -410,7 +426,59 @@ int main( int argc, char* argv[] )
     }
     fout << "Rows\t" << condNames << endl;
 
+    #if CROSS_VALIDATION
 
+    // read the sequences
+    vector< Sequence > test_seqs;
+    vector< string > test_seqNames;
+    rval = readSequences( test_seqFile, test_seqs, test_seqNames );
+    assert( rval != RET_ERROR );
+    int test_nSeqs = test_seqs.size();
+
+    // read the expression data
+    rval = readMatrix( test_exprFile, labels, condNames, data );
+    assert( rval != RET_ERROR );
+  //  assert( labels.size() == nSeqs );
+    for ( int i = 0; i < test_nSeqs; i++ ){
+    	if( labels[ i ] != test_seqNames[ i ] ) cout << labels[i] << test_seqNames[i] << endl;
+	//assert( labels[i] == seqNames[i] );
+    }
+    Matrix test_exprData( data ); 
+
+    // site representation of the sequences
+	
+    vector< SiteVec > test_seqSites( test_nSeqs );
+    vector< int > test_seqLengths( test_nSeqs );
+    if ( annFile.empty() ) {        // construct site representation
+        for ( int i = 0; i < test_nSeqs; i++ ) {
+		//cout << "Annotated sites for CRM: " << seqNames[i] << endl;
+            	ann.annot( test_seqs[ i ], test_seqSites[ i ] );
+            	test_seqLengths[i] = test_seqs[i].size();
+        }
+    } else {    // read the site representation and compute the energy of sites
+        rval = readSites( annFile, factorIdxMap, test_seqSites, true );
+        assert( rval != RET_ERROR );
+        for ( int i = 0; i < nSeqs; i++ ) {
+            ann.compEnergy( test_seqs[i], test_seqSites[i] );
+            test_seqLengths[i] = test_seqs[i].size();
+        }
+    }
+
+
+    for ( int i = 0; i < test_nSeqs; i++ ) {
+        vector< double > targetExprs;
+        predictor->predict( test_seqSites[i], test_seqLengths[i], targetExprs, i );
+        vector< double > observedExprs = test_exprData.getRow( i );
+        
+        // print the results
+        fout << test_seqNames[i] << "\t" << observedExprs << endl;      // observations
+        fout << test_seqNames[i];
+
+        for ( int j = 0; j < nConds; j++ ) fout << "\t" << targetExprs[j];       // predictions
+        fout << endl;
+    }
+
+    #else
     for ( int i = 0; i < nSeqs; i++ ) {
         vector< double > targetExprs;
         predictor->predict( seqSites[i], seqLengths[i], targetExprs, i );
@@ -430,7 +498,9 @@ int main( int argc, char* argv[] )
         // print the agreement bewtween predictions and observations
         cout << seqNames[i] << "\t" << beta << "\t"; 
         if ( ExprPredictor::objOption == SSE ) 
-            cout << error << endl;
+            cout << error << endl;       
+	else if ( ExprPredictor::objOption == SSE_V ) 
+            cout << least_square_variance( targetExprs, observedExprs, beta, 1.0 ) << endl;
         else if ( ExprPredictor::objOption == CORR ) 
             cout << corr( targetExprs, observedExprs ) << endl;
         else if ( ExprPredictor::objOption == CROSS_CORR )
@@ -438,6 +508,7 @@ int main( int argc, char* argv[] )
         else if ( ExprPredictor::objOption == NORM_CORR )
             cout << norm_corr( observedExprs, targetExprs ) << endl; 
     }
+    #endif // CROSS_VALIDATION
 
 
 

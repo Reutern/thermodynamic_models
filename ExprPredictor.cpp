@@ -40,6 +40,7 @@ string getIntOptionStr( FactorIntType intOption )
 ObjType getObjOption( const string& objOptionStr )
 {
     if ( toupperStr( objOptionStr ) == "SSE" ) return SSE;
+    if ( toupperStr( objOptionStr ) == "SSE_V" ) return SSE_V;
     if ( toupperStr( objOptionStr ) == "CORR" ) return CORR;
     if ( toupperStr( objOptionStr ) == "CROSS_CORR" ) return CROSS_CORR;
     if ( toupperStr( objOptionStr ) == "NORM_CORR" ) return NORM_CORR;
@@ -52,6 +53,7 @@ ObjType getObjOption( const string& objOptionStr )
 string getObjOptionStr( ObjType objOption )
 {
     if ( objOption == SSE ) return "SSE";
+    if ( objOption == SSE_V ) return "SSE_V";
     if ( objOption == CORR ) return "Corr";
     if ( objOption == CROSS_CORR ) return "Cross_Corr";
     if ( objOption == NORM_CORR ) return "Norm_Corr";
@@ -465,7 +467,7 @@ ExprFunc::ExprFunc( const vector< Motif >& _motifs, const vector< bool >& _actIn
     
 
     int nFactors = par.nFactors();
-    assert( motifs.size() == nFactors );
+    assert( motifs.size() == nFactors ); 
     assert( actIndicators.size() == nFactors );
     assert( repIndicators.size() == nFactors );
     assert( repressionMat.isSquare() && repressionMat.nRows() == nFactors );
@@ -507,10 +509,12 @@ double ExprFunc::predictExpr( const SiteVec& _sites, int length, const vector< d
     }	
     
     // compute the Boltzman weights of binding for all sites
-    bindingWts.push_back( 1.0 );
+    bindingWts.resize(n+1);
+    bindingWts[0] = 1.0;
     for ( int i = 1; i <= n; i++ ) {
-        bindingWts.push_back( par.maxBindingWts[ sites[i].factorIdx ] * factorConcs[sites[i].factorIdx] * sites[i].wtRatio );	
+        bindingWts[i] = par.maxBindingWts[ sites[i].factorIdx ] * factorConcs[sites[i].factorIdx] * sites[i].wtRatio ;	
     }
+
 
     // Logistic model
     if ( modelOption == LOGISTIC ) {
@@ -532,9 +536,18 @@ double ExprFunc::predictExpr( const SiteVec& _sites, int length, const vector< d
         return logistic( par.basalTxps[ promoter_number ] + totalEffect );
     }
 
+    double Z_off = 0;
+    double Z_on = 0;
 
-    double Z_off = compPartFuncOff();
-    double Z_on = compPartFuncOn();
+    #pragma omp parallel sections
+      {
+         #pragma omp section
+         Z_off = compPartFuncOff();
+
+         #pragma omp section
+         Z_on = compPartFuncOn();
+      }
+    
     #endif //TOSCA
 
 
@@ -581,9 +594,10 @@ double ExprFunc::predictExpr( const SiteVec& _sites, int length, const vector< d
     }	
     
     // compute the Boltzman weights of binding for all sites
-    bindingWts.push_back( 1.0 );
+    bindingWts.resize(n+1);
+    bindingWts[0] = 1.0;
     for ( int i = 1; i <= n; i++ ) {
-        bindingWts.push_back( par.maxBindingWts[ sites[i].factorIdx ] * factorConcs[sites[i].factorIdx] * sites[i].wtRatio );	
+        bindingWts[i] = par.maxBindingWts[ sites[i].factorIdx ] * factorConcs[sites[i].factorIdx] * sites[i].wtRatio ;	
     }
 
     // Logistic model
@@ -608,9 +622,23 @@ double ExprFunc::predictExpr( const SiteVec& _sites, int length, const vector< d
 
     // Thermodynamic models: Direct, Quenching, ChrMod_Unlimited and ChrMod_Limited
     // compute the partition functions
+    double Z_off = 0;
+    double Z_on = 0;
 
-    double Z_off = compPartFuncOff();
-    double Z_on = compPartFuncOn();
+   //timeval start, end;
+   //gettimeofday(&start, 0);
+
+    #pragma omp parallel sections
+      {
+         #pragma omp section
+         Z_off = compPartFuncOff();
+
+         #pragma omp section
+         Z_on = compPartFuncOn();
+      }
+    //gettimeofday(&end, 0);
+    //cout << "Time " << (end.tv_sec-start.tv_sec)+1e-6*(end.tv_usec-start.tv_usec) << endl;    
+
     #endif //TOSCA
 
     // compute the expression (promoter occupancy)
@@ -696,7 +724,7 @@ int ExprFunc::compPartFunc_seq_interfactor(double &result_Z_on, double &result_Z
 	           Sequence elem_comp( elem, 0, motif_length[t] , false );
 		   double e1 =  exp( -motifs[ t ].energy( elem ) );
 		   double e2 =  exp( -motifs[ t ].energy( elem_comp ) );
-        	   double binding_weight = par.maxBindingWts[ t ] * factorConcs[t] * ( e1+e2-e1*e2 );
+        	   double binding_weight = par.maxBindingWts[ t ] * factorConcs[t] * ( e1+e2 );
 
 	           Z_on[i][t][0] = par.txpEffects[ t ] * binding_weight * sum_on;
 	           Z_off[i][t][0] =  binding_weight * sum_off;
@@ -1125,6 +1153,7 @@ ExprPredictor::ExprPredictor( const vector< SiteVec >& _seqSites, const vector< 
 double ExprPredictor::objFunc( const ExprPar& par ) 
 {
     if ( objOption == SSE ) return compRMSE( par );	
+    if ( objOption == SSE_V ) return compRMSE_variance( par );	
     if ( objOption == CORR ) return -compAvgCorr( par );
     if ( objOption == CROSS_CORR ) return -compAvgCrossCorr( par ); 
     if ( objOption == NORM_CORR ) return -compNormCorr( par ); 
@@ -1139,7 +1168,7 @@ int ExprPredictor::train( const ExprPar& par_init )
 
     signal(SIGINT, catch_signal);
 
-
+/*
     cout << "*** Diagnostic printing BEFORE adjust() ***" << endl;
     cout << "Parameters: " << endl;
     printPar( par_curr );
@@ -1148,16 +1177,16 @@ int ExprPredictor::train( const ExprPar& par_init )
     cout << "*******************************************" << endl << endl;
 
    if ( nAlternations > 0 && ExprPar::searchOption == CONSTRAINED ) par_model.adjust();
-
+*/
     obj_model = objFunc( par_model ); 
-    
+/*    
     cout << "*** Diagnostic printing AFTER adjust() ***" << endl;
     cout << "Parameters: " << endl;
     printPar( par_model );
     cout << endl;
     cout << "Objective function value: " << obj_model << endl;
     cout << "*******************************************" << endl << endl;
-
+*/
 
 
     if ( nAlternations == 0 ) return 0;
@@ -1175,7 +1204,7 @@ int ExprPredictor::train( const ExprPar& par_init )
         par_model = par_result; 
 	save_param();	
 
-        par_model.adjust();
+        //par_model.adjust();
 	cout << "Gradient minimisation: " << endl; 
         gradient_minimize( par_result, obj_result );
 	cout << endl;
@@ -1555,12 +1584,63 @@ double ExprPredictor::compRMSE( const ExprPar& par )
         squaredErr += least_square( predictedExprs, observedExprs, beta );
 	
     }	
-    //gettimeofday(&end, 0);
-    //cout << "Time " << (end.tv_sec-start.tv_sec) << endl;
+   // gettimeofday(&end, 0);
+    //cout << "Time " << (end.tv_sec-start.tv_sec)+1e-6*(end.tv_usec-start.tv_usec) << endl;
 
     double rmse = sqrt( squaredErr / ( nSeqs() * nConds() ) ); 
     return rmse;
 }
+
+double ExprPredictor::compRMSE_variance( const ExprPar& par ) 
+{
+    // create the expression function
+    ExprFunc* func = createExprFunc( par );
+
+    // error of each sequence
+    double squaredErr = 0;
+
+    //timeval start, end;
+    //gettimeofday(&start, 0);
+
+
+    for ( int i = 0; i < nSeqs(); i++ ) {
+
+        vector< double > predictedExprs (nConds(), -1);
+        vector< double > observedExprs (nConds(), 1);
+        vector < vector < double > > concs (nConds(), vector <double> (factorExprData.nRows(), 0) );
+        
+	#if TOSCA
+        #pragma omp parallel for schedule(dynamic)
+	#endif
+        for (int j = 0; j < nConds(); j++ ) {
+	
+            	concs[j] = factorExprData.getCol( j );
+		//for( int _i = 0; _i < sizeof ( indices_of_crm_in_gene ) / sizeof ( int ); _i++ ){
+		//	if( i == indices_of_crm_in_gene[ _i ] ){
+		//		gene_crm_fout << i << "\t" << j << "\t";
+           	//		predictedExprs[j] = func->predictExpr( seqSites[ i ], seqLengths[ i ], concs[j], i, gene_crm_fout );
+		//		break;
+		//	}
+		//}	
+		//if ( predictedExprs[j] < 0 ){
+            		predictedExprs[j] = func->predictExpr( seqSites[ i ], seqLengths[ i ], concs[j], i );
+		//}
+
+            // observed expression for the i-th sequence at the j-th condition
+            observedExprs[j] = exprData( i, j );
+        }
+
+        double beta;
+        squaredErr += least_square_variance( predictedExprs, observedExprs, beta, 1.0 );
+	
+    }	
+   // gettimeofday(&end, 0);
+    //cout << "Time " << (end.tv_sec-start.tv_sec)+1e-6*(end.tv_usec-start.tv_usec) << endl;
+
+    double rmse = sqrt( squaredErr / ( nSeqs() * nConds() ) ); 
+    return rmse;
+}
+
 
 double ExprPredictor::compAvgCorr( const ExprPar& par ) 
 {
@@ -1658,7 +1738,9 @@ double ExprPredictor::compNormCorr( const ExprPar& par )
         vector< double > observedExprs (nConds(), 1);
         vector < vector < double > > concs (nConds(), vector <double> (factorExprData.nRows(), 0) );
         
-        #pragma omp parallel for schedule(dynamic)//reduction(+:totalSim)
+ 	#if TOSCA
+        #pragma omp parallel for schedule(dynamic)
+	#endif
         for (int j = 0; j < nConds(); j++ ) {
 	
             	concs[j] = factorExprData.getCol( j );
@@ -1689,6 +1771,8 @@ double ExprPredictor::compNormCorr( const ExprPar& par )
 
 double ExprPredictor::compPGP( const ExprPar& par )
 {
+    // create the expression function
+    ExprFunc* func = createExprFunc( par );
     double totalSim = 0;
     for ( int i = 0; i < nSeqs(); i++ )
     {

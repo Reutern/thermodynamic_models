@@ -6,7 +6,7 @@ OUTPUT_PATH="../data"
 
  ./seq2expr \
 -s $INPUT_PATH/seqs_segal.fa  \
--e $INPUT_PATH/expr_segal.tab \
+-e $INPUT_PATH/expr_smooth.tab \
 -m $INPUT_PATH/factors_propria.wtmx \
 -c $INPUT_PATH/coop.txt \
 -f $INPUT_PATH/factor_expr_segal.tab \

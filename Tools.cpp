@@ -901,13 +901,13 @@ double least_square( const vector< double >& x, const vector< double >& y, doubl
     assert( x.size() == y.size() );
     int n = x.size();
 
-    double numerator = 0, denom = 0;
-    for ( int i = 0; i < n; i++ ) {
-        numerator += x[i] * y[i];
-        denom += x[i] * x[i];
-    }
-    beta = numerator / denom;
-    //beta = 1;
+//    double numerator = 0, denom = 0;
+//    for ( int i = 0; i < n; i++ ) {
+//       numerator += x[i] * y[i];
+//        denom += x[i] * x[i];
+//    }
+//    beta = numerator / denom;
+    beta = 1;
     double rss = 0;
     for ( int i = 0; i < n; i++ ) {
         rss += ( y[i] - beta * x[i] ) * ( y[i] - beta * x[i] );
@@ -915,6 +915,31 @@ double least_square( const vector< double >& x, const vector< double >& y, doubl
 
     return rss;
 }
+
+// The least_square_variance function works like the least_square function, but the measurement error of the training data set is incorporated
+// The error of the measuremnt increases with signal intensity (expression level)
+
+double least_square_variance( const vector< double >& x, const vector< double >& y, double& beta, double background_measurement_error )
+{
+    assert( x.size() == y.size() );
+    assert(background_measurement_error > 0.0 );
+    int n = x.size();
+
+//    double numerator = 0, denom = 0;
+//    for ( int i = 0; i < n; i++ ) {
+//       numerator += x[i] * y[i];
+//        denom += x[i] * x[i];
+//    }
+//    beta = numerator / denom;
+    beta = 1;
+    double rss = 0;
+    for ( int i = 0; i < n; i++ ) {
+        rss += ( y[i] - beta * x[i] ) * ( y[i] - beta * x[i] ) / ( background_measurement_error + y[i] );
+    }
+
+    return rss;
+}
+
 
 // The normalised correlation of to vectors (scalar-product divided by both norms)
 double norm_corr( const vector< double >& x, const vector< double >& y )
