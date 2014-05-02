@@ -44,6 +44,7 @@ ObjType getObjOption( const string& objOptionStr )
     if ( toupperStr( objOptionStr ) == "CORR" ) return CORR;
     if ( toupperStr( objOptionStr ) == "CROSS_CORR" ) return CROSS_CORR;
     if ( toupperStr( objOptionStr ) == "NORM_CORR" ) return NORM_CORR;
+    if ( toupperStr( objOptionStr ) == "NORM_CORR_V" ) return NORM_CORR_V;
     if ( toupperStr( objOptionStr ) == "PGP" ) return PGP;
 
     cerr << "objOptionStr is not a valid option of objective function" << endl; 
@@ -57,6 +58,7 @@ string getObjOptionStr( ObjType objOption )
     if ( objOption == CORR ) return "Corr";
     if ( objOption == CROSS_CORR ) return "Cross_Corr";
     if ( objOption == NORM_CORR ) return "Norm_Corr";
+    if ( objOption == NORM_CORR_V ) return "Norm_Corr_V";
     if ( objOption == PGP ) return "PGP";
 
     return "Invalid";
@@ -1157,6 +1159,7 @@ double ExprPredictor::objFunc( const ExprPar& par )
     if ( objOption == CORR ) return -compAvgCorr( par );
     if ( objOption == CROSS_CORR ) return -compAvgCrossCorr( par ); 
     if ( objOption == NORM_CORR ) return -compNormCorr( par ); 
+    if ( objOption == NORM_CORR_V ) return -compNormCorr_variance( par ); 
     if ( objOption == PGP ) return -compPGP( par );
 }
 
@@ -1768,6 +1771,55 @@ double ExprPredictor::compNormCorr( const ExprPar& par )
 
     return totalSim / nSeqs();
 }
+
+double ExprPredictor::compNormCorr_variance (const ExprPar& par ) 
+{
+    // create the expression function
+    ExprFunc* func = createExprFunc( par );
+            
+    // Normalised correlation of each sequence
+    double totalSim = 0;
+   // timeval start, end;
+    //gettimeofday(&start, 0);
+
+
+    for ( int i = 0; i < nSeqs(); i++ ) {
+
+        vector< double > predictedExprs (nConds(), -1);
+        vector< double > observedExprs (nConds(), 1);
+        vector < vector < double > > concs (nConds(), vector <double> (factorExprData.nRows(), 0) );
+        
+ 	#if TOSCA
+        #pragma omp parallel for schedule(dynamic)
+	#endif
+        for (int j = 0; j < nConds(); j++ ) {
+	
+            	concs[j] = factorExprData.getCol( j );
+		//for( int _i = 0; _i < sizeof ( indices_of_crm_in_gene ) / sizeof ( int ); _i++ ){
+		//	if( i == indices_of_crm_in_gene[ _i ] ){
+		//		gene_crm_fout << i << "\t" << j << "\t";
+           	//		predictedExprs[j] = func->predictExpr( seqSites[ i ], seqLengths[ i ], concs[j], i, gene_crm_fout );
+		//		break;
+		//	}
+		//}	
+		//if ( predictedExprs[j] < 0 ){
+            		predictedExprs[j] = func->predictExpr( seqSites[ i ], seqLengths[ i ], concs[j], i );
+		//}
+
+            // observed expression for the i-th sequence at the j-th condition
+            observedExprs[j] = exprData( i, j );
+        }
+
+	
+      totalSim += norm_corr_variance( predictedExprs, observedExprs, 1.0 ); 
+      //  cout << "Sequence " << i << "\t" << norm_corr( predictedExprs, observedExprs ) << endl;
+    }	
+   //gettimeofday(&end, 0);
+    //cout << "Time " << (end.tv_sec-start.tv_sec) << endl;
+
+    return totalSim / nSeqs();
+}
+
 
 double ExprPredictor::compPGP( const ExprPar& par )
 {

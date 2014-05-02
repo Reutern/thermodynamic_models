@@ -918,6 +918,7 @@ double least_square( const vector< double >& x, const vector< double >& y, doubl
 
 // The least_square_variance function works like the least_square function, but the measurement error of the training data set is incorporated
 // The error of the measuremnt increases with signal intensity (expression level)
+// Measurement data must be second parameter y
 
 double least_square_variance( const vector< double >& x, const vector< double >& y, double& beta, double background_measurement_error )
 {
@@ -967,6 +968,32 @@ double norm_corr( const vector< double >& x, const vector< double >& y )
     
     return corr_xy;
 }
+
+// The normalised correlation of to vectors with variance measure (scalar-product divided by both norms)
+double norm_corr_variance( const vector< double >& x, const vector< double >& y, double background_measurement_error )
+{
+    if ( x.size() != y.size() ) return RET_ERROR; 
+    if ( x.size() == 0 ) return RET_ERROR;
+
+    int n = x.size();		// length of the vectors x and y
+
+    // Norms of x and y, scalar-product of x and y 
+    double norm_2_x = 0; 
+    double norm_2_y = 0;
+    double sum = 0;
+    double variance_invert = 1.0;
+    for ( int s = 0; s < n; s++ ) {
+	variance_invert = 1.0  / ( background_measurement_error + y[s] );
+        norm_2_x +=  x[s] * x[s] * variance_invert;
+        norm_2_y +=  y[s] * y[s] * variance_invert; 
+        sum += x[s] * y[s] * variance_invert;
+    }
+   
+    double corr_xy = sum / sqrt( norm_2_x * norm_2_y );
+    
+    return corr_xy;
+}
+
 
 double pgp( const vector<double>& profile1, const vector<double>& profile2, double& beta )
 {

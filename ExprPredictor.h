@@ -28,6 +28,7 @@ enum ObjType {
     CORR,   // Pearson correlation
     CROSS_CORR,  // cross correlation (maximum in a range of shifts)
     NORM_CORR,	// normalised correlation
+    NORM_CORR_V,// normalised correlation with variable variance
     PGP         // PGP score
 };
 
@@ -386,6 +387,7 @@ private:
     double compAvgCorr( const ExprPar& par );     	// the average Pearson correlation
     double compAvgCrossCorr( const ExprPar& par );    	// the average cross correlation -based similarity
     double compNormCorr( const ExprPar& par );		// the normalised correlation 
+    double compNormCorr_variance (const ExprPar& par ); // the normalised correlation with variable variance 
     double compPGP( const ExprPar& par );              // the average cross correlation -based similarity
 
     // minimize the objective function, using the current model parameters as initial values

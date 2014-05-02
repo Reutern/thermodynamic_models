@@ -310,6 +310,9 @@ double least_square_variance( const vector< double >& x, const vector< double >&
 // The normalised correlation of to vectors (scalar-product divided by both norms)
 double norm_corr( const vector< double >& x, const vector< double >& y );
 
+// The normalised correlation of to vectors with variance measure (scalar-product divided by both norms)
+double norm_corr_variance( const vector< double >& x, const vector< double >& y, double background_measurement_error );
+
 // pgp of v1 and v2. they must have equal sizes
 double pgp ( const vector< double >& x, const vector< double >& y, double& beta );
 
