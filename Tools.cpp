@@ -901,13 +901,12 @@ double least_square( const vector< double >& x, const vector< double >& y, doubl
     assert( x.size() == y.size() );
     int n = x.size();
 
-//    double numerator = 0, denom = 0;
-//    for ( int i = 0; i < n; i++ ) {
-//       numerator += x[i] * y[i];
-//        denom += x[i] * x[i];
-//    }
-//    beta = numerator / denom;
-    beta = 1;
+    double numerator = 0, denom = 0;
+    for ( int i = 0; i < n; i++ ) {
+       numerator += x[i] * y[i];
+        denom += x[i] * x[i];
+    }
+    beta = numerator / denom;
     double rss = 0;
     for ( int i = 0; i < n; i++ ) {
         rss += ( y[i] - beta * x[i] ) * ( y[i] - beta * x[i] );

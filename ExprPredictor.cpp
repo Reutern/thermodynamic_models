@@ -1562,6 +1562,8 @@ double ExprPredictor::compRMSE( const ExprPar& par )
         vector< double > observedExprs (nConds(), 1);
         vector < vector < double > > concs (nConds(), vector <double> (factorExprData.nRows(), 0) );
         
+	double weight = 0;			// For different weights of the enhancers 
+
 	#if TOSCA
         #pragma omp parallel for schedule(dynamic)
 	#endif
@@ -1581,10 +1583,13 @@ double ExprPredictor::compRMSE( const ExprPar& par )
 
             // observed expression for the i-th sequence at the j-th condition
             observedExprs[j] = exprData( i, j );
+	    weight += observedExprs[j];				// The weight of an enhancer is proportional to its expression width
         }
 
+	weight = ( 100 - weight ) / 100.0;			// Transformation of the weight from 0 - 100 to 1 - 0
+
         double beta;
-        squaredErr += least_square( predictedExprs, observedExprs, beta );
+        squaredErr += weight * least_square( predictedExprs, observedExprs, beta );
 	
     }	
    // gettimeofday(&end, 0);
