@@ -40,6 +40,7 @@ string getIntOptionStr( FactorIntType intOption )
 ObjType getObjOption( const string& objOptionStr )
 {
     if ( toupperStr( objOptionStr ) == "SSE" ) return SSE;
+    if ( toupperStr( objOptionStr ) == "SSE_scale" ) return SSE_SCALE;
     if ( toupperStr( objOptionStr ) == "SSE_V" ) return SSE_V;
     if ( toupperStr( objOptionStr ) == "CORR" ) return CORR;
     if ( toupperStr( objOptionStr ) == "CROSS_CORR" ) return CROSS_CORR;
@@ -54,6 +55,7 @@ ObjType getObjOption( const string& objOptionStr )
 string getObjOptionStr( ObjType objOption )
 {
     if ( objOption == SSE ) return "SSE";
+    if ( objOption == SSE_SCALE ) return "SSE_scale";
     if ( objOption == SSE_V ) return "SSE_V";
     if ( objOption == CORR ) return "Corr";
     if ( objOption == CROSS_CORR ) return "Cross_Corr";
@@ -474,6 +476,70 @@ ExprFunc::ExprFunc( const vector< Motif >& _motifs, const vector< bool >& _actIn
     assert( repIndicators.size() == nFactors );
     assert( repressionMat.isSquare() && repressionMat.nRows() == nFactors );
     assert( maxContact >= 0 );
+}
+
+
+// Returns the efficiency Z_ON/Z_OFF
+double ExprFunc::predictExpr_scalefree( const SiteVec& _sites, int length, const vector< double >& factorConcs, int seq_num )
+{
+
+   int promoter_number = seq_num;
+	if( !one_qbtm_per_crm )
+		promoter_number = 0;	// Only one promoter strength
+
+     #if TOSCA  
+  // timeval start, end;
+  //gettimeofday(&start, 0);
+    double Z_off = 0;
+    double Z_on = 0;
+    compPartFunc_seq_interfactor(Z_on, Z_off, seq_num, factorConcs);
+  //gettimeofday(&end, 0);
+  //cout <<end.tv_usec-start.tv_usec << endl;
+    #else
+    bindingWts.clear();
+    boundaries.clear();
+	
+    // store the sequence 
+    int n = _sites.size();
+    sites = _sites;
+    sites.insert( sites.begin(), Site() );  // start with a pseudo-site at position 0 
+    boundaries.push_back( 0 );
+    int range = max(coopDistThr, repressionDistThr );
+    for ( int i = 1; i <= n; i++ ) {
+        int j; 
+        for ( j = i - 1; j >= 1; j-- ) {
+            if ( ( sites[i].start - sites[j].start ) > range ) break; 
+        }
+        int boundary = j;
+        boundaries.push_back( boundary );
+    }	
+    
+    // compute the Boltzman weights of binding for all sites
+    bindingWts.resize(n+1);
+    bindingWts[0] = 1.0;
+    for ( int i = 1; i <= n; i++ ) {
+        bindingWts[i] = par.maxBindingWts[ sites[i].factorIdx ] * factorConcs[sites[i].factorIdx] * sites[i].wtRatio ;	
+    }
+
+
+    double Z_off = 0;
+    double Z_on = 0;
+
+    #pragma omp parallel sections
+      {
+         #pragma omp section
+         Z_off = compPartFuncOff();
+
+         #pragma omp section
+         Z_on = compPartFuncOn();
+      }
+    
+    #endif //TOSCA
+
+
+    // compute the expression (promoter occupancy)
+    double efficiency = Z_on / Z_off;
+    return efficiency;
 }
 
 double ExprFunc::predictExpr( const SiteVec& _sites, int length, const vector< double >& factorConcs, int seq_num )
@@ -1155,6 +1221,7 @@ ExprPredictor::ExprPredictor( const vector< SiteVec >& _seqSites, const vector< 
 double ExprPredictor::objFunc( const ExprPar& par ) 
 {
     if ( objOption == SSE ) return compRMSE( par );	
+    if ( objOption == SSE_SCALE ) return compRMSE_scale( par );	
     if ( objOption == SSE_V ) return compRMSE_variance( par );	
     if ( objOption == CORR ) return -compAvgCorr( par );
     if ( objOption == CROSS_CORR ) return -compAvgCrossCorr( par ); 
@@ -1207,10 +1274,10 @@ int ExprPredictor::train( const ExprPar& par_init )
         par_model = par_result; 
 	save_param();	
 
-        //par_model.adjust();
-	cout << "Gradient minimisation: " << endl; 
-        gradient_minimize( par_result, obj_result );
-	cout << endl;
+        // par_model.adjust();
+	//cout << "Gradient minimisation: " << endl; 
+        //gradient_minimize( par_result, obj_result );
+	//cout << endl;
 
 	// save result
         par_model = par_result;
@@ -1562,7 +1629,7 @@ double ExprPredictor::compRMSE( const ExprPar& par )
         vector< double > observedExprs (nConds(), 1);
         vector < vector < double > > concs (nConds(), vector <double> (factorExprData.nRows(), 0) );
         
-	double weight = 0;			// For different weights of the enhancers 
+	//double weight = 0;			// For different weights of the enhancers 
 
 	#if TOSCA
         #pragma omp parallel for schedule(dynamic)
@@ -1583,13 +1650,86 @@ double ExprPredictor::compRMSE( const ExprPar& par )
 
             // observed expression for the i-th sequence at the j-th condition
             observedExprs[j] = exprData( i, j );
-	    weight += observedExprs[j];				// The weight of an enhancer is proportional to its expression width
+	    //weight += observedExprs[j];				// The weight of an enhancer is proportional to its expression width
         }
 
-	weight = ( 100 - weight ) / 100.0;			// Transformation of the weight from 0 - 100 to 1 - 0
+	//weight = ( 100 - weight ) / 100.0;			// Transformation of the weight from 0 - 100 to 1 - 0
 
-        double beta;
-        squaredErr += weight * least_square( predictedExprs, observedExprs, beta );
+        double beta = 1.0;
+        squaredErr +=  least_square( predictedExprs, observedExprs, beta );
+	
+    }	
+   // gettimeofday(&end, 0);
+    //cout << "Time " << (end.tv_sec-start.tv_sec)+1e-6*(end.tv_usec-start.tv_usec) << endl;
+
+    double rmse = sqrt( squaredErr / ( nSeqs() * nConds() ) ); 
+    return rmse;
+}
+
+double ExprPredictor::compRMSE_scale( const ExprPar& par ) 
+{
+    // create the expression function
+    ExprFunc* func = createExprFunc( par );
+
+    // error of each sequence
+    double squaredErr = 0;
+
+    //timeval start, end;
+    //gettimeofday(&start, 0);
+
+
+    for ( int i = 0; i < nSeqs(); i++ ) {
+
+        vector< double > predictedefficiency (nConds(), -1);
+        vector< double > observedExprs (nConds(), 1);
+        vector < vector < double > > concs (nConds(), vector <double> (factorExprData.nRows(), 0) );
+        
+	//double weight = 0;			// For different weights of the enhancers 
+
+	#if TOSCA
+        #pragma omp parallel for schedule(dynamic)
+	#endif
+        for (int j = 0; j < nConds(); j++ ) {
+	
+            	concs[j] = factorExprData.getCol( j );
+		//for( int _i = 0; _i < sizeof ( indices_of_crm_in_gene ) / sizeof ( int ); _i++ ){
+		//	if( i == indices_of_crm_in_gene[ _i ] ){
+		//		gene_crm_fout << i << "\t" << j << "\t";
+           	//		predictedExprs[j] = func->predictExpr( seqSites[ i ], seqLengths[ i ], concs[j], i, gene_crm_fout );
+		//		break;
+		//	}
+		//}	
+		//if ( predictedExprs[j] < 0 ){
+            		predictedefficiency[j] = func->predictExpr_scalefree( seqSites[ i ], seqLengths[ i ], concs[j], i );
+		//}
+
+            // observed expression for the i-th sequence at the j-th condition
+            observedExprs[j] = exprData( i, j );
+	    //weight += observedExprs[j];				// The weight of an enhancer is proportional to its expression width
+        }
+
+	//weight = ( 100 - weight ) / 100.0;			// Transformation of the weight from 0 - 100 to 1 - 0
+
+	double beta = 1.0;
+        double beta_major = 1.0;
+	double min_ls = 100;
+	double ls = 0;
+        vector< double > predictedExprs (nConds(), 1);
+	// Find the optimal first digit of beta (beta is the scaling factor)
+        for( int s = 0; s < 100; s++ ){
+		beta = s;
+		for (int j = 0; j < nConds(); j++ ) {predictedExprs[j] = beta * predictedefficiency[j] /(1.0 + beta * predictedefficiency[j] ); }
+ 		ls = least_square( predictedExprs, observedExprs, beta );
+		if (ls < min_ls) {min_ls = ls; beta_major = beta;}
+		}
+        for( int s = 0; s < 100; s++ ){
+		beta = beta_major - 0.5 + s * 0.01;
+		for (int j = 0; j < nConds(); j++ ) {predictedExprs[j] = beta * predictedefficiency[j] /(1.0 + beta * predictedefficiency[j] ) ;}
+ 		ls = least_square( predictedExprs, observedExprs, beta );
+		if (ls < min_ls) {min_ls = ls;}
+		}
+
+        squaredErr += min_ls; 
 	
     }	
    // gettimeofday(&end, 0);

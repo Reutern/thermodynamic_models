@@ -304,6 +304,9 @@ int cross_corr( const vector< double >& x, const vector< double >& y, const vect
 // least-square fit of two vectors: beta - coefficient, return RSS
 double least_square( const vector< double >& x, const vector< double >& y, double& beta );
 
+// least-square fit of two vectors: beta - coefficient, return RSS (Half of the error comes from the expressed regions, the other half from the gaps)
+double least_square_equal( const vector< double >& x, const vector< double >& y, double& beta );
+
 // least-square fit of two vectors: beta - coefficient, but with measurement error incorporated 
 double least_square_variance( const vector< double >& x, const vector< double >& y, double& beta, double background_measurement_error );
 

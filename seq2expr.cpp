@@ -27,7 +27,6 @@
 #include "param.h" 
 
 
-
 int main( int argc, char* argv[] ) 
 {
 
@@ -41,12 +40,13 @@ int main( int argc, char* argv[] )
     double factorIntSigma = 50.0;   // sigma parameter for the Gaussian interaction function
     int repressionDistThr = 50;
     int maxContact = 1;
-	double eTF = 1.0;
+	double eTF = 0.6;
+
 
 	string free_fix_indicator_filename;
-	ExprPredictor::one_qbtm_per_crm = false;
-	ExprPar::one_qbtm_per_crm = false;
-	ExprFunc::one_qbtm_per_crm = false;
+	ExprPredictor::one_qbtm_per_crm = true;
+	ExprPar::one_qbtm_per_crm = true;
+	ExprFunc::one_qbtm_per_crm = true;
 
     ExprPredictor::nAlternations = 3;
     for ( int i = 1; i < argc; i++ ) {
@@ -95,9 +95,9 @@ int main( int argc, char* argv[] )
         else if ( !strcmp( "-ff", argv[i] ) )
             free_fix_indicator_filename = argv[++i];    
         else if ( !strcmp( "-oq", argv[i] ) ){
-            	ExprPredictor::one_qbtm_per_crm = false;    
-		ExprPar::one_qbtm_per_crm = false;
-		ExprFunc::one_qbtm_per_crm = false;
+            	ExprPredictor::one_qbtm_per_crm = true;    
+		ExprPar::one_qbtm_per_crm = true;
+		ExprFunc::one_qbtm_per_crm = true;
 	}
         else if ( !strcmp( "-et", argv[i] ) )
             eTF = atof( argv[ ++i ] );    
@@ -120,7 +120,7 @@ int main( int argc, char* argv[] )
     ExprPredictor::min_delta_f_SSE = 1.0E-10;
     ExprPredictor::min_delta_f_Corr = 1.0E-10;
     ExprPredictor::min_delta_f_CrossCorr = 1.0E-10;
-    ExprPredictor::nSimplexIters = 1000;
+    ExprPredictor::nSimplexIters = 10000;
     ExprPredictor::nGradientIters = 250;
 
     int rval;
@@ -365,10 +365,18 @@ int main( int argc, char* argv[] )
     #if PRINT_STATISTICS
     cout << "Statistics: " << endl; 
     cout << "Factors "<< nFactors << "\t " << "Sequences " << nSeqs <<  endl;
-    cout << "Length \t sites \t Name" << endl;
+    cout << motifNames[0] << " \t " << motifNames[1] << " \t " << motifNames[2] << " \t " << motifNames[3] << " \t " << motifNames[4] << " \t " << motifNames[5] << " \t " << motifNames[6] << " \t " << motifNames[7] << " \t " << "Sum \t Length \t Name" << endl;
+    double average_number = 0;
     for(int seqs_idx = 0; seqs_idx < nSeqs; seqs_idx++){
-	cout << seqLengths[seqs_idx] << " \t " << seqSites[seqs_idx].size() << " \t " << seqNames[seqs_idx] << endl;}
-    cout << endl;
+	average_number += seqSites[seqs_idx].size()/44.0;
+	int sites_count[] = {0,0,0,0,0,0,0,0};
+	for( int idx = 0; idx < seqSites[seqs_idx].size() ; idx++ ){
+			sites_count[seqSites[seqs_idx][idx].factorIdx]++;
+		}
+	cout <<  sites_count[0] << " \t " << sites_count[1]<< " \t " << sites_count[2]<< " \t " << sites_count[3]<< " \t " << sites_count[4]<< " \t " << sites_count[5]<< " \t " << sites_count[6]<< " \t " << sites_count[7] << " \t " << seqSites[seqs_idx].size() << " \t " << seqNames[seqs_idx] << " \t " << seqLengths[seqs_idx] <<  endl;}
+    cout << endl; 
+    cout << average_number << endl;
+	
     #endif // PRINT_STATISTICS
     // create the expression predictor
 //    FactorIntFunc* intFunc; 
@@ -464,7 +472,6 @@ int main( int argc, char* argv[] )
         }
     }
 
-
     for ( int i = 0; i < test_nSeqs; i++ ) {
         vector< double > targetExprs;
         predictor->predict( test_seqSites[i], test_seqLengths[i], targetExprs, i );
@@ -485,14 +492,15 @@ int main( int argc, char* argv[] )
         vector< double > observedExprs = exprData.getRow( i );
         
         // error
-        double beta; 
+        double beta = 1.0; 
         double error = sqrt( least_square( targetExprs, observedExprs, beta ) / nConds );
 
         // print the results
         fout << seqNames[i] << "\t" << observedExprs << endl;      // observations
-        fout << seqNames[i];
+        fout << seqNames[i]; 
 
-        for ( int j = 0; j < nConds; j++ ) fout << "\t" << beta * targetExprs[j];       // predictions
+        for ( int j = 0; j < nConds; j++ )
+		fout << "\t" << beta * targetExprs[j];       // predictions
         fout << endl;
 
         // print the agreement bewtween predictions and observations

@@ -901,17 +901,35 @@ double least_square( const vector< double >& x, const vector< double >& y, doubl
     assert( x.size() == y.size() );
     int n = x.size();
 
-    double numerator = 0, denom = 0;
-    for ( int i = 0; i < n; i++ ) {
-       numerator += x[i] * y[i];
-        denom += x[i] * x[i];
-    }
-    beta = numerator / denom;
     double rss = 0;
     for ( int i = 0; i < n; i++ ) {
-        rss += ( y[i] - beta * x[i] ) * ( y[i] - beta * x[i] );
+    	rss += ( y[i] - beta * x[i] ) * ( y[i] - beta * x[i] );
     }
+    return rss;
+}
 
+double least_square_equal( const vector< double >& x, const vector< double >& y, double& beta )
+{
+    assert( x.size() == y.size() );
+    int n = x.size();
+
+    double expression_width = 0.0;
+    for ( int i = 0; i < n; i++ ) {
+	if( y[i] > 0.0 ) {expression_width = expression_width + 1.0;}
+	}
+
+    //double numerator = 0, denom = 0;
+    //for ( int i = 0; i < n; i++ ) {
+    //   numerator += x[i] * y[i];
+    //    denom += x[i] * x[i];
+    //}
+    //beta = 1.0; //numerator / denom;
+    double rss = 0;
+    int counter=0;
+    for ( int i = 0; i < n; i++ ) {
+	if( y[i] > 0.0 ){ rss += 50.0 / expression_width *  ( y[i] - beta * x[i] ) * ( y[i] - beta * x[i] );}
+	else { rss += 50.0 / (100.0 - expression_width) *  ( y[i] - beta * x[i] ) * ( y[i] - beta * x[i] );}
+    }
     return rss;
 }
 

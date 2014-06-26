@@ -24,6 +24,7 @@ string getIntOptionStr( FactorIntType intOption );
 
 enum ObjType {
     SSE,    // sum of squared error
+    SSE_SCALE,    // sum of squared error with optimal scaling
     SSE_V,    // sum of squared error with variable variance
     CORR,   // Pearson correlation
     CROSS_CORR,  // cross correlation (maximum in a range of shifts)
@@ -202,7 +203,9 @@ public:
     // predict the expression value of a given sequence (its site representation, sorted by the start positions) under given TF concentrations
     double predictExpr( const SiteVec& _sites, int length, const vector< double >& factorConcs, int seq_num );
     double predictExpr( const SiteVec& _sites, int length, const vector< double >& factorConcs, int seq_num, std::ofstream& fout );
-    
+    // Returns the efficiency Z_ON/Z_OFF
+    double predictExpr_scalefree( const SiteVec& _sites, int length, const vector< double >& factorConcs, int seq_num );    
+
     static ModelType modelOption;     // model option   
     static bool one_qbtm_per_crm;
 private:
@@ -383,6 +386,7 @@ private:
     
     // objective functions
     double compRMSE( const ExprPar& par );		// root mean square error between predicted and observed expressions
+    double compRMSE_scale( const ExprPar& par );	// root mean square error between predicted and observed expressions with optimal scaling 
     double compRMSE_variance( const ExprPar& par );	// root mean square error between predicted and observed expressions with the measurement error taken into account 
     double compAvgCorr( const ExprPar& par );     	// the average Pearson correlation
     double compAvgCrossCorr( const ExprPar& par );    	// the average cross correlation -based similarity
