@@ -1,5 +1,7 @@
 #include <sstream>
 #include "SeqAnnotator.h"
+#include "param.h" 
+
 
 bool isNt( int a )
 {

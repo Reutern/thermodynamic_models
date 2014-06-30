@@ -103,7 +103,6 @@ int writeSequences( const string& file, const vector< Sequence >& seqs, int form
 * DNA Sequence Motifs and Transcription Factors
 ******************************************************/
 
-const double PSEUDO_COUNT = 0.25;
 
 // construct the position weight matrix from the count matrix
 Matrix compWtmx( const Matrix& countMatrix, double pseudoCount );

@@ -6,6 +6,7 @@
 #include <sys/time.h>
 #include <omp.h>
 
+
 ModelType getModelOption( const string& modelOptionStr )
 {
     if ( toupperStr( modelOptionStr ) == "LOGISTIC" ) return LOGISTIC;
@@ -462,8 +463,8 @@ double ExprPar::max_basal_Thermo = 0.1;
 double ExprPar::delta = 0.0001;
 
 
-bool ExprPar::one_qbtm_per_crm = true;
-bool ExprFunc::one_qbtm_per_crm = true;
+bool ExprPar::one_qbtm_per_crm = ONE_QBTM;
+bool ExprFunc::one_qbtm_per_crm = ONE_QBTM;
 
 ExprFunc::ExprFunc( const vector< Motif >& _motifs, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr, int _coopDistThr, const ExprPar& _par, const vector< Sequence >& _seqs ) : motifs( _motifs ), actIndicators( _actIndicators ), maxContact( _maxContact ), repIndicators( _repIndicators ), repressionMat( _repressionMat ), repressionDistThr( _repressionDistThr ), coopDistThr( _coopDistThr ), par( _par ), seqs( _seqs )
 {
@@ -1271,13 +1272,14 @@ int ExprPredictor::train( const ExprPar& par_init )
 	cout << endl;
 
 	//save result
-        par_model = par_result; 
-	save_param();	
+//        par_model = par_result; 
+//	save_param();	
 
         // par_model.adjust();
-	//cout << "Gradient minimisation: " << endl; 
-        //gradient_minimize( par_result, obj_result );
-	//cout << endl;
+
+//	cout << "Gradient minimisation: " << endl; 
+//      gradient_minimize( par_result, obj_result );
+//	cout << endl;
 
 	// save result
         par_model = par_result;
@@ -1431,7 +1433,7 @@ double ExprPredictor::min_delta_f_NormCorr = 1.0E-8;
 double ExprPredictor::min_delta_f_PGP = 1.0E-8;
 int ExprPredictor::nSimplexIters = 200;
 int ExprPredictor::nGradientIters = 50;
-bool ExprPredictor::one_qbtm_per_crm = true;
+bool ExprPredictor::one_qbtm_per_crm = ONE_QBTM;
 
 // Initialise static members as empty
 ExprPar ExprPredictor::par_curr;

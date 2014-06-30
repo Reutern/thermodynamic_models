@@ -44,9 +44,9 @@ int main( int argc, char* argv[] )
 
 
 	string free_fix_indicator_filename;
-	ExprPredictor::one_qbtm_per_crm = true;
-	ExprPar::one_qbtm_per_crm = true;
-	ExprFunc::one_qbtm_per_crm = true;
+	ExprPredictor::one_qbtm_per_crm = ONE_QBTM;
+	ExprPar::one_qbtm_per_crm = ONE_QBTM;
+	ExprFunc::one_qbtm_per_crm = ONE_QBTM;
 
     ExprPredictor::nAlternations = 3;
     for ( int i = 1; i < argc; i++ ) {
@@ -95,9 +95,9 @@ int main( int argc, char* argv[] )
         else if ( !strcmp( "-ff", argv[i] ) )
             free_fix_indicator_filename = argv[++i];    
         else if ( !strcmp( "-oq", argv[i] ) ){
-            	ExprPredictor::one_qbtm_per_crm = true;    
-		ExprPar::one_qbtm_per_crm = true;
-		ExprFunc::one_qbtm_per_crm = true;
+            	ExprPredictor::one_qbtm_per_crm = ONE_QBTM;    
+		ExprPar::one_qbtm_per_crm = ONE_QBTM;
+		ExprFunc::one_qbtm_per_crm = ONE_QBTM;
 	}
         else if ( !strcmp( "-et", argv[i] ) )
             eTF = atof( argv[ ++i ] );    
@@ -121,7 +121,8 @@ int main( int argc, char* argv[] )
     ExprPredictor::min_delta_f_Corr = 1.0E-10;
     ExprPredictor::min_delta_f_CrossCorr = 1.0E-10;
     ExprPredictor::nSimplexIters = 10000;
-    ExprPredictor::nGradientIters = 250;
+    ExprPredictor::nGradientIters = 2000;
+
 
     int rval;
     vector< vector< double > > data;    // buffer for reading matrix data
@@ -361,6 +362,7 @@ int main( int argc, char* argv[] )
     cout << "Search_Option = " << getSearchOptionStr( ExprPar::searchOption ) << endl;
     cout << "Num_Random_Starts = " << ExprPredictor::nRandStarts << endl;
     cout << "Energy Threshold Factor = " << eTF << endl;
+    cout << "Pseudo count = " << PSEUDO_COUNT << endl;
     cout << endl;
     #if PRINT_STATISTICS
     cout << "Statistics: " << endl; 
@@ -517,8 +519,6 @@ int main( int argc, char* argv[] )
             cout << norm_corr( observedExprs, targetExprs ) << endl; 
     }
     #endif // CROSS_VALIDATION
-
-
 
 
     int dmm = 0;
