@@ -201,13 +201,19 @@ public:
     }
     
     // predict the expression value of a given sequence (its site representation, sorted by the start positions) under given TF concentrations
-    double predictExpr( const SiteVec& _sites, int length, const vector< double >& factorConcs, int seq_num );
-    double predictExpr( const SiteVec& _sites, int length, const vector< double >& factorConcs, int seq_num, std::ofstream& fout );
+    double predictExpr( int length, const vector< double >& factorConcs, int seq_num );
+    double predictExpr( int length, const vector< double >& factorConcs, int seq_num, std::ofstream& fout );
     // Returns the efficiency Z_ON/Z_OFF
-    double predictExpr_scalefree( const SiteVec& _sites, int length, const vector< double >& factorConcs, int seq_num );    
+    double predictExpr_scalefree( int length, const vector< double >& factorConcs, int seq_num );    
 
     static ModelType modelOption;     // model option   
     static bool one_qbtm_per_crm;
+
+    // Access functions to privat variables
+    void set_sites( SiteVec _sites) {sites = _sites;}
+    void set_boundaries( vector< int > _boundaries) {boundaries = _boundaries;}
+    void set_bindingWts( vector< double > _bindingWts) {bindingWts = _bindingWts;}
+
 private:
     // TF binding motifs
     const vector< Motif >& motifs; 	
@@ -231,10 +237,10 @@ private:
     vector< int > boundaries;   // left boundary of each site beyond which there is no interaction    
 
     // intermediate computational results
-    vector< double > bindingWts; 
+    vector< double > bindingWts; 	// binding weights without the concentration exp(-E)
 		
     // compute the partition function when the basal transcriptional machinery (BTM) is not bound
-    double compPartFuncOff() const;
+    double compPartFuncOff( const vector< double >& factorConcs) const;
 
     // compute the partition function with BTM bound and unbound on a sequence basis 
     int compPartFunc_seq(double &result_Z_on, double &result_Z_off, int seq_num, const vector< double >& factorConcs) const;
@@ -243,22 +249,22 @@ private:
     int compPartFunc_seq_interfactor(double &result_Z_on, double &result_Z_off, int seq_num, const vector< double >& factorConcs) const;
 
     // compute the partition function when the BTM is not bound: ChrMod model 
-    double compPartFuncOffChrMod() const; 
+    double compPartFuncOffChrMod( const vector< double >& factorConcs ) const; 
     
     // compute the partition function when the BTM is bound 
-    double compPartFuncOn() const;
+    double compPartFuncOn( const vector< double >& factorConcs) const;
 
     // compute the paritition function when the BTM is bound: Direct model
-    double compPartFuncOnDirect() const;
+    double compPartFuncOnDirect( const vector< double >& factorConcs) const;
     
     // compute the paritition function when the BTM is bound: Quenching model
-    double compPartFuncOnQuenching() const;
+    double compPartFuncOnQuenching( const vector< double >& factorConcs) const;
 
      // compute the paritition function when the BTM is bound: ChrMod_Unlimited model
-    double compPartFuncOnChrMod_Unlimited() const;
+    double compPartFuncOnChrMod_Unlimited( const vector< double >& factorConcs) const;
 
      // compute the paritition function when the BTM is bound: ChrMod_Limited model
-    double compPartFuncOnChrMod_Limited() const;    
+    double compPartFuncOnChrMod_Limited( const vector< double >& factorConcs) const;    
     
     // compute the TF-TF interaction between two occupied sites
     double compFactorInt( const Site& a, const Site& b ) const;

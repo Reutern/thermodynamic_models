@@ -26,7 +26,6 @@
 #include <math.h> // for fmod
 #include "param.h" 
 
-
 int main( int argc, char* argv[] ) 
 {
 
@@ -186,7 +185,9 @@ int main( int argc, char* argv[] )
         for ( int i = 0; i < nSeqs; i++ ) {
 		//cout << "Annotated sites for CRM: " << seqNames[i] << endl;
             	ann.annot( seqs[ i ], seqSites[ i ] );
+    		seqSites[i].insert( seqSites[i].begin(), Site() );  // start with a pseudo-site at position 0 
             	seqLengths[i] = seqs[i].size();
+
         }
     } else {    // read the site representation and compute the energy of sites
         rval = readSites( annFile, factorIdxMap, seqSites, true );

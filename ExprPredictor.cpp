@@ -481,7 +481,7 @@ ExprFunc::ExprFunc( const vector< Motif >& _motifs, const vector< bool >& _actIn
 
 
 // Returns the efficiency Z_ON/Z_OFF
-double ExprFunc::predictExpr_scalefree( const SiteVec& _sites, int length, const vector< double >& factorConcs, int seq_num )
+double ExprFunc::predictExpr_scalefree(int length, const vector< double >& factorConcs, int seq_num )
 {
 
    int promoter_number = seq_num;
@@ -497,43 +497,13 @@ double ExprFunc::predictExpr_scalefree( const SiteVec& _sites, int length, const
   //gettimeofday(&end, 0);
   //cout <<end.tv_usec-start.tv_usec << endl;
     #else
-    bindingWts.clear();
-    boundaries.clear();
-	
-    // store the sequence 
-    int n = _sites.size();
-    sites = _sites;
-    sites.insert( sites.begin(), Site() );  // start with a pseudo-site at position 0 
-    boundaries.push_back( 0 );
-    int range = max(coopDistThr, repressionDistThr );
-    for ( int i = 1; i <= n; i++ ) {
-        int j; 
-        for ( j = i - 1; j >= 1; j-- ) {
-            if ( ( sites[i].start - sites[j].start ) > range ) break; 
-        }
-        int boundary = j;
-        boundaries.push_back( boundary );
-    }	
-    
-    // compute the Boltzman weights of binding for all sites
-    bindingWts.resize(n+1);
-    bindingWts[0] = 1.0;
-    for ( int i = 1; i <= n; i++ ) {
-        bindingWts[i] = par.maxBindingWts[ sites[i].factorIdx ] * factorConcs[sites[i].factorIdx] * sites[i].wtRatio ;	
-    }
-
 
     double Z_off = 0;
     double Z_on = 0;
 
-    #pragma omp parallel sections
-      {
-         #pragma omp section
-         Z_off = compPartFuncOff();
-
-         #pragma omp section
-         Z_on = compPartFuncOn();
-      }
+ 
+    Z_off = compPartFuncOff(factorConcs);
+    Z_on = compPartFuncOn(factorConcs);
     
     #endif //TOSCA
 
@@ -543,7 +513,7 @@ double ExprFunc::predictExpr_scalefree( const SiteVec& _sites, int length, const
     return efficiency;
 }
 
-double ExprFunc::predictExpr( const SiteVec& _sites, int length, const vector< double >& factorConcs, int seq_num )
+double ExprFunc::predictExpr( int length, const vector< double >& factorConcs, int seq_num )
 {
 
    int promoter_number = seq_num;
@@ -559,31 +529,6 @@ double ExprFunc::predictExpr( const SiteVec& _sites, int length, const vector< d
   //gettimeofday(&end, 0);
   //cout <<end.tv_usec-start.tv_usec << endl;
     #else
-    bindingWts.clear();
-    boundaries.clear();
-	
-    // store the sequence 
-    int n = _sites.size();
-    sites = _sites;
-    sites.insert( sites.begin(), Site() );  // start with a pseudo-site at position 0 
-    boundaries.push_back( 0 );
-    int range = max(coopDistThr, repressionDistThr );
-    for ( int i = 1; i <= n; i++ ) {
-        int j; 
-        for ( j = i - 1; j >= 1; j-- ) {
-            if ( ( sites[i].start - sites[j].start ) > range ) break; 
-        }
-        int boundary = j;
-        boundaries.push_back( boundary );
-    }	
-    
-    // compute the Boltzman weights of binding for all sites
-    bindingWts.resize(n+1);
-    bindingWts[0] = 1.0;
-    for ( int i = 1; i <= n; i++ ) {
-        bindingWts[i] = par.maxBindingWts[ sites[i].factorIdx ] * factorConcs[sites[i].factorIdx] * sites[i].wtRatio ;	
-    }
-
 
     // Logistic model
     if ( modelOption == LOGISTIC ) {
@@ -608,14 +553,9 @@ double ExprFunc::predictExpr( const SiteVec& _sites, int length, const vector< d
     double Z_off = 0;
     double Z_on = 0;
 
-    #pragma omp parallel sections
-      {
-         #pragma omp section
-         Z_off = compPartFuncOff();
-
-         #pragma omp section
-         Z_on = compPartFuncOn();
-      }
+ 
+    Z_off = compPartFuncOff(factorConcs);
+    Z_on = compPartFuncOn(factorConcs);
     
     #endif //TOSCA
 
@@ -626,7 +566,7 @@ double ExprFunc::predictExpr( const SiteVec& _sites, int length, const vector< d
     return promoterOcc;
 }
 
-double ExprFunc::predictExpr( const SiteVec& _sites, int length, const vector< double >& factorConcs, int seq_num, std::ofstream& fout )
+double ExprFunc::predictExpr( int length, const vector< double >& factorConcs, int seq_num, std::ofstream& fout )
 {
 
     int promoter_number = seq_num;
@@ -641,33 +581,8 @@ double ExprFunc::predictExpr( const SiteVec& _sites, int length, const vector< d
     compPartFunc_seq_interfactor(Z_on, Z_off, seq_num, factorConcs);
   //gettimeofday(&end, 0);
   //cout <<end.tv_usec-start.tv_usec << endl;
-    #else
-
-    bindingWts.clear();
-    boundaries.clear();
-
-
-    // store the sequence 
-    int n = _sites.size();
-    sites = _sites;
-    sites.insert( sites.begin(), Site() );  // start with a pseudo-site at position 0 
-    boundaries.push_back( 0 );
-    int range = max( coopDistThr, repressionDistThr );
-    for ( int i = 1; i <= n; i++ ) {
-        int j; 
-        for ( j = i - 1; j >= 1; j-- ) {
-            if ( ( sites[i].start - sites[j].start ) > range ) break; 
-        }
-        int boundary = j;
-        boundaries.push_back( boundary );
-    }	
-    
-    // compute the Boltzman weights of binding for all sites
-    bindingWts.resize(n+1);
-    bindingWts[0] = 1.0;
-    for ( int i = 1; i <= n; i++ ) {
-        bindingWts[i] = par.maxBindingWts[ sites[i].factorIdx ] * factorConcs[sites[i].factorIdx] * sites[i].wtRatio ;	
-    }
+  
+   #else
 
     // Logistic model
     if ( modelOption == LOGISTIC ) {
@@ -689,25 +604,13 @@ double ExprFunc::predictExpr( const SiteVec& _sites, int length, const vector< d
         return logistic( par.basalTxps[ promoter_number ] + totalEffect );
     }
 
-    // Thermodynamic models: Direct, Quenching, ChrMod_Unlimited and ChrMod_Limited
-    // compute the partition functions
     double Z_off = 0;
     double Z_on = 0;
 
-   //timeval start, end;
-   //gettimeofday(&start, 0);
-
-    #pragma omp parallel sections
-      {
-         #pragma omp section
-         Z_off = compPartFuncOff();
-
-         #pragma omp section
-         Z_on = compPartFuncOn();
-      }
-    //gettimeofday(&end, 0);
-    //cout << "Time " << (end.tv_sec-start.tv_sec)+1e-6*(end.tv_usec-start.tv_usec) << endl;    
-
+ 
+    Z_off = compPartFuncOff(factorConcs);
+    Z_on = compPartFuncOn(factorConcs);
+    
     #endif //TOSCA
 
     // compute the expression (promoter occupancy)
@@ -719,9 +622,9 @@ double ExprFunc::predictExpr( const SiteVec& _sites, int length, const vector< d
 
 ModelType ExprFunc::modelOption = DIRECT;
 
-double ExprFunc::compPartFuncOff() const
+double ExprFunc::compPartFuncOff(const vector< double >& factorConcs) const
 {
-    if ( modelOption == CHRMOD_UNLIMITED || modelOption == CHRMOD_LIMITED ) return compPartFuncOffChrMod(); 
+    if ( modelOption == CHRMOD_UNLIMITED || modelOption == CHRMOD_LIMITED ) return compPartFuncOffChrMod( factorConcs ); 
         
     int n = sites.size() - 1;
 
@@ -738,7 +641,7 @@ double ExprFunc::compPartFuncOff() const
                 if ( siteOverlap( sites[ i ], sites[ j ], motifs ) ) continue;
                 sum += compFactorInt( sites[ i ], sites[ j ] ) * Z[ j ];	
         }
-        Z[i] = bindingWts[ i ] * sum;
+        Z[i] = bindingWts[ i ] * factorConcs[sites[ i ].factorIdx] * sum;
         Zt[i] = Z[i] + Zt[i - 1];
     }
     return Zt[n];
@@ -877,7 +780,7 @@ int ExprFunc::compPartFunc_seq(double &result_Z_on, double &result_Z_off, int _s
     return 1;
 }
 
-double ExprFunc::compPartFuncOffChrMod() const
+double ExprFunc::compPartFuncOffChrMod(const vector< double >& factorConcs) const
 {
     int n = sites.size()- 1;
 
@@ -907,8 +810,8 @@ double ExprFunc::compPartFuncOffChrMod() const
                 if ( dist > repressionDistThr ) sum1 += Z0[j];
             }
         }
-        Z0[i] = bindingWts[i] * sum0;
-        if ( repIndicators[ sites[i].factorIdx ] ) Z1[i] = bindingWts[i] * par.repEffects[ sites[i].factorIdx ] * sum1; 
+        Z0[i] = bindingWts[i] * factorConcs[sites[ i ].factorIdx] * sum0;
+        if ( repIndicators[ sites[i].factorIdx ] ) Z1[i] = bindingWts[i] * factorConcs[sites[ i ].factorIdx] * par.repEffects[ sites[i].factorIdx ] * sum1; 
         else Z1[i] = 0;
         Zt[i] = Z0[i] + Z1[i] + Zt[i - 1];
     }
@@ -917,15 +820,15 @@ double ExprFunc::compPartFuncOffChrMod() const
     return Zt[n]; 
 }
 
-double ExprFunc::compPartFuncOn() const
+double ExprFunc::compPartFuncOn(const vector< double >& factorConcs) const
 {
-    if ( modelOption == DIRECT ) return compPartFuncOnDirect();
-    if ( modelOption == QUENCHING ) return compPartFuncOnQuenching();
-    if ( modelOption == CHRMOD_UNLIMITED) return compPartFuncOnChrMod_Unlimited(); 
-    if ( modelOption == CHRMOD_LIMITED ) return compPartFuncOnChrMod_Limited();
+    if ( modelOption == DIRECT ) return compPartFuncOnDirect(factorConcs);
+    if ( modelOption == QUENCHING ) return compPartFuncOnQuenching(factorConcs);
+    if ( modelOption == CHRMOD_UNLIMITED) return compPartFuncOnChrMod_Unlimited(factorConcs); 
+    if ( modelOption == CHRMOD_LIMITED ) return compPartFuncOnChrMod_Limited(factorConcs);
 }
 
-double ExprFunc::compPartFuncOnDirect() const
+double ExprFunc::compPartFuncOnDirect(const vector< double >& factorConcs) const
 {
    int n = sites.size() - 1;
     
@@ -942,13 +845,13 @@ double ExprFunc::compPartFuncOnDirect() const
             if ( siteOverlap( sites[ i ], sites[ j ], motifs ) ) continue;
             sum += compFactorInt( sites[ i ], sites[ j ] ) * Z[ j ];	
         }
-        Z[i] = bindingWts[ i ] * par.txpEffects[ sites[i].factorIdx ] * sum;
+        Z[i] = bindingWts[ i ] * factorConcs[sites[ i ].factorIdx] * par.txpEffects[ sites[i].factorIdx ] * sum;
         Zt[i] = Z[i] + Zt[i - 1];
     }
      return Zt[n];
 }
 
-double ExprFunc::compPartFuncOnQuenching() const
+double ExprFunc::compPartFuncOnQuenching(const vector< double >& factorConcs) const
 {
     int n = sites.size() - 1;
     int N0 = maxContact;
@@ -976,8 +879,8 @@ double ExprFunc::compPartFuncOnQuenching() const
             sum1 += ( 1 - R )* term;
             sum0 += R * term;
         }
-        Z1[i][0] = bindingWts[i] * sum1;
-        Z0[i][0] = bindingWts[i] * sum0;
+        Z1[i][0] = bindingWts[i] * factorConcs[sites[ i ].factorIdx] * sum1;
+        Z0[i][0] = bindingWts[i] * factorConcs[sites[ i ].factorIdx] * sum0;
     }
     
     // k >= 1
@@ -997,8 +900,8 @@ double ExprFunc::compPartFuncOnQuenching() const
                 sum1 += ( 1 - R )* term;
                 sum0 += R * term;
             }
-            Z1[i][k] = bindingWts[i] * sum1;
-            Z0[i][k] = bindingWts[i] * sum0;
+            Z1[i][k] = bindingWts[i] * factorConcs[sites[ i ].factorIdx] * sum1;
+            Z0[i][k] = bindingWts[i] * factorConcs[sites[ i ].factorIdx] * sum0;
         }       
     }
 
@@ -1024,7 +927,7 @@ double ExprFunc::compPartFuncOnQuenching() const
     return Z_on;
 }
 
-double ExprFunc::compPartFuncOnChrMod_Unlimited() const
+double ExprFunc::compPartFuncOnChrMod_Unlimited(const vector< double >& factorConcs) const
 {
     int n = sites.size()- 1;
 
@@ -1055,7 +958,7 @@ double ExprFunc::compPartFuncOnChrMod_Unlimited() const
             }
         }
         Z0[i] = bindingWts[i] * par.txpEffects[ sites[i].factorIdx ] * sum0;
-        if ( repIndicators[ sites[i].factorIdx ] ) Z1[i] = bindingWts[i] * par.repEffects[ sites[i].factorIdx ] * sum1; 
+        if ( repIndicators[ sites[i].factorIdx ] ) Z1[i] = bindingWts[i] * factorConcs[sites[ i ].factorIdx] * par.repEffects[ sites[i].factorIdx ] * sum1; 
         else Z1[i] = 0;
         Zt[i] = Z0[i] + Z1[i] + Zt[i - 1];
     }
@@ -1064,7 +967,7 @@ double ExprFunc::compPartFuncOnChrMod_Unlimited() const
     return Zt[n];     
 }
 
-double ExprFunc::compPartFuncOnChrMod_Limited() const
+double ExprFunc::compPartFuncOnChrMod_Limited(const vector< double >& factorConcs) const
 {
     int n = sites.size()- 1;
 
@@ -1123,8 +1026,8 @@ double ExprFunc::compPartFuncOnChrMod_Limited() const
                 }
             }
             Z0[i][k] = bindingWts[i] * sum0;
-            if ( actIndicators[sites[i].factorIdx] ) Z0[i][k] += k > 0 ? bindingWts[i] * par.txpEffects[sites[i].factorIdx] * sum0A : 0;
-            if ( repIndicators[ sites[i].factorIdx ] ) Z1[i][k] = bindingWts[i] * par.repEffects[ sites[i].factorIdx ] * sum1; 
+            if ( actIndicators[sites[i].factorIdx] ) Z0[i][k] += k > 0 ? bindingWts[i] * factorConcs[sites[ i ].factorIdx] * par.txpEffects[sites[i].factorIdx] * sum0A : 0;
+            if ( repIndicators[ sites[i].factorIdx ] ) Z1[i][k] = bindingWts[i] * factorConcs[sites[ i ].factorIdx]  * par.repEffects[ sites[i].factorIdx ] * sum1; 
             else Z1[i][k] = 0;
             Zt[i][k] = Z0[i][k] + Z1[i][k] + Zt[i - 1][k];  
 //             cout << "i = " << i << " k = " << k << " Z0 = " << Z0[i][k] << " Z1 = " << Z1[i][k] << " Zt = " << Zt[i][k] << endl;
@@ -1360,10 +1263,34 @@ int ExprPredictor::predict( const SiteVec& targetSites, int targetSeqLength, vec
 //     ann.annot( targetSeq, targetSites );
             
     // predict the expression
-    ExprFunc* func = createExprFunc( par_model );	
+    ExprFunc* func = createExprFunc( par_model );
+
+    int n = targetSites.size();
+    vector< double > _bindingWts (n,0.0);
+    vector< int > _boundaries (n,0.0);
+	
+    // Determin the boundaries for func
+    _boundaries[0] = 0;
+    int range = max(coopDistThr, repressionDistThr );
+    for ( int k = 1; k < n; k++ ) {
+    	int l; 
+	for ( l = k - 1; l >= 1; l-- ) {
+	    if ( ( targetSites[k].start - targetSites[l].start ) > range ) break; 
+	}
+    _boundaries[k] = l ;
+    }	
+    func->set_boundaries(_boundaries);
+    
+    // compute the Boltzman weights of binding for all sites for func
+    _bindingWts[0] = 1.0;
+    for ( int k = 1; k < n; k++ ) {
+        _bindingWts[k] = par_model.maxBindingWts[ targetSites[k].factorIdx ] * targetSites[k].wtRatio ;	
+    }
+    func->set_bindingWts(_bindingWts); 
+	
     for ( int j = 0; j < nConds(); j++ ) {
         vector< double > concs = factorExprData.getCol( j );
-        double predicted = func->predictExpr( targetSites, targetSeqLength, concs, seq_num );
+        double predicted = func->predictExpr(  targetSeqLength, concs, seq_num );
         targetExprs.push_back( predicted );
     }
     
@@ -1624,20 +1551,45 @@ double ExprPredictor::compRMSE( const ExprPar& par )
     //timeval start, end;
     //gettimeofday(&start, 0);
 
-
     for ( int i = 0; i < nSeqs(); i++ ) {
 
         vector< double > predictedExprs (nConds(), -1);
         vector< double > observedExprs (nConds(), 1);
         vector < vector < double > > concs (nConds(), vector <double> (factorExprData.nRows(), 0) );
         
-	//double weight = 0;			// For different weights of the enhancers 
 
-	#if TOSCA
-        #pragma omp parallel for schedule(dynamic)
-	#endif
-        for (int j = 0; j < nConds(); j++ ) {
 	
+        // Initiate the sites for func
+	func->set_sites(seqSites[ i ]);
+
+	int n = seqSites[i].size();
+	vector< double > _bindingWts (n,0.0);
+	vector< int > _boundaries (n,0.0);
+	
+	// Determin the boundaries for func
+	_boundaries[0] = 0;
+	int range = max(coopDistThr, repressionDistThr );
+        for ( int k = 1; k < n; k++ ) {
+	       	int l; 
+		for ( l = k - 1; l >= 1; l-- ) {
+		    if ( ( seqSites[i][k].start - seqSites[i][l].start ) > range ) break; 
+		}
+	    _boundaries[k] = l ;
+	}	
+        func->set_boundaries(_boundaries);
+    
+	// compute the Boltzman weights of binding for all sites for func
+        _bindingWts[0] = 1.0;
+        for ( int k = 1; k < n; k++ ) {
+            _bindingWts[k] = par.maxBindingWts[ seqSites[i][k].factorIdx ] * seqSites[i][k].wtRatio ;	
+        }
+	func->set_bindingWts(_bindingWts); 
+
+
+        #pragma omp parallel for schedule(dynamic)
+        for (int j = 0; j < nConds(); j++ ) {
+
+			
             	concs[j] = factorExprData.getCol( j );
 		//for( int _i = 0; _i < sizeof ( indices_of_crm_in_gene ) / sizeof ( int ); _i++ ){
 		//	if( i == indices_of_crm_in_gene[ _i ] ){
@@ -1647,7 +1599,7 @@ double ExprPredictor::compRMSE( const ExprPar& par )
 		//	}
 		//}	
 		//if ( predictedExprs[j] < 0 ){
-            		predictedExprs[j] = func->predictExpr( seqSites[ i ], seqLengths[ i ], concs[j], i );
+            		predictedExprs[j] = func->predictExpr( seqLengths[ i ], concs[j], i );
 		//}
 
             // observed expression for the i-th sequence at the j-th condition
@@ -1661,7 +1613,7 @@ double ExprPredictor::compRMSE( const ExprPar& par )
         squaredErr +=  least_square( predictedExprs, observedExprs, beta );
 	
     }	
-   // gettimeofday(&end, 0);
+    //gettimeofday(&end, 0);
     //cout << "Time " << (end.tv_sec-start.tv_sec)+1e-6*(end.tv_usec-start.tv_usec) << endl;
 
     double rmse = sqrt( squaredErr / ( nSeqs() * nConds() ) ); 
@@ -1686,11 +1638,33 @@ double ExprPredictor::compRMSE_scale( const ExprPar& par )
         vector< double > observedExprs (nConds(), 1);
         vector < vector < double > > concs (nConds(), vector <double> (factorExprData.nRows(), 0) );
         
+
+	int n = seqSites[i].size();
+	vector< double > _bindingWts (n,0.0);
+	vector< int > _boundaries (n,0.0);
+	
+	// Determin the boundaries for func
+	_boundaries[0] = 0;
+	int range = max(coopDistThr, repressionDistThr );
+        for ( int k = 1; k < n; k++ ) {
+	       	int l; 
+		for ( l = k - 1; l >= 1; l-- ) {
+		    if ( ( seqSites[i][k].start - seqSites[i][l].start ) > range ) break; 
+		}
+	    _boundaries[k] = l ;
+	}	
+        func->set_boundaries(_boundaries);
+    
+	// compute the Boltzman weights of binding for all sites for func
+        _bindingWts[0] = 1.0;
+        for ( int k = 1; k < n; k++ ) {
+            _bindingWts[k] = par.maxBindingWts[ seqSites[i][k].factorIdx ] * seqSites[i][k].wtRatio ;	
+        }
+	func->set_bindingWts(_bindingWts); 
+
 	//double weight = 0;			// For different weights of the enhancers 
 
-	#if TOSCA
         #pragma omp parallel for schedule(dynamic)
-	#endif
         for (int j = 0; j < nConds(); j++ ) {
 	
             	concs[j] = factorExprData.getCol( j );
@@ -1702,7 +1676,7 @@ double ExprPredictor::compRMSE_scale( const ExprPar& par )
 		//	}
 		//}	
 		//if ( predictedExprs[j] < 0 ){
-            		predictedefficiency[j] = func->predictExpr_scalefree( seqSites[ i ], seqLengths[ i ], concs[j], i );
+            		predictedefficiency[j] = func->predictExpr_scalefree(  seqLengths[ i ], concs[j], i );
 		//}
 
             // observed expression for the i-th sequence at the j-th condition
@@ -1759,9 +1733,30 @@ double ExprPredictor::compRMSE_variance( const ExprPar& par )
         vector< double > observedExprs (nConds(), 1);
         vector < vector < double > > concs (nConds(), vector <double> (factorExprData.nRows(), 0) );
         
-	#if TOSCA
+	int n = seqSites[i].size();
+	vector< double > _bindingWts (n,0.0);
+	vector< int > _boundaries (n,0.0);
+	
+	// Determin the boundaries for func
+	_boundaries[0] = 0;
+	int range = max(coopDistThr, repressionDistThr );
+        for ( int k = 1; k < n; k++ ) {
+	       	int l; 
+		for ( l = k - 1; l >= 1; l-- ) {
+		    if ( ( seqSites[i][k].start - seqSites[i][l].start ) > range ) break; 
+		}
+	    _boundaries[k] = l ;
+	}	
+        func->set_boundaries(_boundaries);
+    
+	// compute the Boltzman weights of binding for all sites for func
+        _bindingWts[0] = 1.0;
+        for ( int k = 1; k < n; k++ ) {
+            _bindingWts[k] = par.maxBindingWts[ seqSites[i][k].factorIdx ] * seqSites[i][k].wtRatio ;	
+        }
+	func->set_bindingWts(_bindingWts); 
+
         #pragma omp parallel for schedule(dynamic)
-	#endif
         for (int j = 0; j < nConds(); j++ ) {
 	
             	concs[j] = factorExprData.getCol( j );
@@ -1773,7 +1768,7 @@ double ExprPredictor::compRMSE_variance( const ExprPar& par )
 		//	}
 		//}	
 		//if ( predictedExprs[j] < 0 ){
-            		predictedExprs[j] = func->predictExpr( seqSites[ i ], seqLengths[ i ], concs[j], i );
+            		predictedExprs[j] = func->predictExpr( seqLengths[ i ], concs[j], i );
 		//}
 
             // observed expression for the i-th sequence at the j-th condition
@@ -1802,18 +1797,43 @@ double ExprPredictor::compAvgCorr( const ExprPar& par )
     for ( int i = 0; i < nSeqs(); i++ ) {
         vector< double > predictedExprs;
         vector< double > observedExprs;
+
+	int n = seqSites[i].size();
+	vector< double > _bindingWts (n,0.0);
+	vector< int > _boundaries (n,0.0);
+	
+	// Determin the boundaries for func
+	_boundaries[0] = 0;
+	int range = max(coopDistThr, repressionDistThr );
+        for ( int k = 1; k < n; k++ ) {
+	       	int l; 
+		for ( l = k - 1; l >= 1; l-- ) {
+		    if ( ( seqSites[i][k].start - seqSites[i][l].start ) > range ) break; 
+		}
+	    _boundaries[k] = l ;
+	}	
+        func->set_boundaries(_boundaries);
+    
+	// compute the Boltzman weights of binding for all sites for func
+        _bindingWts[0] = 1.0;
+        for ( int k = 1; k < n; k++ ) {
+            _bindingWts[k] = par.maxBindingWts[ seqSites[i][k].factorIdx ] * seqSites[i][k].wtRatio ;	
+        }
+	func->set_bindingWts(_bindingWts); 
+
+        #pragma omp parallel for schedule(dynamic)
         for ( int j = 0; j < nConds(); j++ ) {
 		double predicted = -1;
             	vector< double > concs = factorExprData.getCol( j );
 		for( int _i = 0; _i < sizeof ( indices_of_crm_in_gene ) / sizeof ( int ); _i++ ){
 			if( i == indices_of_crm_in_gene[ _i ] ){
 				gene_crm_fout << i << "\t" << j << "\t";
-            			predicted = func->predictExpr( seqSites[ i ], seqLengths[ i ], concs, i, gene_crm_fout );
+            			predicted = func->predictExpr( seqLengths[ i ], concs, i, gene_crm_fout );
 				break;
 			}
 		}	
 		if ( predicted < 0 ){
-            		predicted = func->predictExpr( seqSites[ i ], seqLengths[ i ], concs, i );
+            		predicted = func->predictExpr( seqLengths[ i ], concs, i );
 		}
 		
             
@@ -1843,20 +1863,45 @@ double ExprPredictor::compAvgCrossCorr( const ExprPar& par )
     for ( int i = 0; i < nSeqs(); i++ ) {
         vector< double > predictedExprs (nConds(), -1);
         vector< double > observedExprs (nConds(), 1);
+
+	int n = seqSites[i].size();
+	vector< double > _bindingWts (n,0.0);
+	vector< int > _boundaries (n,0.0);
+	
+	// Determin the boundaries for func
+	_boundaries[0] = 0;
+	int range = max(coopDistThr, repressionDistThr );
+        for ( int k = 1; k < n; k++ ) {
+	       	int l; 
+		for ( l = k - 1; l >= 1; l-- ) {
+		    if ( ( seqSites[i][k].start - seqSites[i][l].start ) > range ) break; 
+		}
+	    _boundaries[k] = l ;
+	}	
+        func->set_boundaries(_boundaries);
+    
+	// compute the Boltzman weights of binding for all sites for func
+        _bindingWts[0] = 1.0;
+        for ( int k = 1; k < n; k++ ) {
+            _bindingWts[k] = par.maxBindingWts[ seqSites[i][k].factorIdx ] * seqSites[i][k].wtRatio ;	
+        }
+	func->set_bindingWts(_bindingWts); 
+
 	//#pragma omp parallel private(concs) shared(predictedExprs)
+        #pragma omp parallel for schedule(dynamic)
         for ( int j = 0; j < nConds(); j++ ) {
 		double predicted = -1;
             	vector< double > concs = factorExprData.getCol( j );
 		for( int _i = 0; _i < sizeof ( indices_of_crm_in_gene ) / sizeof ( int ); _i++ ){
 			if( i == indices_of_crm_in_gene[ _i ] ){
 				gene_crm_fout << i << "\t" << j << "\t";
-            			predictedExprs[j] = func->predictExpr( seqSites[ i ], seqLengths[i], concs, i, gene_crm_fout );
+            			predictedExprs[j] = func->predictExpr(  seqLengths[i], concs, i, gene_crm_fout );
 				break;
 			}
 		}	
 		
 		if ( predictedExprs[j] < 0 ){
-            		predictedExprs[j] = func->predictExpr( seqSites[ i ], seqLengths[i], concs, i );
+            		predictedExprs[j] = func->predictExpr(  seqLengths[i], concs, i );
 		}
             
             // observed expression for the i-th sequence at the j-th condition
@@ -1887,22 +1932,44 @@ double ExprPredictor::compNormCorr( const ExprPar& par )
         vector< double > predictedExprs (nConds(), -1);
         vector< double > observedExprs (nConds(), 1);
         vector < vector < double > > concs (nConds(), vector <double> (factorExprData.nRows(), 0) );
+
+
+	int n = seqSites[i].size();
+	vector< double > _bindingWts (n,0.0);
+	vector< int > _boundaries (n,0.0);
+	
+	// Determin the boundaries for func
+	_boundaries[0] = 0;
+	int range = max(coopDistThr, repressionDistThr );
+        for ( int k = 1; k < n; k++ ) {
+	       	int l; 
+		for ( l = k - 1; l >= 1; l-- ) {
+		    if ( ( seqSites[i][k].start - seqSites[i][l].start ) > range ) break; 
+		}
+	    _boundaries[k] = l ;
+	}	
+        func->set_boundaries(_boundaries);
+    
+	// compute the Boltzman weights of binding for all sites for func
+        _bindingWts[0] = 1.0;
+        for ( int k = 1; k < n; k++ ) {
+            _bindingWts[k] = par.maxBindingWts[ seqSites[i][k].factorIdx ] * seqSites[i][k].wtRatio ;	
+        }
+	func->set_bindingWts(_bindingWts); 
         
- 	#if TOSCA
         #pragma omp parallel for schedule(dynamic)
-	#endif
         for (int j = 0; j < nConds(); j++ ) {
 	
             	concs[j] = factorExprData.getCol( j );
 		//for( int _i = 0; _i < sizeof ( indices_of_crm_in_gene ) / sizeof ( int ); _i++ ){
 		//	if( i == indices_of_crm_in_gene[ _i ] ){
 		//		gene_crm_fout << i << "\t" << j << "\t";
-           	//		predictedExprs[j] = func->predictExpr( seqSites[ i ], seqLengths[ i ], concs[j], i, gene_crm_fout );
+           	//		predictedExprs[j] = func->predictExpr(  seqLengths[ i ], concs[j], i, gene_crm_fout );
 		//		break;
 		//	}
 		//}	
 		//if ( predictedExprs[j] < 0 ){
-            		predictedExprs[j] = func->predictExpr( seqSites[ i ], seqLengths[ i ], concs[j], i );
+            		predictedExprs[j] = func->predictExpr(  seqLengths[ i ], concs[j], i );
 		//}
 
             // observed expression for the i-th sequence at the j-th condition
@@ -1936,21 +2003,44 @@ double ExprPredictor::compNormCorr_variance (const ExprPar& par )
         vector< double > observedExprs (nConds(), 1);
         vector < vector < double > > concs (nConds(), vector <double> (factorExprData.nRows(), 0) );
         
- 	#if TOSCA
+	int n = seqSites[i].size();
+	vector< double > _bindingWts (n,0.0);
+	vector< int > _boundaries (n,0.0);
+	
+	// Determin the boundaries for func
+	_boundaries[0] = 0;
+	int range = max(coopDistThr, repressionDistThr );
+        for ( int k = 1; k < n; k++ ) {
+	       	int l; 
+		for ( l = k - 1; l >= 1; l-- ) {
+		    if ( ( seqSites[i][k].start - seqSites[i][l].start ) > range ) break; 
+		}
+	    _boundaries[k] = l ;
+	}	
+        func->set_boundaries(_boundaries);
+    
+	// compute the Boltzman weights of binding for all sites for func
+        _bindingWts[0] = 1.0;
+        for ( int k = 1; k < n; k++ ) {
+            _bindingWts[k] = par.maxBindingWts[ seqSites[i][k].factorIdx ] * seqSites[i][k].wtRatio ;	
+        }
+	func->set_bindingWts(_bindingWts); 
+
+
+
         #pragma omp parallel for schedule(dynamic)
-	#endif
         for (int j = 0; j < nConds(); j++ ) {
 	
             	concs[j] = factorExprData.getCol( j );
 		//for( int _i = 0; _i < sizeof ( indices_of_crm_in_gene ) / sizeof ( int ); _i++ ){
 		//	if( i == indices_of_crm_in_gene[ _i ] ){
 		//		gene_crm_fout << i << "\t" << j << "\t";
-           	//		predictedExprs[j] = func->predictExpr( seqSites[ i ], seqLengths[ i ], concs[j], i, gene_crm_fout );
+           	//		predictedExprs[j] = func->predictExpr(  seqLengths[ i ], concs[j], i, gene_crm_fout );
 		//		break;
 		//	}
 		//}	
 		//if ( predictedExprs[j] < 0 ){
-            		predictedExprs[j] = func->predictExpr( seqSites[ i ], seqLengths[ i ], concs[j], i );
+            		predictedExprs[j] = func->predictExpr( seqLengths[ i ], concs[j], i );
 		//}
 
             // observed expression for the i-th sequence at the j-th condition
@@ -1978,13 +2068,36 @@ double ExprPredictor::compPGP( const ExprPar& par )
         vector< double > predictedExprs (nConds(), -1);
         vector< double > observedExprs (nConds(), 1);
         vector < vector < double > > concs (nConds(), vector <double> (factorExprData.nRows(), 0) );
+
+	int n = seqSites[i].size();
+	vector< double > _bindingWts (n,0.0);
+	vector< int > _boundaries (n,0.0);
+	
+	// Determin the boundaries for func
+	_boundaries[0] = 0;
+	int range = max(coopDistThr, repressionDistThr );
+        for ( int k = 1; k < n; k++ ) {
+	       	int l; 
+		for ( l = k - 1; l >= 1; l-- ) {
+		    if ( ( seqSites[i][k].start - seqSites[i][l].start ) > range ) break; 
+		}
+	    _boundaries[k] = l ;
+	}	
+        func->set_boundaries(_boundaries);
+    
+	// compute the Boltzman weights of binding for all sites for func
+        _bindingWts[0] = 1.0;
+        for ( int k = 1; k < n; k++ ) {
+            _bindingWts[k] = par.maxBindingWts[ seqSites[i][k].factorIdx ] * seqSites[i][k].wtRatio ;	
+        }
+	func->set_bindingWts(_bindingWts); 
         
 	#if TOSCA
         #pragma omp parallel for schedule(dynamic)
 	#endif
         for (int j = 0; j < nConds(); j++ ) {
             	concs[j] = factorExprData.getCol( j );
-            	predictedExprs[j] = func->predictExpr( seqSites[ i ], seqLengths[ i ], concs[j], i );
+            	predictedExprs[j] = func->predictExpr(  seqLengths[ i ], concs[j], i );
 		observedExprs[j] = exprData( i, j );
         }
 

@@ -182,6 +182,7 @@ public:
     int factorIdx;	// the index of the associated TF, starting from 0
     double energy;	// the energy relative to the strongest site (nonnegative)
     double wtRatio;	// the binding weight ratio (<= 1) of site vs the strongest site: K(S) / K(S_max) = q(S) / q(S_max)
+    int boundary;
 };
 
 // test if two sites overlap
