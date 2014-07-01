@@ -1265,6 +1265,7 @@ int ExprPredictor::predict( const SiteVec& targetSites, int targetSeqLength, vec
     // predict the expression
     ExprFunc* func = createExprFunc( par_model );
 
+    func->set_sites(targetSites);
     int n = targetSites.size();
     vector< double > _bindingWts (n,0.0);
     vector< int > _boundaries (n,0.0);
