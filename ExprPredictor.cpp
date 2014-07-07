@@ -1,5 +1,6 @@
-#include <gsl/gsl_math.h>
-#include <gsl/gsl_multimin.h>
+#include </usr/local/include/gsl/gsl_math.h>
+#include </usr/local/include/gsl/gsl_multimin.h>
+#include </usr/local/include/gsl/gsl_siman.h>
 
 #include "ExprPredictor.h"
 #include "param.h"
@@ -307,9 +308,9 @@ void ExprPar::print( ostream& os, const vector< string >& motifNames, const IntM
 //     os.precision( 3 );
     
     // print the factor information
-    os << "Motif" << "\t" << "max Binding Wights K[A]" << "\t" << "transcriptional factor";	
-    if ( modelOption == CHRMOD_UNLIMITED || modelOption == CHRMOD_LIMITED ) os << "\t" << "repression Effects";
-    os << endl;    
+    //os << "Motif" << "\t" << "max Binding Wights K[A]" << "\t" << "transcriptional factor";	
+    //if ( modelOption == CHRMOD_UNLIMITED || modelOption == CHRMOD_LIMITED ) os << "\t" << "repression Effects";
+    //os << endl;    
 
     for ( int i = 0; i < nFactors(); i++ ) {
         os << motifNames[i] << "\t \t " << maxBindingWts[i] << "\t \t " << txpEffects[i];
@@ -445,15 +446,15 @@ double ExprPar::default_effect_Thermo = 1.0;
 double ExprPar::default_repression = 1.0E-2;
 double ExprPar::default_basal_Logistic = -5.0;
 double ExprPar::default_basal_Thermo = 0.01;
-double ExprPar::min_weight = 0.01;		
-double ExprPar::max_weight = 100;//500;		
-double ExprPar::min_interaction = 0.01;	
-double ExprPar::max_interaction = 100;//500;
+double ExprPar::min_weight = 0.001;		
+double ExprPar::max_weight = 5000;//500;		
+double ExprPar::min_interaction = 0.001;	
+double ExprPar::max_interaction = 500;//500;
 double ExprPar::min_effect_Logistic = -5;	
 double ExprPar::max_effect_Logistic = 5;
 // double ExprPar::min_effect_Direct = 0.01;
-double ExprPar::min_effect_Thermo = 0.01;	
-double ExprPar::max_effect_Thermo = 500;
+double ExprPar::min_effect_Thermo = 0.001;	
+double ExprPar::max_effect_Thermo = 5000;
 double ExprPar::min_repression = 1.0E-3;
 double ExprPar::max_repression = 500; 
 double ExprPar::min_basal_Logistic = -9.0;	
@@ -498,6 +499,26 @@ double ExprFunc::predictExpr_scalefree(int length, const vector< double >& facto
   //cout <<end.tv_usec-start.tv_usec << endl;
     #else
 
+    // Logistic model
+    if ( modelOption == LOGISTIC ) {
+        vector< double > factorOcc( motifs.size(), 0 ); // total occupancy of each factor
+        for ( int i = 1; i < sites.size(); i++ ) {
+            factorOcc[ sites[i].factorIdx ] += bindingWts[i] * factorConcs[sites[i].factorIdx] / ( 1.0 + bindingWts[i] * factorConcs[sites[i].factorIdx] );
+        }
+        double totalEffect = 0;
+//         cout << "factor\toccupancy\ttxp_effect" << endl;
+        for ( int i = 0; i < motifs.size(); i++ ) {
+            double effect = par.txpEffects[i] * factorOcc[i];
+            totalEffect += effect;
+//             cout << i << "\t" << factorOcc[i] << "\t" << effect << endl;
+
+            // length correction
+//             totalEffect = totalEffect / (double)length;
+        }
+//         return par.expRatio * logistic( log( par.basalTxp ) + totalEffect );
+        return logistic( par.basalTxps[ promoter_number ] + totalEffect );
+    }
+
     double Z_off = 0;
     double Z_on = 0;
 
@@ -534,7 +555,7 @@ double ExprFunc::predictExpr( int length, const vector< double >& factorConcs, i
     if ( modelOption == LOGISTIC ) {
         vector< double > factorOcc( motifs.size(), 0 ); // total occupancy of each factor
         for ( int i = 1; i < sites.size(); i++ ) {
-            factorOcc[ sites[i].factorIdx ] += bindingWts[i] / ( 1.0 + bindingWts[i] );
+            factorOcc[ sites[i].factorIdx ] += bindingWts[i] * factorConcs[sites[i].factorIdx] / ( 1.0 + bindingWts[i] * factorConcs[sites[i].factorIdx] );
         }
         double totalEffect = 0;
 //         cout << "factor\toccupancy\ttxp_effect" << endl;
@@ -588,7 +609,7 @@ double ExprFunc::predictExpr( int length, const vector< double >& factorConcs, i
     if ( modelOption == LOGISTIC ) {
         vector< double > factorOcc( motifs.size(), 0 ); // total occupancy of each factor
         for ( int i = 1; i < sites.size(); i++ ) {
-            factorOcc[ sites[i].factorIdx ] += bindingWts[i] / ( 1.0 + bindingWts[i] );
+            factorOcc[ sites[i].factorIdx ] += bindingWts[i] * factorConcs[sites[i].factorIdx] / ( 1.0 + bindingWts[i] * factorConcs[sites[i].factorIdx] );
         }
         double totalEffect = 0;
 //         cout << "factor\toccupancy\ttxp_effect" << endl;
@@ -1175,14 +1196,14 @@ int ExprPredictor::train( const ExprPar& par_init )
 	cout << endl;
 
 	//save result
-//        par_model = par_result; 
-//	save_param();	
+        //par_model = par_result; 
+	//save_param();	
 
         // par_model.adjust();
 
-//	cout << "Gradient minimisation: " << endl; 
-//      gradient_minimize( par_result, obj_result );
-//	cout << endl;
+	//cout << "Gradient minimisation: " << endl; 
+        //gradient_minimize( par_result, obj_result );
+	//cout << endl;
 
 	// save result
         par_model = par_result;
@@ -1207,9 +1228,6 @@ int ExprPredictor::train( const ExprPar& par_init, const gsl_rng* rng )
 	train( par_rand_start );*/
     // training using the initial values
     train( par_init );
-    
-    cout << "Initial training:\tParameters = "; printPar( par_model ); 
-    cout << "\tObjective = " << setprecision( 5 ) << obj_model << endl;
 
     // training with random starts
 	ExprPar par_best = par_model;
@@ -1250,12 +1268,15 @@ int ExprPredictor::train()
     ExprPar par_default( nFactors(), nSeqs() );
     train( par_default, rng ); 
     
+    
+
     return 0;	
 }
 
 int ExprPredictor::predict( const SiteVec& targetSites, int targetSeqLength, vector< double >& targetExprs, int seq_num ) const
 {
     targetExprs.clear();
+    targetExprs.resize( nConds() );
     
     // create site representation of the target sequence
 //     SiteVec targetSites;
@@ -1291,10 +1312,12 @@ int ExprPredictor::predict( const SiteVec& targetSites, int targetSeqLength, vec
 	
     for ( int j = 0; j < nConds(); j++ ) {
         vector< double > concs = factorExprData.getCol( j );
-        double predicted = func->predictExpr(  targetSeqLength, concs, seq_num );
-        targetExprs.push_back( predicted );
+        double predicted = func->predictExpr( targetSeqLength, concs, seq_num );
+        targetExprs[j] = predicted ;
     }
     
+    delete func;
+
     return 0; 
 }
 
@@ -1352,14 +1375,14 @@ double ExprPredictor::exprSimCrossCorr( const vector< double >& x, const vector<
 int ExprPredictor::maxShift = 5; 
 double ExprPredictor::shiftPenalty = 0.8; 
 
-int ExprPredictor::nAlternations = 4;
+int ExprPredictor::nAlternations = 1;
 int ExprPredictor::nRandStarts = 5;
 double ExprPredictor::min_delta_f_SSE = 1.0E-8;
 double ExprPredictor::min_delta_f_Corr = 1.0E-8;
 double ExprPredictor::min_delta_f_CrossCorr = 1.0E-8;
 double ExprPredictor::min_delta_f_NormCorr = 1.0E-8;
 double ExprPredictor::min_delta_f_PGP = 1.0E-8;
-int ExprPredictor::nSimplexIters = 200;
+int ExprPredictor::nSimplexIters = 10000;
 int ExprPredictor::nGradientIters = 50;
 bool ExprPredictor::one_qbtm_per_crm = ONE_QBTM;
 
@@ -1370,6 +1393,7 @@ vector <string> ExprPredictor::motifNames = vector <string>();
 
 int ExprPredictor::randSamplePar( const gsl_rng* rng, ExprPar& par ) const
 {
+
     // sample binding weights
     if ( estBindingOption ) {
         for ( int i = 0; i < nFactors(); i++ ) {
@@ -1537,6 +1561,7 @@ ExprFunc* ExprPredictor::createExprFunc( const ExprPar& par ) const
     return new ExprFunc( motifs, actIndicators, maxContact, repIndicators, repressionMat, repressionDistThr, coopDistThr, par, seqs );
 }
 
+
 int indices_of_crm_in_gene[] = {
 	5, 11, 17, 23, 29
 };
@@ -1616,6 +1641,8 @@ double ExprPredictor::compRMSE( const ExprPar& par )
     }	
     //gettimeofday(&end, 0);
     //cout << "Time " << (end.tv_sec-start.tv_sec)+1e-6*(end.tv_usec-start.tv_usec) << endl;
+
+    delete func;
 
     double rmse = sqrt( squaredErr / ( nSeqs() * nConds() ) ); 
     return rmse;
@@ -1933,7 +1960,11 @@ double ExprPredictor::compNormCorr( const ExprPar& par )
         vector< double > predictedExprs (nConds(), -1);
         vector< double > observedExprs (nConds(), 1);
         vector < vector < double > > concs (nConds(), vector <double> (factorExprData.nRows(), 0) );
+        
 
+	
+        // Initiate the sites for func
+	func->set_sites(seqSites[ i ]);
 
 	int n = seqSites[i].size();
 	vector< double > _bindingWts (n,0.0);
@@ -1960,23 +1991,24 @@ double ExprPredictor::compNormCorr( const ExprPar& par )
         
         #pragma omp parallel for schedule(dynamic)
         for (int j = 0; j < nConds(); j++ ) {
-	
+
+			
             	concs[j] = factorExprData.getCol( j );
 		//for( int _i = 0; _i < sizeof ( indices_of_crm_in_gene ) / sizeof ( int ); _i++ ){
 		//	if( i == indices_of_crm_in_gene[ _i ] ){
 		//		gene_crm_fout << i << "\t" << j << "\t";
-           	//		predictedExprs[j] = func->predictExpr(  seqLengths[ i ], concs[j], i, gene_crm_fout );
+           	//		predictedExprs[j] = func->predictExpr( seqSites[ i ], seqLengths[ i ], concs[j], i, gene_crm_fout );
 		//		break;
 		//	}
 		//}	
 		//if ( predictedExprs[j] < 0 ){
-            		predictedExprs[j] = func->predictExpr(  seqLengths[ i ], concs[j], i );
+            		predictedExprs[j] = func->predictExpr( seqLengths[ i ], concs[j], i );
 		//}
 
             // observed expression for the i-th sequence at the j-th condition
             observedExprs[j] = exprData( i, j );
+	    //weight += observedExprs[j];				// The weight of an enhancer is proportional to its expression width
         }
-
 	
       totalSim += norm_corr( predictedExprs, observedExprs ); 
       //  cout << "Sequence " << i << "\t" << norm_corr( predictedExprs, observedExprs ) << endl;
@@ -2181,7 +2213,7 @@ int ExprPredictor::simplex_minimize( ExprPar& par_result, double& obj_result )
 		}
 	}
 
-
+	
         par_curr = ExprPar ( pars, coopMat, actIndicators, repIndicators, nSeqs() );
 
 	//Hassan end
@@ -2294,7 +2326,156 @@ int ExprPredictor::gradient_minimize( ExprPar& par_result, double& obj_result )
 		
 	// choose the method of optimization and set its parameters
 // 	const gsl_multimin_fdfminimizer_type* T = gsl_multimin_fdfminimizer_conjugate_pr;	
-    const gsl_multimin_fdfminimizer_type* T = gsl_multimin_fdfminimizer_vector_bfgs; // Chose Broyden-Fletcher-Goldfarb-Shanno (BFGS) algorithm 
+    const gsl_multimin_fdfminimizer_type* T = gsl_multimin_fdfminimizer_conjugate_fr; // Chose Broyden-Fletcher-Goldfarb-Shanno (BFGS) algorithm 
+		
+    // create the minimizer
+    gsl_multimin_fdfminimizer* s = gsl_multimin_fdfminimizer_alloc( T, my_func.n );
+    double init_step = 0.02, tol = 0.1;
+    gsl_multimin_fdfminimizer_set( s, &my_func, x, init_step, tol );
+            
+    // iteration
+    size_t iter = 0;
+    int status;
+    do {
+        double f_prev = iter ? s->f : 1.0E6;     // the function starts with some very large number	
+        
+        iter++;
+        status = gsl_multimin_fdfminimizer_iterate( s );
+// 	    if ( prev_f - curr_f < 0.001 ) break;
+         
+        // check for error
+        if ( status ) break;
+
+        // check if the current values of parameters are valid
+	//Hassan start:
+	free_pars = gsl2vector( s-> x);
+	pars.clear();
+	int free_par_counter = 0;
+	int fix_par_counter = 0;
+	for( int index = 0; index < pars_size; index ++ ){
+		if( indicator_bool[ index ] ){
+			pars.push_back( free_pars[ free_par_counter ++ ]);
+		}
+		else{
+			pars.push_back( fix_pars[ fix_par_counter ++ ]);
+		}
+	}
+
+        par_curr = ExprPar ( pars, coopMat, actIndicators, repIndicators, nSeqs() );
+	
+	//Hassan end
+        //ExprPar par_curr = ExprPar( gsl2vector( s->x ), coopMat, actIndicators, repIndicators );
+        if ( ExprPar::searchOption == CONSTRAINED && !testPar( par_curr ) ) break;
+     
+        // check for stopping condition
+        double f_curr = s->f;
+        double delta_f = abs( f_curr - f_prev ); 
+        if ( objOption == SSE && delta_f < min_delta_f_SSE ) break;
+        if ( objOption == CORR && delta_f < min_delta_f_Corr ) break;
+        if ( objOption == CROSS_CORR && delta_f < min_delta_f_CrossCorr ) break;
+        if ( objOption == NORM_CORR && delta_f < min_delta_f_NormCorr ) break;
+        
+        status = gsl_multimin_test_gradient( s->gradient, 5e-4 );
+// 		if ( status == GSL_SUCCESS ) { cout << "converged to minimum at " << iter << endl; }
+
+         // print the current parameter and function values
+	#ifdef SHORT_OUTPUT
+	if(iter % SHORT_OUTPUT == 0){
+        	printf( "\r %zu \t f() = %8.5f", iter, s->f );
+		fflush(stdout);
+	}
+	#else
+	cout << "========================================" << endl;
+	cout << "========================================" << endl;
+        cout << iter << "\t";
+        //printPar( par_curr );           //Redundant information 
+        printf( "\tf() = %8.5f\n", s->f );
+	cout << "========================================" << endl;
+	/*vector <string> motifNames;
+	motifNames.push_back( "bcd" );
+	motifNames.push_back( "cad" );
+	motifNames.push_back( "gt" );
+	motifNames.push_back( "hb" );
+	motifNames.push_back( "kni" );
+	motifNames.push_back( "Kr" );
+	motifNames.push_back( "nub" );*/
+	par_curr.print( cout, motifNames, coopMat);
+	cout << "========================================" << endl;
+	cout << "========================================" << endl << endl;
+	#endif // SHORT_OUTPUT
+    } while ( status == GSL_CONTINUE && iter < nGradientIters );
+
+    // get the results
+//     vector< double > expv;
+//     for ( int i = 0; i < ( s->x )->size; i++ ) expv.push_back( exp( gsl_vector_get( s->x, i ) ) );	
+	//Hassan start:
+	free_pars = gsl2vector( s-> x);
+	pars.clear();
+	int free_par_counter = 0;
+	int fix_par_counter = 0;
+	for( int index = 0; index < pars_size; index ++ ){
+		if( indicator_bool[ index ] ){
+			pars.push_back( free_pars[ free_par_counter ++ ]);
+		}
+		else{
+			pars.push_back( fix_pars[ fix_par_counter ++ ]);
+		}
+	}
+
+        par_result = ExprPar ( pars, coopMat, actIndicators, repIndicators, nSeqs() );
+	//Hassan end
+    //par_result = ExprPar( gsl2vector( s->x ), coopMat, actIndicators, repIndicators );
+    obj_result = s->f;
+    
+    // free the minimizer
+    gsl_vector_free( x );    
+    gsl_multimin_fdfminimizer_free( s );
+    
+    return 0;
+}
+
+int ExprPredictor::simulated_annealing( ExprPar& par_result, double& obj_result ) 
+{
+// 	cout << "Start minimization" << endl;
+    // extract initial parameters
+    vector< double > pars;
+    par_model.getFreePars( pars, coopMat, actIndicators, repIndicators ); 
+            
+	//Hassan start:
+	int pars_size = pars.size();
+	fix_pars.clear();
+	free_pars.clear();
+	for( int index = 0; index < pars_size; index++ ){
+		if( indicator_bool[ index ] ){
+			//cout << "testing 1: " << pars[ index ] << endl;
+			free_pars.push_back( pars[ index ]);
+		}
+		else{
+			//cout << "testing 2: " << pars[ index ] << endl;
+			fix_pars.push_back( pars[ index ] );
+		}
+	}
+	
+	pars.clear();
+	pars = free_pars;
+	//Hassan end
+    // set the objective function and its gradient
+    gsl_multimin_function_fdf my_func;
+    my_func.f = &gsl_obj_f;
+    my_func.df = &gsl_obj_df;
+    my_func.fdf = &gsl_obj_fdf;
+    my_func.n = pars.size();
+    my_func.params = (void*)this;
+    
+    // set the initial values to be searched 
+    gsl_vector* x = vector2gsl( pars ); 
+
+	// CHECK POINT: evaluate gsl_obj_f() function
+// 	cout << "binding at the initial value of parameters = " << gsl_obj_f( x, (void*)this ) << endl; 
+		
+	// choose the method of optimization and set its parameters
+// 	const gsl_multimin_fdfminimizer_type* T = gsl_multimin_fdfminimizer_conjugate_pr;	
+    const gsl_multimin_fdfminimizer_type* T = gsl_multimin_fdfminimizer_conjugate_fr; // Chose Broyden-Fletcher-Goldfarb-Shanno (BFGS) algorithm 
 		
     // create the minimizer
     gsl_multimin_fdfminimizer* s = gsl_multimin_fdfminimizer_alloc( T, my_func.n );

@@ -363,6 +363,7 @@ ostream& operator<<( ostream& os, const Motif& motif )
     return os;
 }
 
+
 void Motif::init()
 {
     int l = pwm.nRows();
@@ -377,7 +378,7 @@ void Motif::init()
     // the strongest site
     for ( int i = 0; i < l; i++ ) {
         int b_max;
-        max( pwm.getRow( i ), b_max );
+        max( pwm.getRow( i ) , b_max );
         maxSite.push_back( b_max );	
     }
     

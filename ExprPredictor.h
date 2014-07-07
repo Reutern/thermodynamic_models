@@ -361,6 +361,7 @@ private:
     const vector < int >& axis_end;
     const vector < double >& axis_wts;
 
+
     // control parameters 
     static IntMatrix coopMat;       // cooperativity matrix: C(f,f') = 1 if f and f' bind cooperatively    
     const vector< bool >& actIndicators;   // 1 if the TF is in the activator set
@@ -403,6 +404,7 @@ private:
     // minimize the objective function, using the current model parameters as initial values
     int simplex_minimize( ExprPar& par_result, double& obj_result );	// simplex	
     int gradient_minimize( ExprPar& par_result, double& obj_result );	// gradient: BFGS or conjugate gradient
+    int simulated_annealing( ExprPar& par_result, double& obj_result ); 
 //  	int SA_minimize( ExprPar& par_result, double& obj_result ) const;	// simulated annealing 
 
     // function to save parameters to file

@@ -9,8 +9,8 @@ const log_add_table table( -10.0, 0, 500 );		// global variable
 // create a vector from gsl_vector
 vector< double > gsl2vector( const gsl_vector* v )
 {
-    vector< double > result;
-    for ( int i = 0; i < v->size; i++ ) result.push_back( gsl_vector_get( v, i ) );
+    vector< double > result (v->size);
+    for ( int i = 0; i < v->size; i++ ) result[i] = gsl_vector_get( v, i ) ;
     return result;	
 }
 
@@ -120,7 +120,9 @@ vector< double > Matrix::getRow( int row ) const
 {
     gsl_vector* v = gsl_vector_alloc( nCols() );
     gsl_matrix_get_row( v, data, row );
-    return gsl2vector( v );
+    vector< double > result_vector = gsl2vector( v );
+    gsl_vector_free( v );
+    return result_vector;
 }
 
 // get the column vector
@@ -128,19 +130,23 @@ vector< double > Matrix::getCol( int col ) const
 {
     gsl_vector* v = gsl_vector_alloc( nRows() );
     gsl_matrix_get_col( v, data, col );
-    return gsl2vector( v );	
+    vector< double > result_vector = gsl2vector( v );
+    gsl_vector_free( v );
+    return result_vector;	
 }
 
 // set the matrix dimensions
 void Matrix::setDimensions( int nRows, int nCols)
 {
     assert( nRows > 0 && nCols > 0 );
-    if ( data && ( data->size1 != nRows || data->size2 != nCols ) ) gsl_matrix_free( data );
-    //if ( data ) gsl_matrix_free( data );
-    data = gsl_matrix_alloc( nRows, nCols );
+    if ( data && ( data->size1 != nRows || data->size2 != nCols ) ){
+	gsl_matrix_free( data );
+        data = gsl_matrix_alloc( nRows, nCols );
+	}
     if ( !data ) {
-        cerr << "Matrix setDimensions() failed. nRows = " << nRows << " nCols = " << nCols << endl;
-        exit( 1 );
+	data = gsl_matrix_alloc( nRows, nCols );
+       // cerr << "Matrix setDimensions() failed. nRows = " << nRows << " nCols = " << nCols << endl;
+       //exit( 1 );
     }    
 }
 
@@ -442,7 +448,9 @@ vector< int > IntMatrix::getRow( int row ) const
 {
     gsl_vector_int* v = gsl_vector_int_alloc( nCols() );
     gsl_matrix_int_get_row( v, data, row );
-    return gsl_int2vector( v );
+    vector< int > result_vector = gsl_int2vector( v );
+    gsl_vector_int_free( v );
+    return result_vector;
 }
 
 // get the column vector
@@ -450,19 +458,23 @@ vector< int > IntMatrix::getCol( int col ) const
 {
     gsl_vector_int* v = gsl_vector_int_alloc( nRows() );
     gsl_matrix_int_get_col( v, data, col );
-    return gsl_int2vector( v );	
+    vector< int > result_vector = gsl_int2vector( v );
+    gsl_vector_int_free( v );
+    return result_vector;
 }
 
 // set the matrix dimensions
 void IntMatrix::setDimensions( int nRows, int nCols )
 {
     assert( nRows > 0 && nCols > 0 );
-    if ( data && ( data->size1 != nRows || data->size2 != nCols ) ) gsl_matrix_int_free( data );
-    //if ( data ) gsl_matrix_int_free( data );
-    data = gsl_matrix_int_alloc( nRows, nCols );
+    if ( data && ( data->size1 != nRows || data->size2 != nCols ) ){ 
+       	gsl_matrix_int_free( data );
+	data = gsl_matrix_int_alloc( nRows, nCols );
+	}
     if ( !data ) {
-        cerr << "IntMatrix setDimensions() failed. nRows = " << nRows << " nCols = " << nCols << endl;
-        exit( 1 );
+	data = gsl_matrix_int_alloc( nRows, nCols );
+        //cerr << "IntMatrix setDimensions() failed. nRows = " << nRows << " nCols = " << nCols << endl;
+        //exit( 1 );
     }    
 }
 
@@ -1253,7 +1265,8 @@ void numeric_deriv( gsl_vector* grad, double (*f)( const gsl_vector*, void* ), c
         gsl_vector_set( dv, i, gsl_vector_get( v, i ) + step );
         double partial_deriv = ( (*f)( dv, params ) - f_val ) / step;
         gsl_vector_set( grad, i , partial_deriv );
-    }		
+    }
+    gsl_vector_free( dv );		
 }
 
 // read parameter file into a <field, value> table. Return 0 if successful, -1 otherwise

@@ -26,6 +26,7 @@
 #include <math.h> // for fmod
 #include "param.h" 
 
+
 int main( int argc, char* argv[] ) 
 {
 
@@ -39,8 +40,16 @@ int main( int argc, char* argv[] )
     double factorIntSigma = 50.0;   // sigma parameter for the Gaussian interaction function
     int repressionDistThr = 50;
     int maxContact = 1;
-	double eTF = 0.6;
+	vector<double> eTF (8);
 
+	eTF[0] = 0.6 ;
+	eTF[1] = 0.6 ;
+	eTF[2] = 0.6 ;
+	eTF[3] = 0.6 ;
+	eTF[4] = 0.6 ;
+	eTF[5] = 0.6 ;
+	eTF[6] = 0.6 ;
+	eTF[7] = 0.6 ;
 
 	string free_fix_indicator_filename;
 	ExprPredictor::one_qbtm_per_crm = ONE_QBTM;
@@ -98,8 +107,8 @@ int main( int argc, char* argv[] )
 		ExprPar::one_qbtm_per_crm = ONE_QBTM;
 		ExprFunc::one_qbtm_per_crm = ONE_QBTM;
 	}
-        else if ( !strcmp( "-et", argv[i] ) )
-            eTF = atof( argv[ ++i ] );    
+        else if ( !strcmp( "-et", argv[i] ) ) {}
+           // eTF = atof( argv[ ++i ] );    
     }
     if ( seqFile.empty() || exprFile.empty() || motifFile.empty() || factorExprFile.empty() || outFile.empty() || ( ( ExprPredictor::modelOption == QUENCHING || ExprPredictor::modelOption == CHRMOD_UNLIMITED || ExprPredictor::modelOption == CHRMOD_LIMITED ) &&  factorInfoFile.empty() ) || ( ExprPredictor::modelOption == QUENCHING && repressionFile.empty() ) ) {
         cerr << "Usage: " << argv[ 0 ] << " -s seqFile -ts test_seqFile -e exprFile -te test_exprFile -m motifFile -f factorExprFile -fo outFile [-a annFile -o modelOption -c coopFile -i factorInfoFile -r repressionFile -oo objOption -mc maxContact -p parFile -pp print_parFile -rt repressionDistThr -na nAlternations -ct coopDistThr -sigma factorIntSigma]" << endl;
@@ -107,12 +116,13 @@ int main( int argc, char* argv[] )
         exit( 1 );
     }           
 
+
 //     bool readSites = false;     // whether read sites (if true) or read sequences 
     
     // additional control parameters
     double gcContent = 0.5;
     FactorIntType intOption = BINARY;     // type of interaction function
-    ExprPar::searchOption = CONSTRAINED;      // search option: unconstrained; constrained. 
+    ExprPar::searchOption = UNCONSTRAINED;      // search option: unconstrained; constrained. 
     ExprPar::estBindingOption = 1;
 
     ExprPredictor::nRandStarts = 0;
@@ -121,7 +131,6 @@ int main( int argc, char* argv[] )
     ExprPredictor::min_delta_f_CrossCorr = 1.0E-10;
     ExprPredictor::nSimplexIters = 10000;
     ExprPredictor::nGradientIters = 2000;
-
 
     int rval;
     vector< vector< double > > data;    // buffer for reading matrix data
@@ -174,7 +183,8 @@ int main( int argc, char* argv[] )
 	vector < double > energyThrFactors;
 	energyThrFactors.clear( );
 	for ( int index = 0; index < nFactors; index++ ){
-		energyThrFactors.push_back( eTF );
+		//cout << motifNames[index] << " " << eTF[index] << endl;  // Print eTF for all TF
+		energyThrFactors.push_back( eTF[index] );
 	}
     // site representation of the sequences
 	
@@ -413,7 +423,7 @@ int main( int argc, char* argv[] )
     
     // model fitting
     predictor->train( par_init, rng );
-
+    gsl_rng_free( rng );
 
     // print the training results
 
@@ -521,6 +531,7 @@ int main( int argc, char* argv[] )
     }
     #endif // CROSS_VALIDATION
 
+    delete predictor;
 
     int dmm = 0;
     int dss = 0;

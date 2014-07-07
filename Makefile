@@ -1,4 +1,4 @@
-CC = g++ -fopenmp #-g for gdb
+CC = g++ -fopenmp #-g -O0 #for gdb, valgrind etc
 
 GSL_DIR = usr/local
 
