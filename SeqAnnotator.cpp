@@ -279,9 +279,9 @@ Matrix compWtmx( const Matrix& countMatrix, double pseudoCount )
             pwm( i, j ) = ( countMatrix( i, j ) + pseudoCount ) / ( n + 4.0 * pseudoCount );	// pseudoCount ensures a minimum possibility of a nucleotide at every position 
         }	
     }
-
     return pwm;		
 }
+
 
 Motif::Motif( const Matrix& _pwm, const vector< double >& _background ) : pwm( _pwm ), background( _background ), LLRMat( pwm.nRows(), 4 )
 {
@@ -362,7 +362,6 @@ ostream& operator<<( ostream& os, const Motif& motif )
     
     return os;
 }
-
 
 void Motif::init()
 {

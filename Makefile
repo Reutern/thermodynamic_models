@@ -19,11 +19,11 @@ clean:
 
 Tools.o : Tools.h Tools.cpp
 	$(CC) $(CFLAGS) -c Tools.cpp
-SeqAnnotator.o : Tools.h SeqAnnotator.h SeqAnnotator.cpp
+SeqAnnotator.o : Tools.h SeqAnnotator.h param.h SeqAnnotator.cpp
 	$(CC) $(CFLAGS) -c SeqAnnotator.cpp
 ExprPredictor.o : Tools.h SeqAnnotator.h ExprPredictor.h param.h ExprPredictor.cpp 
 	$(CC) $(CFLAGS) -c ExprPredictor.cpp
-seq2expr.o : Tools.h SeqAnnotator.h ExprPredictor.h seq2expr.cpp
+seq2expr.o : Tools.h SeqAnnotator.h ExprPredictor.h param.h seq2expr.cpp
 	$(CC) $(CFLAGS) -c seq2expr.cpp
 
 seq2expr : Tools.o SeqAnnotator.o ExprPredictor.o seq2expr.o 
