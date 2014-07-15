@@ -311,7 +311,6 @@ public:
     
     // the objective function to be minimized
     double objFunc( const ExprPar& par ) ;
-    
     // training the model
     int train( const ExprPar& par_init ); 	// training with the initial values given
     int train( const ExprPar& par_init, const gsl_rng* rng );   // training with the initial values and allowing random starts
@@ -350,6 +349,9 @@ public:
     vector < double > fix_pars;
     vector < double > free_pars;
 
+    // print the parameter values (the ones that are estimated) in a single line
+    void printPar( const ExprPar& par ) const;
+
 private:
     // training data
     const vector< SiteVec >& seqSites;		// the extracted sites for all sequences
@@ -384,9 +386,6 @@ private:
 
     // check if some parameter combination is valid
     bool testPar( const ExprPar& par ) const; 
-
-    // print the parameter values (the ones that are estimated) in a single line
-    void printPar( const ExprPar& par ) const;
     
     // create the expression function
     ExprFunc* createExprFunc( const ExprPar& par ) const;
@@ -405,17 +404,16 @@ private:
     int simplex_minimize( ExprPar& par_result, double& obj_result );	// simplex	
     int gradient_minimize( ExprPar& par_result, double& obj_result );	// gradient: BFGS or conjugate gradient
     int simulated_annealing( ExprPar& par_result, double& obj_result ); 
-//  	int SA_minimize( ExprPar& par_result, double& obj_result ) const;	// simulated annealing 
-
     // function to save parameters to file
     static int save_param();
-
     // Signal handler
     static void catch_signal(int sig_num);
  //   static void catch_param(int sig_num);		
 };
 
-// the objective function and its gradient of ExprPredictor::simplex_minimize or gradient_minimize
+// the objective function and its gradient of ExprPredictor::simplex_minimize, simulated annealing or gradient_minimize
+void siman_print(gsl_vector* xp);
+void siman_stepper(const gsl_rng * r, gsl_vector* xp, double step_size);
 double gsl_obj_f( const gsl_vector* v, void* params );
 void gsl_obj_df( const gsl_vector* v, void* params, gsl_vector* grad ); 
 void gsl_obj_fdf( const gsl_vector* v, void* params, double* result, gsl_vector* grad ); 

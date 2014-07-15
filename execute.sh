@@ -13,6 +13,7 @@ OUTPUT_PATH="../data/test"
 -f $INPUT_PATH/factor_expr_segal.tab \
 -fo $OUTPUT_PATH/obs_pre_pseudocount.txt \
 -pp $OUTPUT_PATH/par_pseudocount.par \
+-p testparam.save \
 -i $INPUT_PATH/factor_info.txt \
 -r $INPUT_PATH/rep.txt \
 -o Direct	# modelOption: Logistic, Direct, Quenching, ChrMod_Unlimited, ChrMod_Limite
@@ -35,6 +36,6 @@ do
 done
 
 # Example Falgs
-# -s ../data/seqs_segal.fa  -e ../data/expr_segal.tab -m ../data/factors_propria.wtmx -c ../data/coop.txt -f ../data/factor_expr_segal.tab -fo ../data/obs_pre.txt -i ../data/factor_info.txt -r ../data/rep.txt -o Direct
+# -s ../data/Input/seqs_segal.fa  -e ../data/Input/expr_segal.tab -m ../data/Input/factors_christophe.wtmx -c ../data/Input/coop.txt -f ../data/Input/factor_expr_segal.tab -fo ../data/obs_pre.txt -i ../data/Input/factor_info.txt -r ../data/Input/rep.txt -o Direct
  #-ff $INPUT_PATH/free_fix_indicator_file.txt -p testparam.save \-p testparam.save \ valgrind --leak-check=yes -p param.save \-p param.save \
 

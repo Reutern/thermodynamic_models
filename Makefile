@@ -1,4 +1,4 @@
-CC = g++ -fopenmp #-g -O0 #for gdb, valgrind etc
+CC = g++ -std=c++11 -fopenmp -g -O0 #for gdb, valgrind etc
 
 GSL_DIR = usr/local
 
@@ -19,13 +19,15 @@ clean:
 
 Tools.o : Tools.h Tools.cpp
 	$(CC) $(CFLAGS) -c Tools.cpp
+siman.o : siman.h siman.cpp
+	$(CC) $(CFLAGS) -c siman.cpp
 SeqAnnotator.o : Tools.h SeqAnnotator.h param.h SeqAnnotator.cpp
 	$(CC) $(CFLAGS) -c SeqAnnotator.cpp
-ExprPredictor.o : Tools.h SeqAnnotator.h ExprPredictor.h param.h ExprPredictor.cpp 
+ExprPredictor.o : Tools.h siman.h SeqAnnotator.h ExprPredictor.h param.h ExprPredictor.cpp 
 	$(CC) $(CFLAGS) -c ExprPredictor.cpp
-seq2expr.o : Tools.h SeqAnnotator.h ExprPredictor.h param.h seq2expr.cpp
+seq2expr.o : Tools.h siman.h SeqAnnotator.h ExprPredictor.h param.h seq2expr.cpp
 	$(CC) $(CFLAGS) -c seq2expr.cpp
 
-seq2expr : Tools.o SeqAnnotator.o ExprPredictor.o seq2expr.o 
-	$(CC) -o $@ Tools.o SeqAnnotator.o ExprPredictor.o seq2expr.o $(LFLAGS)
+seq2expr : Tools.o siman.o SeqAnnotator.o ExprPredictor.o seq2expr.o 
+	$(CC) -o $@ Tools.o siman.o SeqAnnotator.o ExprPredictor.o seq2expr.o $(LFLAGS)
 
