@@ -1,4 +1,4 @@
-CC = g++ -std=c++11 -fopenmp -g -O0 #for gdb, valgrind etc
+CC = g++ -std=c++11 -fopenmp -O3 -mtune=native -march=native#-g -O0 #for gdb, valgrind etc
 
 GSL_DIR = usr/local
 

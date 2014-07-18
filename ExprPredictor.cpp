@@ -1186,8 +1186,8 @@ int ExprPredictor::train( const ExprPar& par_init )
     for ( int i = 0; i < nAlternations; i++ ) {
 	cout << "Minimisation step " << i+1 << " of " << nAlternations << endl; 
 	cout << "Simplex minimisation: " << endl; 
-        //simplex_minimize( par_result, obj_result );
-	simulated_annealing( par_result, obj_result );
+        simplex_minimize( par_result, obj_result );
+	//simulated_annealing( par_result, obj_result );
 	cout << endl;
 
 	//save result
@@ -2175,7 +2175,7 @@ int ExprPredictor::simplex_minimize( ExprPar& par_result, double& obj_result )
     // choose the method of optimization and set its parameters
     const gsl_multimin_fminimizer_type* T = gsl_multimin_fminimizer_nmsimplex;
     gsl_vector* ss = gsl_vector_alloc( my_func.n );
-    gsl_vector_set_all( ss, 1.0 );
+    gsl_vector_set_all( ss, 3 );
             
     // create the minimizer
     gsl_multimin_fminimizer* s = gsl_multimin_fminimizer_alloc( T, my_func.n );
@@ -2436,7 +2436,7 @@ int ExprPredictor::simulated_annealing( ExprPar& par_result, double& obj_result 
     gsl_rng_env_setup();
     T = gsl_rng_default;
     r = gsl_rng_alloc(T);
-    gsl_siman_params_t siman_params = {50000, 10, 0.1, 1.0, 0.001, 1.003, 2.0e-7};
+    gsl_siman_params_t siman_params = {100, 10000, 0.1, 0.2, 0.1, 1.1, 2.0e-7};
 
     vector< double > pars;
     par_model.getFreePars( pars, coopMat, actIndicators, repIndicators ); 
@@ -2475,10 +2475,9 @@ void siman_print(gsl_vector * xp)
 
 void siman_stepper(const gsl_rng * r, gsl_vector* v, double step_size)
 {
-    for(int idx=0; idx < v->size; idx++){
-        double u = gsl_rng_uniform(r) * 2 * step_size - step_size + gsl_vector_get( v, idx );
-        gsl_vector_set( v , idx , u ) ; 
-	}
+    int idx = int(gsl_rng_uniform(r) * v->size);
+    double u = gsl_rng_uniform(r) * 2 * step_size - step_size + gsl_vector_get( v, idx );
+    gsl_vector_set( v , idx , u ) ; 
 }
 
 // function to save parameters to file
@@ -2528,7 +2527,7 @@ double gsl_obj_f( const gsl_vector* v, void* params )
 
     ExprPar par( all_pars, predictor->getCoopMat(), predictor->getActIndicators(), predictor->getRepIndicators(), predictor -> nSeqs() );
     //ExprPar par( gsl2vector( v ), predictor->getCoopMat(), predictor->getActIndicators(), predictor->getRepIndicators() );
-            
+    predictor->par_curr = par;
     // call the ExprPredictor object to evaluate the objective function 
     double obj = predictor->objFunc( par );	
     return obj;

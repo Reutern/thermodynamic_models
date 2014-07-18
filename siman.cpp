@@ -106,7 +106,6 @@ size is given */
         }
         best_E=new_E;
       }
-
       ++n_evals; /* keep track of Ef() evaluations */
       /* now take the crucial step: see if the new point is accepted
 or not, as determined by the boltzmann probability */

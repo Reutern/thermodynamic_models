@@ -42,14 +42,14 @@ int main( int argc, char* argv[] )
     int maxContact = 1;
 	vector<double> eTF (8);
 
-	eTF[0] = 0.6 ;
-	eTF[1] = 0.6 ;
-	eTF[2] = 0.6 ;
-	eTF[3] = 0.6 ;
-	eTF[4] = 0.6 ;
-	eTF[5] = 0.6 ;
-	eTF[6] = 0.6 ;
-	eTF[7] = 0.6 ;
+	eTF[0] = 1 ;
+	eTF[1] = 1 ;
+	eTF[2] = 1 ;
+	eTF[3] = 1 ;
+	eTF[4] = 1 ;
+	eTF[5] = 1 ;
+	eTF[6] = 1 ;
+	eTF[7] = 1 ;
 
 	string free_fix_indicator_filename;
 	ExprPredictor::one_qbtm_per_crm = ONE_QBTM;
@@ -383,10 +383,14 @@ int main( int argc, char* argv[] )
     for(int seqs_idx = 0; seqs_idx < nSeqs; seqs_idx++){
 	average_number += seqSites[seqs_idx].size()/44.0;
 	int sites_count[] = {0,0,0,0,0,0,0,0};
+        double weight_count[] = {0,0,0,0,0,0,0,0};
 	for( int idx = 0; idx < seqSites[seqs_idx].size() ; idx++ ){
 			sites_count[seqSites[seqs_idx][idx].factorIdx]++;
+			weight_count[seqSites[seqs_idx][idx].factorIdx] = weight_count[seqSites[seqs_idx][idx].factorIdx] + seqSites[seqs_idx][idx].wtRatio;
 		}
-	cout <<  sites_count[0] << " \t " << sites_count[1]<< " \t " << sites_count[2]<< " \t " << sites_count[3]<< " \t " << sites_count[4]<< " \t " << sites_count[5]<< " \t " << sites_count[6]<< " \t " << sites_count[7] << " \t " << seqSites[seqs_idx].size() << " \t " << seqNames[seqs_idx] << " \t " << seqLengths[seqs_idx] <<  endl;}
+        for( int l = 0; l < nFactors; l++){
+	        cout <<  round(100*  weight_count[l]) << " \t "; }
+	cout << seqSites[seqs_idx].size() << " \t " << seqNames[seqs_idx] << " \t " << seqLengths[seqs_idx] <<  endl;}
     cout << endl; 
     cout << average_number << endl;
 	

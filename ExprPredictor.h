@@ -351,6 +351,7 @@ public:
 
     // print the parameter values (the ones that are estimated) in a single line
     void printPar( const ExprPar& par ) const;
+    static ExprPar par_curr;
 
 private:
     // training data
@@ -375,7 +376,6 @@ private:
     
     // model parameters and the value of the objective function
     ExprPar par_model;
-    static ExprPar par_curr;
     double obj_model;	
 
     // the sequenz
