@@ -129,7 +129,7 @@ int main( int argc, char* argv[] )
     ExprPredictor::min_delta_f_SSE = 1.0E-10;
     ExprPredictor::min_delta_f_Corr = 1.0E-10;
     ExprPredictor::min_delta_f_CrossCorr = 1.0E-10;
-    ExprPredictor::nSimplexIters = 10000;
+    ExprPredictor::nSimplexIters = 20000;
     ExprPredictor::nGradientIters = 2000;
 
     int rval;
@@ -207,20 +207,6 @@ int main( int argc, char* argv[] )
             seqLengths[i] = seqs[i].size();
         }
     }
-
-
-    #if SAVE_ENERGIES 
-    // Write site energies to site_energies.txt	
-    cout << "Save site energies" << endl;
-    ofstream site_energies;
-    site_energies.open ("../data/site_energies.txt");
-    for ( int i = 0; i < nSeqs; i++ ) {
-	site_energies << "CRM: " << seqNames[i] << "\t" << seqSites[i].size() << endl;
-	ann.printEnergy(site_energies ,seqSites[i]);
-    }    
-    site_energies.close();
-    cout << "Site energies saved" << endl;
-    #endif //SAVE_ENERGIES
 
 
     // read the cooperativity matrix 
@@ -381,7 +367,7 @@ int main( int argc, char* argv[] )
     cout << motifNames[0] << " \t " << motifNames[1] << " \t " << motifNames[2] << " \t " << motifNames[3] << " \t " << motifNames[4] << " \t " << motifNames[5] << " \t " << motifNames[6] << " \t " << motifNames[7] << " \t " << "Sum \t Length \t Name" << endl;
     double average_number = 0;
     for(int seqs_idx = 0; seqs_idx < nSeqs; seqs_idx++){
-	average_number += seqSites[seqs_idx].size()/44.0;
+	average_number += seqSites[seqs_idx].size()/nSeqs;
 	int sites_count[] = {0,0,0,0,0,0,0,0};
         double weight_count[] = {0,0,0,0,0,0,0,0};
 	for( int idx = 0; idx < seqSites[seqs_idx].size() ; idx++ ){
@@ -395,6 +381,32 @@ int main( int argc, char* argv[] )
     cout << average_number << endl;
 	
     #endif // PRINT_STATISTICS
+
+
+    #if SAVE_ENERGIES
+    cout << "Save site energies" << endl;
+    ofstream site_energies;
+    site_energies.open ("../data/site_energies.txt");
+    for(int tf = 0; tf < nFactors; tf++){
+	site_energies << motifNames[tf] << "\t" << factorExprData.getRow(tf) << endl;
+	vector <double> weight(nConds);
+        for(int n=0; n < nConds; n++){
+	weight[n] = 0;
+		for(int seqs_idx = 0; seqs_idx < nSeqs; seqs_idx++){
+			for( int idx = 0; idx < seqSites[seqs_idx].size() ; idx++ ){
+				if(seqSites[seqs_idx][idx].factorIdx != tf)  continue;
+				weight[n] += seqSites[seqs_idx][idx].wtRatio * exprData.getRow(seqs_idx)[n];
+			}
+		}
+	}
+	site_energies << motifNames[tf] << "\t" << weight << endl;
+    }
+    // Write site energies to site_energies.txt	
+    site_energies.close();
+    cout << "Site energies saved" << endl;
+    #endif //SAVE_ENERGIES
+
+
     // create the expression predictor
 //    FactorIntFunc* intFunc; 
 //    if ( intOption == BINARY ) intFunc = new FactorIntFuncBinary( coopDistThr ); 
@@ -412,7 +424,8 @@ int main( int argc, char* argv[] )
             exit( 1 );
         } 
     }
-
+    cout << "Par_init" << endl;
+    par_init.print(cout, motifNames, coopMat);
 
     // Initialise the predictor class
     ExprPredictor* predictor = new ExprPredictor( seqSites, seqLengths, exprData, motifs, factorExprData, coopMat, actIndicators, maxContact, repIndicators, repressionMat, repressionDistThr, coopDistThr, indicator_bool, motifNames, axis_start, axis_end, axis_wts, seqs );
@@ -426,12 +439,13 @@ int main( int argc, char* argv[] )
 	gsl_rng_set( rng, time( 0 ) );		// set the seed equal to simulTime(0)
     
     // model fitting
-    predictor->train( par_init, rng );
+    //predictor->train( par_init, rng );
     gsl_rng_free( rng );
 
     // print the training results
 
     ExprPar par = predictor->getPar();
+    
     // print the parameter
     ofstream pout( print_parFile.c_str() );
     if ( !pout ) {

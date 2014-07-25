@@ -6,6 +6,7 @@
 #include "param.h"
 #include <sys/time.h>
 #include <omp.h>
+#include <unistd.h>
 
 ModelType getModelOption( const string& modelOptionStr )
 {
@@ -337,7 +338,7 @@ int ExprPar::load( const string& file )
     // open the file
     ifstream fin( file.c_str() );
     if ( !fin ){ cerr << "Cannot open parameter file " << file << endl;	exit( 1 ); } 
-    
+
     // read the factor information
     vector< string > motifNames( nFactors() );
     for ( int i = 0; i < nFactors(); i++ ) {
@@ -350,7 +351,8 @@ int ExprPar::load( const string& file )
     for ( int i = 0; i < nFactors(); i++ ) {
         factorIdxMap[motifNames[i]] = i;
     }
-    
+
+
     // read the basal transcription
     string symbol, eqSign, value;
     fin >> symbol >> eqSign >> value;
@@ -364,7 +366,10 @@ int ExprPar::load( const string& file )
     		basalTxps[ _i ] = basalTxp_val;
     	}
     }
-    
+
+    fin >> symbol >> eqSign;
+    if (symbol != "Cooperativity" || eqSign != "Factor:") return RET_ERROR;
+
     // read the cooperative interactions
     string factor1, factor2;
     double coopVal;
@@ -376,7 +381,8 @@ int ExprPar::load( const string& file )
         factorIntMat( idx2, idx1 ) = coopVal;
     }
 
-    return 0;
+    fin.close();
+    return fin ? RET_ERROR : 0;
 }
 
 void ExprPar::adjust()
@@ -570,10 +576,8 @@ double ExprFunc::predictExpr( int length, const vector< double >& factorConcs, i
     double Z_off = 0;
     double Z_on = 0;
 
- 
     Z_off = compPartFuncOff(factorConcs);
     Z_on = compPartFuncOn(factorConcs);
-    
     #endif //TOSCA
 
 
@@ -624,10 +628,9 @@ double ExprFunc::predictExpr( int length, const vector< double >& factorConcs, i
     double Z_off = 0;
     double Z_on = 0;
 
- 
+
     Z_off = compPartFuncOff(factorConcs);
     Z_on = compPartFuncOn(factorConcs);
-    
     #endif //TOSCA
 
     // compute the expression (promoter occupancy)
@@ -1065,11 +1068,13 @@ double ExprFunc::compFactorInt( const Site& a, const Site& b ) const
     assert( dist >= 0 );
 
     assert(  modelOption == DIRECT  );	// For now only Direct model implemented
-    #if FactorIntFunc == 1 
+    #if FactorIntFunc == Binary 
     double spacingTerm = ( dist < coopDistThr ? maxInt : 1.0 );
+    #else
+    double spacingTerm = ( dist < coopDistThr ? maxInt * exp(-dist) : 1.0 );
     #endif // FactorIntFunc
 
-    #ifdef ORIENTATION
+    #if ORIENTATION
     double orientationTerm = ( a.strand == b.strand ) ? 1.0 : orientationEffect;
     return spacingTerm * orientationTerm;
     #else
@@ -1085,11 +1090,13 @@ double ExprFunc::compFactorInt( int t_1, int t_2, int _dist  ) const
     assert( dist >= 0 );
 
     assert(  modelOption == DIRECT  );	// For now only Direct model implemented
-    #if FactorIntFunc == 1 
+    #if FactorIntFunc == Binary 
     double spacingTerm = ( dist < coopDistThr ? maxInt : 1.0 );
+    #else
+    double spacingTerm = ( dist < coopDistThr ? maxInt * exp(-dist) : 1.0 );
     #endif // FactorIntFunc
 
-    #ifdef ORIENTATION
+    #if ORIENTATION
     double orientationTerm = ( a.strand == b.strand ) ? 1.0 : orientationEffect;
     return spacingTerm * orientationTerm;
     #else
@@ -1280,11 +1287,10 @@ int ExprPredictor::predict( const SiteVec& targetSites, int targetSeqLength, vec
             
     // predict the expression
     ExprFunc* func = createExprFunc( par_model );
-
     func->set_sites(targetSites);
     int n = targetSites.size();
     vector< double > _bindingWts (n,0.0);
-    vector< int > _boundaries (n,0.0);
+    vector< int > _boundaries (n,0);
 	
     // Determin the boundaries for func
     _boundaries[0] = 0;
@@ -1584,7 +1590,7 @@ double ExprPredictor::compRMSE( const ExprPar& par )
 
 	int n = seqSites[i].size();
 	vector< double > _bindingWts (n,0.0);
-	vector< int > _boundaries (n,0.0);
+	vector< int > _boundaries (n,0);
 	
 	// Determin the boundaries for func
 	_boundaries[0] = 0;

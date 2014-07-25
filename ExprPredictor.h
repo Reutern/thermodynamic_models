@@ -205,7 +205,6 @@ public:
     double predictExpr( int length, const vector< double >& factorConcs, int seq_num, std::ofstream& fout );
     // Returns the efficiency Z_ON/Z_OFF
     double predictExpr_scalefree( int length, const vector< double >& factorConcs, int seq_num );    
-
     static ModelType modelOption;     // model option   
     static bool one_qbtm_per_crm;
 
@@ -265,6 +264,8 @@ private:
 
      // compute the paritition function when the BTM is bound: ChrMod_Limited model
     double compPartFuncOnChrMod_Limited( const vector< double >& factorConcs) const;    
+
+
     
     // compute the TF-TF interaction between two occupied sites
     double compFactorInt( const Site& a, const Site& b ) const;
