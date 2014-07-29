@@ -548,7 +548,7 @@ double ExprFunc::predictExpr( int length, const vector< double >& factorConcs, i
   //gettimeofday(&start, 0);
     double Z_off = 0;
     double Z_on = 0;
-    compPartFunc_seq_interfactor(Z_on, Z_off, seq_num, factorConcs);
+    compPartFunc_seq(Z_on, Z_off, seq_num, factorConcs);
   //gettimeofday(&end, 0);
   //cout <<end.tv_usec-start.tv_usec << endl;
     #else
@@ -599,7 +599,7 @@ double ExprFunc::predictExpr( int length, const vector< double >& factorConcs, i
   //gettimeofday(&start, 0);
     double Z_off = 0;
     double Z_on = 0;
-    compPartFunc_seq_interfactor(Z_on, Z_off, seq_num, factorConcs);
+    compPartFunc_seq(Z_on, Z_off, seq_num, factorConcs);
   //gettimeofday(&end, 0);
   //cout <<end.tv_usec-start.tv_usec << endl;
   
@@ -777,7 +777,7 @@ int ExprFunc::compPartFunc_seq(double &result_Z_on, double &result_Z_off, int _s
 			Z_off[d][idx] = Z_off[d-1][idx-1];
 
 			sum_on  += compFactorInt( t, t, d ) * Z_on[d -motif_length_tmp][idx-motif_length_tmp] ;
-			sum_off += compFactorInt( t, t, d ) * Z_off[d - motif_length_tmp][idx-motif_length_tmp] ;
+			sum_off += compFactorInt( t, t, d )  * Z_off[d - motif_length_tmp][idx-motif_length_tmp] ;
 			
 		   }
 
@@ -1062,16 +1062,16 @@ double ExprFunc::compPartFuncOnChrMod_Limited(const vector< double >& factorConc
 double ExprFunc::compFactorInt( const Site& a, const Site& b ) const
 {
 // 	assert( !siteOverlap( a, b, motifs ) );
-	
+    if(a.factorIdx != b.factorIdx)	return 1.0;	// Only TF of the same type interact 	
     double maxInt = par.factorIntMat( a.factorIdx, b.factorIdx );
-    int dist = abs( a.start - b.start );
+    unsigned dist = abs( a.start - b.start );
     assert( dist >= 0 );
 
     assert(  modelOption == DIRECT  );	// For now only Direct model implemented
-    #if FactorIntFunc == Binary 
+    #if FactorIntFunc
+    double spacingTerm = ( dist < coopDistThr ? maxInt *  (1 - dist/coopDistThr ) + 1.0: 1.0 );
+    #else 
     double spacingTerm = ( dist < coopDistThr ? maxInt : 1.0 );
-    #else
-    double spacingTerm = ( dist < coopDistThr ? maxInt * exp(-dist) : 1.0 );
     #endif // FactorIntFunc
 
     #if ORIENTATION
@@ -1090,10 +1090,10 @@ double ExprFunc::compFactorInt( int t_1, int t_2, int _dist  ) const
     assert( dist >= 0 );
 
     assert(  modelOption == DIRECT  );	// For now only Direct model implemented
-    #if FactorIntFunc == Binary 
-    double spacingTerm = ( dist < coopDistThr ? maxInt : 1.0 );
+    #if FactorIntFunc
+    double spacingTerm = ( dist < coopDistThr ? maxInt *  (1 - dist/coopDistThr ) + 1.0: 1.0 );
     #else
-    double spacingTerm = ( dist < coopDistThr ? maxInt * exp(-dist) : 1.0 );
+    double spacingTerm = ( dist < coopDistThr ? maxInt : 1.0 );
     #endif // FactorIntFunc
 
     #if ORIENTATION
@@ -1184,7 +1184,7 @@ int ExprPredictor::train( const ExprPar& par_init )
     cout << "*******************************************" << endl << endl;
 */
 
-
+    //par_model.adjust();
     if ( nAlternations == 0 ) return 0;
     
     // alternate between two different methods
@@ -1596,14 +1596,13 @@ double ExprPredictor::compRMSE( const ExprPar& par )
 	_boundaries[0] = 0;
 	int range = max(coopDistThr, repressionDistThr );
         for ( int k = 1; k < n; k++ ) {
-	       	int l; 
-		for ( l = k - 1; l >= 1; l-- ) {
-		    if ( ( seqSites[i][k].start - seqSites[i][l].start ) > range ) break; 
+		int l;	       	 
+		for ( l=0; l < k; l++ ) {
+		    if ( ( seqSites[i][k].start - seqSites[i][l].start ) <= range ) {break;} 
 		}
-	    _boundaries[k] = l ;
+	        _boundaries[k] = l;
 	}	
         func->set_boundaries(_boundaries);
-    
 	// compute the Boltzman weights of binding for all sites for func
         _bindingWts[0] = 1.0;
         for ( int k = 1; k < n; k++ ) {

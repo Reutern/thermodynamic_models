@@ -37,7 +37,7 @@ int main( int argc, char* argv[] )
     string seqFile, test_seqFile, annFile, exprFile, test_exprFile, motifFile, factorExprFile, coopFile, factorInfoFile, repressionFile, parFile, print_parFile, axis_wtFile;
     string outFile;     // output file
     int coopDistThr = 50;
-    double factorIntSigma = 50.0;   // sigma parameter for the Gaussian interaction function
+    double factorIntSigma = 25.0;   // sigma parameter for the Gaussian interaction function
     int repressionDistThr = 50;
     int maxContact = 1;
 	vector<double> eTF (8);
@@ -424,8 +424,6 @@ int main( int argc, char* argv[] )
             exit( 1 );
         } 
     }
-    cout << "Par_init" << endl;
-    par_init.print(cout, motifNames, coopMat);
 
     // Initialise the predictor class
     ExprPredictor* predictor = new ExprPredictor( seqSites, seqLengths, exprData, motifs, factorExprData, coopMat, actIndicators, maxContact, repIndicators, repressionMat, repressionDistThr, coopDistThr, indicator_bool, motifNames, axis_start, axis_end, axis_wts, seqs );
@@ -437,15 +435,14 @@ int main( int argc, char* argv[] )
 	const gsl_rng_type * T = gsl_rng_default;	// create rng type
 	rng = gsl_rng_alloc( T );
 	gsl_rng_set( rng, time( 0 ) );		// set the seed equal to simulTime(0)
-    
+
     // model fitting
-    //predictor->train( par_init, rng );
+    predictor->train( par_init, rng );
     gsl_rng_free( rng );
 
     // print the training results
-
     ExprPar par = predictor->getPar();
-    
+
     // print the parameter
     ofstream pout( print_parFile.c_str() );
     if ( !pout ) {
