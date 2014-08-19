@@ -913,6 +913,13 @@ double least_square( const vector< double >& x, const vector< double >& y, doubl
     assert( x.size() == y.size() );
     int n = x.size();
 
+    double numerator = 0, denom = 0;
+    for ( int i = 0; i < n; i++ ) {
+       numerator += x[i] * y[i];
+       denom += x[i] * x[i];
+    }
+    beta = 1.0;//numerator / denom; 
+
     double rss = 0;
     for ( int i = 0; i < n; i++ ) {
     	rss += ( y[i] - beta * x[i] ) * ( y[i] - beta * x[i] );
@@ -930,12 +937,16 @@ double least_square_equal( const vector< double >& x, const vector< double >& y,
 	if( y[i] > 0.0 ) {expression_width = expression_width + 1.0;}
 	}
 
-    //double numerator = 0, denom = 0;
-    //for ( int i = 0; i < n; i++ ) {
-    //   numerator += x[i] * y[i];
-    //    denom += x[i] * x[i];
-    //}
-    //beta = 1.0; //numerator / denom;
+    double numerator = 0, denom = 0;
+    for ( int i = 0; i < n; i++ ) {
+      	if( y[i] > 0.0 ){  numerator += 50.0 / expression_width *   x[i] * y[i];
+      			   denom += 50.0 / expression_width *  x[i] * x[i]; }
+     	else{
+			   numerator += 50.0 / (100.0 - expression_width)  *   x[i] * y[i];
+      			   denom += 50.0 / (100.0 - expression_width)  *  x[i] * x[i]; }
+
+    }
+    beta = 1.0;//numerator / denom;
     double rss = 0;
     int counter=0;
     for ( int i = 0; i < n; i++ ) {

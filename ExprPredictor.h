@@ -145,6 +145,9 @@ public:
 
     // adjust the values of parameters: if the value is close to min or max allowed value, slightly change it s.t. it is away from the boundary
     void adjust(); 
+
+    // constrain the parameters between the minimum and maximum value
+    void constrain_parameters();
     
     // parameters
     vector< double > maxBindingWts;			// binding weight of the strongest site for each TF: K(S_max) [TF_max]

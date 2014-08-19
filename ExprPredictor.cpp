@@ -440,6 +440,61 @@ void ExprPar::adjust()
     }
 }
 
+void ExprPar::constrain_parameters()
+{
+    // constrain binding paramters
+    for ( int i = 0; i < nFactors(); i++ ) {
+        if ( maxBindingWts[i] < ExprPar::min_weight * ( 1.0 + ExprPar::delta ) ) maxBindingWts[i] = ExprPar::min_weight;
+        if ( maxBindingWts[i] > ExprPar::max_weight * ( 1.0 - ExprPar::delta ) ) maxBindingWts[i] = ExprPar::max_weight;
+    }
+
+    // constrain the interaction matrix 
+    for ( int i = 0; i < nFactors(); i++ ) {
+        for ( int j = 0; j <= i; j++ ) {
+            if ( factorIntMat( i, j ) < ExprPar::min_interaction * ( 1.0 + ExprPar::delta ) ) { 
+                factorIntMat( i, j ) = ExprPar::min_interaction; 
+                factorIntMat( j, i ) = factorIntMat( i, j ); 
+            }
+            if ( factorIntMat( i, j ) > ExprPar::max_interaction * ( 1.0 - ExprPar::delta ) ) {
+                factorIntMat( i, j ) = ExprPar::max_interaction;
+                factorIntMat( j, i ) = factorIntMat( i, j ); 
+            }
+        }
+    }
+    
+    // constrain transcriptional effects
+    for ( int i = 0; i < nFactors(); i++ ) {
+        if ( modelOption == LOGISTIC ) {
+            if ( txpEffects[i] < ExprPar::min_effect_Logistic + ExprPar::delta ) txpEffects[i] = ExprPar::min_effect_Logistic;
+            if ( txpEffects[i] > ExprPar::max_effect_Logistic - ExprPar::delta ) txpEffects[i] = ExprPar::max_effect_Logistic;
+        } else {
+            if ( txpEffects[i] < ExprPar::min_effect_Thermo * ( 1.0 + ExprPar::delta ) ) txpEffects[i] = ExprPar::min_effect_Thermo;
+            if ( txpEffects[i] > ExprPar::max_effect_Thermo * ( 1.0 - ExprPar::delta ) ) txpEffects[i] = ExprPar::max_effect_Thermo;
+        }
+        
+    }
+
+    // constrain the repression effects
+    if ( modelOption == CHRMOD_UNLIMITED || modelOption == CHRMOD_LIMITED ) {
+        for ( int i = 0; i < nFactors(); i++ ) {
+            if ( repEffects[i] < ExprPar::min_repression * ( 1.0 + ExprPar::delta ) ) repEffects[i] = ExprPar::min_repression;
+            if ( repEffects[i] > ExprPar::max_repression * ( 1.0 - ExprPar::delta ) ) repEffects[i] = ExprPar::max_repression;
+        }
+    }
+
+    // constrain the basl transcription
+    for( int _i = 0; _i < basalTxps.size(); _i ++ )
+    {
+    	if ( modelOption == LOGISTIC ) {
+        	if ( basalTxps[ _i ] < ExprPar::min_basal_Logistic + ExprPar::delta ) basalTxps[ _i ] = ExprPar::min_basal_Logistic;
+        	if ( basalTxps[ _i ] > ExprPar::max_basal_Logistic - ExprPar::delta ) basalTxps[ _i ] = ExprPar::max_basal_Logistic;
+    	} else {
+        	if ( basalTxps[ _i ] < ExprPar::min_basal_Thermo * ( 1.0 + ExprPar::delta ) ) basalTxps[ _i ] = ExprPar::min_basal_Thermo;
+        	if ( basalTxps[ _i ] > ExprPar::max_basal_Thermo * ( 1.0 - ExprPar::delta ) ) basalTxps[ _i ] = ExprPar::max_basal_Thermo;
+    	}
+    }
+}
+
 ModelType ExprPar::modelOption = DIRECT;
 SearchType ExprPar::searchOption = UNCONSTRAINED;
 int ExprPar::estBindingOption = 1;  // 1. estimate binding parameters; 0. not estimate binding parameters
@@ -451,10 +506,10 @@ double ExprPar::default_effect_Thermo = 1.0;
 double ExprPar::default_repression = 1.0E-2;
 double ExprPar::default_basal_Logistic = -5.0;
 double ExprPar::default_basal_Thermo = 0.01;
-double ExprPar::min_weight = 0.001;		
+double ExprPar::min_weight = 0.0001;		
 double ExprPar::max_weight = 5000;//500;		
-double ExprPar::min_interaction = 0.001;	
-double ExprPar::max_interaction = 500;//500;
+double ExprPar::min_interaction = 0.0001;	
+double ExprPar::max_interaction = 5000;//500;
 double ExprPar::min_effect_Logistic = -5;	
 double ExprPar::max_effect_Logistic = 5;
 // double ExprPar::min_effect_Direct = 0.01;
@@ -465,7 +520,7 @@ double ExprPar::max_repression = 500;
 double ExprPar::min_basal_Logistic = -9.0;	
 double ExprPar::max_basal_Logistic = -1.0;
 double ExprPar::min_basal_Thermo = 1.0E-4;	
-double ExprPar::max_basal_Thermo = 0.1;
+double ExprPar::max_basal_Thermo = 1;
 double ExprPar::delta = 0.0001;
 
 
@@ -1184,7 +1239,9 @@ int ExprPredictor::train( const ExprPar& par_init )
     cout << "*******************************************" << endl << endl;
 */
 
-    //par_model.adjust();
+    if ( nAlternations > 0 && ExprPar::searchOption == CONSTRAINED ) { par_model.constrain_parameters(); 
+								       par_model.adjust(); }
+
     if ( nAlternations == 0 ) return 0;
     
     // alternate between two different methods
@@ -1277,6 +1334,7 @@ int ExprPredictor::train()
 
 int ExprPredictor::predict( const SiteVec& targetSites, int targetSeqLength, vector< double >& targetExprs, int seq_num ) const
 {
+
     targetExprs.clear();
     targetExprs.resize( nConds() );
     
@@ -1297,8 +1355,8 @@ int ExprPredictor::predict( const SiteVec& targetSites, int targetSeqLength, vec
     int range = max(coopDistThr, repressionDistThr );
     for ( int k = 1; k < n; k++ ) {
     	int l; 
-	for ( l = k - 1; l >= 1; l-- ) {
-	    if ( ( targetSites[k].start - targetSites[l].start ) > range ) break; 
+	for ( l=0; l < k; l++ ) {
+	    if ( ( targetSites[k].start - targetSites[l].start ) <= range ) {break;} 
 	}
     _boundaries[k] = l ;
     }	
@@ -2529,12 +2587,11 @@ double gsl_obj_f( const gsl_vector* v, void* params )
 	}
 
 
-
     ExprPar par( all_pars, predictor->getCoopMat(), predictor->getActIndicators(), predictor->getRepIndicators(), predictor -> nSeqs() );
     //ExprPar par( gsl2vector( v ), predictor->getCoopMat(), predictor->getActIndicators(), predictor->getRepIndicators() );
     predictor->par_curr = par;
     // call the ExprPredictor object to evaluate the objective function 
-    double obj = predictor->objFunc( par );	
+    double obj = predictor->objFunc( par );
     return obj;
 }
 

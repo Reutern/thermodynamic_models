@@ -42,14 +42,14 @@ int main( int argc, char* argv[] )
     int maxContact = 1;
 	vector<double> eTF (8);
 
-	eTF[0] = 1 ;
-	eTF[1] = 1 ;
-	eTF[2] = 1 ;
-	eTF[3] = 1 ;
-	eTF[4] = 1 ;
-	eTF[5] = 1 ;
-	eTF[6] = 1 ;
-	eTF[7] = 1 ;
+	eTF[0] = 0.7 ;
+	eTF[1] = 0.7 ;
+	eTF[2] = 0.7 ;
+	eTF[3] = 0.7 ;
+	eTF[4] = 0.7 ;
+	eTF[5] = 0.7 ;
+	eTF[6] = 0.7 ;
+	eTF[7] = 0.7 ;
 
 	string free_fix_indicator_filename;
 	ExprPredictor::one_qbtm_per_crm = ONE_QBTM;
@@ -521,16 +521,17 @@ int main( int argc, char* argv[] )
         
         // error
         double beta = 1.0; 
-        double error = sqrt( least_square( targetExprs, observedExprs, beta ) / nConds );
+        double error =  least_square( targetExprs, observedExprs, beta ) / nConds;
 
         // print the results
         fout << seqNames[i] << "\t" << observedExprs << endl;      // observations
         fout << seqNames[i]; 
 
         for ( int j = 0; j < nConds; j++ )
-		fout << "\t" << beta * targetExprs[j];       // predictions
+		fout << "\t" << targetExprs[j];       // predictions
         fout << endl;
 
+	#if !SHORT_OUTPUT
         // print the agreement bewtween predictions and observations
         cout << seqNames[i] << "\t" << beta << "\t"; 
         if ( ExprPredictor::objOption == SSE ) 
@@ -543,6 +544,7 @@ int main( int argc, char* argv[] )
             cout << ExprPredictor::exprSimCrossCorr( observedExprs, targetExprs ) << endl; 
         else if ( ExprPredictor::objOption == NORM_CORR )
             cout << norm_corr( observedExprs, targetExprs ) << endl; 
+	#endif // SHORT_OUTPUT
     }
     #endif // CROSS_VALIDATION
 
