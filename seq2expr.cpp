@@ -528,7 +528,7 @@ int main( int argc, char* argv[] )
         fout << seqNames[i]; 
 
         for ( int j = 0; j < nConds; j++ )
-		fout << "\t" << targetExprs[j];       // predictions
+		fout << "\t" << beta * targetExprs[j];       // predictions
         fout << endl;
 
 	#if !SHORT_OUTPUT

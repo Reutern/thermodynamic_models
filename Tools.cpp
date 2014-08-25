@@ -918,7 +918,7 @@ double least_square( const vector< double >& x, const vector< double >& y, doubl
        numerator += x[i] * y[i];
        denom += x[i] * x[i];
     }
-    beta = 1.0;//numerator / denom; 
+    beta = 1;//numerator / denom; 
 
     double rss = 0;
     for ( int i = 0; i < n; i++ ) {
@@ -946,7 +946,7 @@ double least_square_equal( const vector< double >& x, const vector< double >& y,
       			   denom += 50.0 / (100.0 - expression_width)  *  x[i] * x[i]; }
 
     }
-    beta = 1.0;//numerator / denom;
+    beta = 1;//numerator / denom;
     double rss = 0;
     int counter=0;
     for ( int i = 0; i < n; i++ ) {

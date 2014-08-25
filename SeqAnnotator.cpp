@@ -411,15 +411,15 @@ int readMotifs( const string& file, const vector< double >& background, vector< 
         char *name, *lengthStr, *pseudoCountStr;
         name = strtok( lineStr, " \t" );
         lengthStr = strtok( NULL, " \t" );
-        pseudoCountStr = strtok( NULL, " \t" );
+        pseudoCountStr = strtok( NULL, " \t PSEUDO_COUNT ");
         int length;
         double pseudoCount;
         if ( lengthStr ) length = atoi( lengthStr );
         else { return RET_ERROR; }
-        if ( pseudoCountStr ) pseudoCount = atof( pseudoCountStr );
+        if ( pseudoCountStr ) pseudoCount = atof( pseudoCountStr ); 
         else pseudoCount = PSEUDO_COUNT;
         
-        // read the count matrix
+	// read the count matrix
         Matrix countMat( length, NBASES );
         for ( int i = 0; i < length; ++i ) {
             for ( int j = 0; j < NBASES; ++j ) {
