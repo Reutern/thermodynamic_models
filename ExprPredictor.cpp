@@ -509,7 +509,7 @@ double ExprPar::default_basal_Thermo = 0.01;
 double ExprPar::min_weight = 0.0001;		
 double ExprPar::max_weight = 5000;//500;		
 double ExprPar::min_interaction = 0.0001;	
-double ExprPar::max_interaction = 5000;//500;
+double ExprPar::max_interaction = 500;//500;
 double ExprPar::min_effect_Logistic = -5;	
 double ExprPar::max_effect_Logistic = 5;
 // double ExprPar::min_effect_Direct = 0.01;
@@ -519,7 +519,7 @@ double ExprPar::min_repression = 1.0E-3;
 double ExprPar::max_repression = 500; 
 double ExprPar::min_basal_Logistic = -9.0;	
 double ExprPar::max_basal_Logistic = -1.0;
-double ExprPar::min_basal_Thermo = 1.0E-4;	
+double ExprPar::min_basal_Thermo = 1.0E-5;	
 double ExprPar::max_basal_Thermo = 1;
 double ExprPar::delta = 0.0001;
 
@@ -1116,6 +1116,7 @@ double ExprFunc::compPartFuncOnChrMod_Limited(const vector< double >& factorConc
 
 double ExprFunc::compFactorInt( const Site& a, const Site& b ) const
 {
+
 // 	assert( !siteOverlap( a, b, motifs ) );
     if(a.factorIdx != b.factorIdx)	return 1.0;	// Only TF of the same type interact 	
     double maxInt = par.factorIntMat( a.factorIdx, b.factorIdx );

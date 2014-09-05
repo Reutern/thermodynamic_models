@@ -42,14 +42,14 @@ int main( int argc, char* argv[] )
     int maxContact = 1;
 	vector<double> eTF (8);
 
-	eTF[0] = 0.7 ;
-	eTF[1] = 0.7 ;
-	eTF[2] = 0.7 ;
-	eTF[3] = 0.7 ;
-	eTF[4] = 0.7 ;
-	eTF[5] = 0.7 ;
-	eTF[6] = 0.7 ;
-	eTF[7] = 0.7 ;
+	eTF[0] = 0.8 ;
+	eTF[1] = 0.8 ;
+	eTF[2] = 0.8 ;
+	eTF[3] = 0.8 ;
+	eTF[4] = 0.8 ;
+	eTF[5] = 0.8 ;
+	eTF[6] = 0.8 ;
+	eTF[7] = 0.8 ;
 
 	string free_fix_indicator_filename;
 	ExprPredictor::one_qbtm_per_crm = ONE_QBTM;
@@ -129,7 +129,7 @@ int main( int argc, char* argv[] )
     ExprPredictor::min_delta_f_SSE = 1.0E-10;
     ExprPredictor::min_delta_f_Corr = 1.0E-10;
     ExprPredictor::min_delta_f_CrossCorr = 1.0E-10;
-    ExprPredictor::nSimplexIters = 20000;
+    ExprPredictor::nSimplexIters = 200000;
     ExprPredictor::nGradientIters = 2000;
 
     int rval;
@@ -461,6 +461,23 @@ int main( int argc, char* argv[] )
         exit( 1 );
     }
     fout << "Rows\t" << condNames << endl;
+
+    // print the impact
+    cout << "Impact of the TF:" << endl; 
+    for(int tf = 0; tf < nFactors; tf++ ){
+
+	double totalweight = 0;
+	for(int seqs_idx = 0; seqs_idx < nSeqs; seqs_idx++){
+		for( int idx = 0; idx < seqSites[seqs_idx].size(); idx++ ){
+			if(seqSites[seqs_idx][idx].factorIdx != tf)  continue;
+			totalweight += seqSites[seqs_idx][idx].wtRatio;
+		}
+	}
+	// effect * binding energy * total weight
+	double impact = max(par.txpEffects[tf] , 1/par.txpEffects[tf]) * par.maxBindingWts[tf] * totalweight;
+	cout << motifNames[tf] << "\t" << impact << endl;
+
+    }
 
     #if CROSS_VALIDATION
 

@@ -913,11 +913,11 @@ double least_square( const vector< double >& x, const vector< double >& y, doubl
     assert( x.size() == y.size() );
     int n = x.size();
 
-    double numerator = 0, denom = 0;
-    for ( int i = 0; i < n; i++ ) {
-       numerator += x[i] * y[i];
-       denom += x[i] * x[i];
-    }
+    //double numerator = 0, denom = 0;
+    //for ( int i = 0; i < n; i++ ) {
+    //   numerator += x[i] * y[i];
+    //   denom += x[i] * x[i];
+    //}
     beta = 1;//numerator / denom; 
 
     double rss = 0;
@@ -931,26 +931,34 @@ double least_square_equal( const vector< double >& x, const vector< double >& y,
 {
     assert( x.size() == y.size() );
     int n = x.size();
+    vector< int > expressed (n);
 
     double expression_width = 0.0;
-    for ( int i = 0; i < n; i++ ) {
-	if( y[i] > 0.0 ) {expression_width = expression_width + 1.0;}
+    for ( int i = 0; i < 3; i++ ) {
+	if( (y[i] > 0.0) || (y[i+1] > 0.0) || (y[i+2] > 0.0)||(y[i+3] > 0.0) ) {expression_width = expression_width + 1.0; expressed[i]=1;}
+	else{expressed[i]=0;}
 	}
+    for ( int i = 3; i < n-3; i++ ) {
+	if( (y[i] > 0.0) || (y[i+1] > 0.0) || (y[i+2] > 0.0)||(y[i+3] > 0.0)|| (y[i-1] > 0.0) || (y[i-2] > 0.0)||(y[i-3] > 0.0) ) {expression_width = expression_width + 1.0;expressed[i]=1;}
+	else{expressed[i]=0;}	
+	}
+    for ( int i = n-3; i < n; i++ ) {
+	if( (y[i] > 0.0) || (y[i-1] > 0.0) || (y[i-2] > 0.0)||(y[i-3] > 0.0) ) {expression_width = expression_width + 1.0;expressed[i]=1;}
+	else{expressed[i]=0;}	
+	}
+    //double numerator = 0, denom = 0;
+    //for ( int i = 0; i < n; i++ ) {
+    //  	if( expressed[i] == 1 ){  numerator += 50.0 / expression_width *   x[i] * y[i];
+    //  			   denom += 50.0 / expression_width *  x[i] * x[i]; }
+    // 	else{
+    //		   numerator += 50.0 / (100.0 - expression_width)  *   x[i] * y[i];
+    //  			   denom += 50.0 / (100.0 - expression_width)  *  x[i] * x[i]; }
 
-    double numerator = 0, denom = 0;
-    for ( int i = 0; i < n; i++ ) {
-      	if( y[i] > 0.0 ){  numerator += 50.0 / expression_width *   x[i] * y[i];
-      			   denom += 50.0 / expression_width *  x[i] * x[i]; }
-     	else{
-			   numerator += 50.0 / (100.0 - expression_width)  *   x[i] * y[i];
-      			   denom += 50.0 / (100.0 - expression_width)  *  x[i] * x[i]; }
-
-    }
+    //}
     beta = 1;//numerator / denom;
     double rss = 0;
-    int counter=0;
     for ( int i = 0; i < n; i++ ) {
-	if( y[i] > 0.0 ){ rss += 50.0 / expression_width *  ( y[i] - beta * x[i] ) * ( y[i] - beta * x[i] );}
+	if( expressed[i] ==  1 ){ rss += 50.0 / expression_width *  ( y[i] - beta * x[i] ) * ( y[i] - beta * x[i] );}
 	else { rss += 50.0 / (100.0 - expression_width) *  ( y[i] - beta * x[i] ) * ( y[i] - beta * x[i] );}
     }
     return rss;
