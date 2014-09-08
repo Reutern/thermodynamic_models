@@ -636,6 +636,7 @@ double ExprFunc::predictExpr( int length, const vector< double >& factorConcs, i
     #endif //TOSCA
 
 
+
     // compute the expression (promoter occupancy)
     double efficiency = Z_on / Z_off;
     double promoterOcc = efficiency * par.basalTxps[ promoter_number ] / ( 1.0 + efficiency * par.basalTxps[ promoter_number ] );
@@ -1204,13 +1205,9 @@ ExprPredictor::ExprPredictor( const vector< SiteVec >& _seqSites, const vector< 
 
 double ExprPredictor::objFunc( const ExprPar& par ) 
 {
-    if ( objOption == SSE ) return compRMSE( par );	
-    if ( objOption == SSE_SCALE ) return compRMSE_scale( par );	
-    if ( objOption == SSE_V ) return compRMSE_variance( par );	
+    if ( objOption == SSE ||  objOption == NORM_CORR ) return comp_SSE_NormCorr( par );	
     if ( objOption == CORR ) return -compAvgCorr( par );
     if ( objOption == CROSS_CORR ) return -compAvgCrossCorr( par ); 
-    if ( objOption == NORM_CORR ) return -compNormCorr( par ); 
-    if ( objOption == NORM_CORR_V ) return -compNormCorr_variance( par ); 
     if ( objOption == PGP ) return -compPGP( par );
 }
 
@@ -1626,13 +1623,13 @@ int indices_of_crm_in_gene[] = {
 	5, 11, 17, 23, 29
 };
 
-double ExprPredictor::compRMSE( const ExprPar& par ) 
+double ExprPredictor::comp_SSE_NormCorr( const ExprPar& par ) 
 {
     // create the expression function
     ExprFunc* func = createExprFunc( par );
     // error of each sequence
     double squaredErr = 0;
-
+    double correlation = 0;
     //timeval start, end;
     //gettimeofday(&start, 0);
 
@@ -1695,181 +1692,17 @@ double ExprPredictor::compRMSE( const ExprPar& par )
 
         double beta = 1.0;
         squaredErr +=  least_square( predictedExprs, observedExprs, beta );
-	
+	correlation  +=  norm_corr( predictedExprs, observedExprs ); 
     }	
     //gettimeofday(&end, 0);
     //cout << "Time " << (end.tv_sec-start.tv_sec)+1e-6*(end.tv_usec-start.tv_usec) << endl;
 
     delete func;
-
-    double rmse = sqrt( squaredErr / ( nSeqs() * nConds() ) ); 
-    return rmse;
-}
-
-double ExprPredictor::compRMSE_scale( const ExprPar& par ) 
-{
-    // create the expression function
-    ExprFunc* func = createExprFunc( par );
-
-    // error of each sequence
-    double squaredErr = 0;
-
-    //timeval start, end;
-    //gettimeofday(&start, 0);
-
-
-    for ( int i = 0; i < nSeqs(); i++ ) {
-
-        vector< double > predictedefficiency (nConds(), -1);
-        vector< double > observedExprs (nConds(), 1);
-        vector < vector < double > > concs (nConds(), vector <double> (factorExprData.nRows(), 0) );
-        
-
-	int n = seqSites[i].size();
-	vector< double > _bindingWts (n,0.0);
-	vector< int > _boundaries (n,0.0);
-	
-	// Determin the boundaries for func
-	_boundaries[0] = 0;
-	int range = max(coopDistThr, repressionDistThr );
-        for ( int k = 1; k < n; k++ ) {
-	       	int l; 
-		for ( l = k - 1; l >= 1; l-- ) {
-		    if ( ( seqSites[i][k].start - seqSites[i][l].start ) > range ) break; 
-		}
-	    _boundaries[k] = l ;
-	}	
-        func->set_boundaries(_boundaries);
-    
-	// compute the Boltzman weights of binding for all sites for func
-        _bindingWts[0] = 1.0;
-        for ( int k = 1; k < n; k++ ) {
-            _bindingWts[k] = par.maxBindingWts[ seqSites[i][k].factorIdx ] * seqSites[i][k].wtRatio ;	
-        }
-	func->set_bindingWts(_bindingWts); 
-
-	//double weight = 0;			// For different weights of the enhancers 
-
-        #pragma omp parallel for schedule(dynamic)
-        for (int j = 0; j < nConds(); j++ ) {
-	
-            	concs[j] = factorExprData.getCol( j );
-		//for( int _i = 0; _i < sizeof ( indices_of_crm_in_gene ) / sizeof ( int ); _i++ ){
-		//	if( i == indices_of_crm_in_gene[ _i ] ){
-		//		gene_crm_fout << i << "\t" << j << "\t";
-           	//		predictedExprs[j] = func->predictExpr( seqSites[ i ], seqLengths[ i ], concs[j], i, gene_crm_fout );
-		//		break;
-		//	}
-		//}	
-		//if ( predictedExprs[j] < 0 ){
-            		predictedefficiency[j] = func->predictExpr_scalefree(  seqLengths[ i ], concs[j], i );
-		//}
-
-            // observed expression for the i-th sequence at the j-th condition
-            observedExprs[j] = exprData( i, j );
-	    //weight += observedExprs[j];				// The weight of an enhancer is proportional to its expression width
-        }
-
-	//weight = ( 100 - weight ) / 100.0;			// Transformation of the weight from 0 - 100 to 1 - 0
-
-	double beta = 1.0;
-        double beta_major = 1.0;
-	double min_ls = 100;
-	double ls = 0;
-        vector< double > predictedExprs (nConds(), 1);
-	// Find the optimal first digit of beta (beta is the scaling factor)
-        for( int s = 0; s < 100; s++ ){
-		beta = s;
-		for (int j = 0; j < nConds(); j++ ) {predictedExprs[j] = beta * predictedefficiency[j] /(1.0 + beta * predictedefficiency[j] ); }
- 		ls = least_square( predictedExprs, observedExprs, beta );
-		if (ls < min_ls) {min_ls = ls; beta_major = beta;}
-		}
-        for( int s = 0; s < 100; s++ ){
-		beta = beta_major - 0.5 + s * 0.01;
-		for (int j = 0; j < nConds(); j++ ) {predictedExprs[j] = beta * predictedefficiency[j] /(1.0 + beta * predictedefficiency[j] ) ;}
- 		ls = least_square( predictedExprs, observedExprs, beta );
-		if (ls < min_ls) {min_ls = ls;}
-		}
-
-        squaredErr += min_ls; 
-	
-    }	
-   // gettimeofday(&end, 0);
-    //cout << "Time " << (end.tv_sec-start.tv_sec)+1e-6*(end.tv_usec-start.tv_usec) << endl;
-
-    double rmse = sqrt( squaredErr / ( nSeqs() * nConds() ) ); 
-    return rmse;
-}
-
-double ExprPredictor::compRMSE_variance( const ExprPar& par ) 
-{
-    // create the expression function
-    ExprFunc* func = createExprFunc( par );
-
-    // error of each sequence
-    double squaredErr = 0;
-
-    //timeval start, end;
-    //gettimeofday(&start, 0);
-
-
-    for ( int i = 0; i < nSeqs(); i++ ) {
-
-        vector< double > predictedExprs (nConds(), -1);
-        vector< double > observedExprs (nConds(), 1);
-        vector < vector < double > > concs (nConds(), vector <double> (factorExprData.nRows(), 0) );
-        
-	int n = seqSites[i].size();
-	vector< double > _bindingWts (n,0.0);
-	vector< int > _boundaries (n,0.0);
-	
-	// Determin the boundaries for func
-	_boundaries[0] = 0;
-	int range = max(coopDistThr, repressionDistThr );
-        for ( int k = 1; k < n; k++ ) {
-	       	int l; 
-		for ( l = k - 1; l >= 1; l-- ) {
-		    if ( ( seqSites[i][k].start - seqSites[i][l].start ) > range ) break; 
-		}
-	    _boundaries[k] = l ;
-	}	
-        func->set_boundaries(_boundaries);
-    
-	// compute the Boltzman weights of binding for all sites for func
-        _bindingWts[0] = 1.0;
-        for ( int k = 1; k < n; k++ ) {
-            _bindingWts[k] = par.maxBindingWts[ seqSites[i][k].factorIdx ] * seqSites[i][k].wtRatio ;	
-        }
-	func->set_bindingWts(_bindingWts); 
-
-        #pragma omp parallel for schedule(dynamic)
-        for (int j = 0; j < nConds(); j++ ) {
-	
-            	concs[j] = factorExprData.getCol( j );
-		//for( int _i = 0; _i < sizeof ( indices_of_crm_in_gene ) / sizeof ( int ); _i++ ){
-		//	if( i == indices_of_crm_in_gene[ _i ] ){
-		//		gene_crm_fout << i << "\t" << j << "\t";
-           	//		predictedExprs[j] = func->predictExpr( seqSites[ i ], seqLengths[ i ], concs[j], i, gene_crm_fout );
-		//		break;
-		//	}
-		//}	
-		//if ( predictedExprs[j] < 0 ){
-            		predictedExprs[j] = func->predictExpr( seqLengths[ i ], concs[j], i );
-		//}
-
-            // observed expression for the i-th sequence at the j-th condition
-            observedExprs[j] = exprData( i, j );
-        }
-
-        double beta;
-        squaredErr += least_square_variance( predictedExprs, observedExprs, beta, 1.0 );
-	
-    }	
-   // gettimeofday(&end, 0);
-    //cout << "Time " << (end.tv_sec-start.tv_sec)+1e-6*(end.tv_usec-start.tv_usec) << endl;
-
-    double rmse = sqrt( squaredErr / ( nSeqs() * nConds() ) ); 
-    return rmse;
+    obj_norm_corr = correlation / nSeqs();
+    obj_sse = sqrt( squaredErr / ( nSeqs() * nConds() ) ); 
+    if (objOption == SSE)	return obj_sse;
+    if (objOption == Norm_Corr)	return obj_norm_corr;
+    return 0;
 }
 
 
@@ -1945,74 +1778,6 @@ double ExprPredictor::compAvgCrossCorr( const ExprPar& par )
     // cross correlation similarity of each sequence
     double totalSim = 0;
  
-
-    for ( int i = 0; i < nSeqs(); i++ ) {
-        vector< double > predictedExprs (nConds(), -1);
-        vector< double > observedExprs (nConds(), 1);
-
-	int n = seqSites[i].size();
-	vector< double > _bindingWts (n,0.0);
-	vector< int > _boundaries (n,0.0);
-	
-	// Determin the boundaries for func
-	_boundaries[0] = 0;
-	int range = max(coopDistThr, repressionDistThr );
-        for ( int k = 1; k < n; k++ ) {
-	       	int l; 
-		for ( l = k - 1; l >= 1; l-- ) {
-		    if ( ( seqSites[i][k].start - seqSites[i][l].start ) > range ) break; 
-		}
-	    _boundaries[k] = l ;
-	}	
-        func->set_boundaries(_boundaries);
-    
-	// compute the Boltzman weights of binding for all sites for func
-        _bindingWts[0] = 1.0;
-        for ( int k = 1; k < n; k++ ) {
-            _bindingWts[k] = par.maxBindingWts[ seqSites[i][k].factorIdx ] * seqSites[i][k].wtRatio ;	
-        }
-	func->set_bindingWts(_bindingWts); 
-
-	//#pragma omp parallel private(concs) shared(predictedExprs)
-        #pragma omp parallel for schedule(dynamic)
-        for ( int j = 0; j < nConds(); j++ ) {
-		double predicted = -1;
-            	vector< double > concs = factorExprData.getCol( j );
-		for( int _i = 0; _i < sizeof ( indices_of_crm_in_gene ) / sizeof ( int ); _i++ ){
-			if( i == indices_of_crm_in_gene[ _i ] ){
-				gene_crm_fout << i << "\t" << j << "\t";
-            			predictedExprs[j] = func->predictExpr(  seqLengths[i], concs, i, gene_crm_fout );
-				break;
-			}
-		}	
-		
-		if ( predictedExprs[j] < 0 ){
-            		predictedExprs[j] = func->predictExpr(  seqLengths[i], concs, i );
-		}
-            
-            // observed expression for the i-th sequence at the j-th condition
-            observedExprs[j] = exprData( i, j );
-        }
-        totalSim += exprSimCrossCorr( predictedExprs, observedExprs ); 
-    }	
-
- 
-
-
-    return totalSim / nSeqs();
-}
-
-double ExprPredictor::compNormCorr( const ExprPar& par ) 
-{
-    // create the expression function
-    ExprFunc* func = createExprFunc( par );
-            
-    // Normalised correlation of each sequence
-    double totalSim = 0;
-   // timeval start, end;
-    //gettimeofday(&start, 0);
-
-
     for ( int i = 0; i < nSeqs(); i++ ) {
 
         vector< double > predictedExprs (nConds(), -1);
@@ -2026,27 +1791,26 @@ double ExprPredictor::compNormCorr( const ExprPar& par )
 
 	int n = seqSites[i].size();
 	vector< double > _bindingWts (n,0.0);
-	vector< int > _boundaries (n,0.0);
+	vector< int > _boundaries (n,0);
 	
 	// Determin the boundaries for func
 	_boundaries[0] = 0;
 	int range = max(coopDistThr, repressionDistThr );
         for ( int k = 1; k < n; k++ ) {
-	       	int l; 
-		for ( l = k - 1; l >= 1; l-- ) {
-		    if ( ( seqSites[i][k].start - seqSites[i][l].start ) > range ) break; 
+		int l;	       	 
+		for ( l=0; l < k; l++ ) {
+		    if ( ( seqSites[i][k].start - seqSites[i][l].start ) <= range ) {break;} 
 		}
-	    _boundaries[k] = l ;
+	        _boundaries[k] = l;
 	}	
         func->set_boundaries(_boundaries);
-    
 	// compute the Boltzman weights of binding for all sites for func
         _bindingWts[0] = 1.0;
         for ( int k = 1; k < n; k++ ) {
             _bindingWts[k] = par.maxBindingWts[ seqSites[i][k].factorIdx ] * seqSites[i][k].wtRatio ;	
         }
 	func->set_bindingWts(_bindingWts); 
-        
+
         #pragma omp parallel for schedule(dynamic)
         for (int j = 0; j < nConds(); j++ ) {
 
@@ -2067,87 +1831,14 @@ double ExprPredictor::compNormCorr( const ExprPar& par )
             observedExprs[j] = exprData( i, j );
 	    //weight += observedExprs[j];				// The weight of an enhancer is proportional to its expression width
         }
-	
-      totalSim += norm_corr( predictedExprs, observedExprs ); 
-      //  cout << "Sequence " << i << "\t" << norm_corr( predictedExprs, observedExprs ) << endl;
+        totalSim += exprSimCrossCorr( predictedExprs, observedExprs ); 
     }	
-   //gettimeofday(&end, 0);
-    //cout << "Time " << (end.tv_sec-start.tv_sec) << endl;
+
+ 
+
 
     return totalSim / nSeqs();
 }
-
-double ExprPredictor::compNormCorr_variance (const ExprPar& par ) 
-{
-    // create the expression function
-    ExprFunc* func = createExprFunc( par );
-            
-    // Normalised correlation of each sequence
-    double totalSim = 0;
-   // timeval start, end;
-    //gettimeofday(&start, 0);
-
-
-    for ( int i = 0; i < nSeqs(); i++ ) {
-
-        vector< double > predictedExprs (nConds(), -1);
-        vector< double > observedExprs (nConds(), 1);
-        vector < vector < double > > concs (nConds(), vector <double> (factorExprData.nRows(), 0) );
-        
-	int n = seqSites[i].size();
-	vector< double > _bindingWts (n,0.0);
-	vector< int > _boundaries (n,0.0);
-	
-	// Determin the boundaries for func
-	_boundaries[0] = 0;
-	int range = max(coopDistThr, repressionDistThr );
-        for ( int k = 1; k < n; k++ ) {
-	       	int l; 
-		for ( l = k - 1; l >= 1; l-- ) {
-		    if ( ( seqSites[i][k].start - seqSites[i][l].start ) > range ) break; 
-		}
-	    _boundaries[k] = l ;
-	}	
-        func->set_boundaries(_boundaries);
-    
-	// compute the Boltzman weights of binding for all sites for func
-        _bindingWts[0] = 1.0;
-        for ( int k = 1; k < n; k++ ) {
-            _bindingWts[k] = par.maxBindingWts[ seqSites[i][k].factorIdx ] * seqSites[i][k].wtRatio ;	
-        }
-	func->set_bindingWts(_bindingWts); 
-
-
-
-        #pragma omp parallel for schedule(dynamic)
-        for (int j = 0; j < nConds(); j++ ) {
-	
-            	concs[j] = factorExprData.getCol( j );
-		//for( int _i = 0; _i < sizeof ( indices_of_crm_in_gene ) / sizeof ( int ); _i++ ){
-		//	if( i == indices_of_crm_in_gene[ _i ] ){
-		//		gene_crm_fout << i << "\t" << j << "\t";
-           	//		predictedExprs[j] = func->predictExpr(  seqLengths[ i ], concs[j], i, gene_crm_fout );
-		//		break;
-		//	}
-		//}	
-		//if ( predictedExprs[j] < 0 ){
-            		predictedExprs[j] = func->predictExpr( seqLengths[ i ], concs[j], i );
-		//}
-
-            // observed expression for the i-th sequence at the j-th condition
-            observedExprs[j] = exprData( i, j );
-        }
-
-	
-      totalSim += norm_corr_variance( predictedExprs, observedExprs, 1.0 ); 
-      //  cout << "Sequence " << i << "\t" << norm_corr( predictedExprs, observedExprs ) << endl;
-    }	
-   //gettimeofday(&end, 0);
-    //cout << "Time " << (end.tv_sec-start.tv_sec) << endl;
-
-    return totalSim / nSeqs();
-}
-
 
 double ExprPredictor::compPGP( const ExprPar& par )
 {
@@ -2296,7 +1987,7 @@ int ExprPredictor::simplex_minimize( ExprPar& par_result, double& obj_result )
         // print the current parameter and function values
 	#ifdef SHORT_OUTPUT
 	if(iter % SHORT_OUTPUT == 0){
-      		printf( "\r %zu \t f() = %8.5f", iter, s->fval );	
+      		printf( "\r %zu \t SSE = %8.5f \t Norm_Corr = %8.5f", iter, obj_sse, obj_norm_corr);
 		fflush(stdout);
 	}	
 	#else

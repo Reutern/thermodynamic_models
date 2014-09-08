@@ -381,6 +381,8 @@ private:
     // model parameters and the value of the objective function
     ExprPar par_model;
     double obj_model;	
+    double obj_norm_corr;	
+    double obj_sse;	
 
     // the sequenz
     const vector< Sequence >& seqs;
@@ -395,13 +397,9 @@ private:
     ExprFunc* createExprFunc( const ExprPar& par ) const;
     
     // objective functions
-    double compRMSE( const ExprPar& par );		// root mean square error between predicted and observed expressions
-    double compRMSE_scale( const ExprPar& par );	// root mean square error between predicted and observed expressions with optimal scaling 
-    double compRMSE_variance( const ExprPar& par );	// root mean square error between predicted and observed expressions with the measurement error taken into account 
+    double comp_SSE_NormCorr( const ExprPar& par );		// root mean square error between predicted and observed expressions
     double compAvgCorr( const ExprPar& par );     	// the average Pearson correlation
     double compAvgCrossCorr( const ExprPar& par );    	// the average cross correlation -based similarity
-    double compNormCorr( const ExprPar& par );		// the normalised correlation 
-    double compNormCorr_variance (const ExprPar& par ); // the normalised correlation with variable variance 
     double compPGP( const ExprPar& par );              // the average cross correlation -based similarity
 
     // minimize the objective function, using the current model parameters as initial values

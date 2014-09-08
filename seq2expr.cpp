@@ -42,14 +42,14 @@ int main( int argc, char* argv[] )
     int maxContact = 1;
 	vector<double> eTF (8);
 
-	eTF[0] = 0.8 ;
-	eTF[1] = 0.8 ;
-	eTF[2] = 0.8 ;
-	eTF[3] = 0.8 ;
-	eTF[4] = 0.8 ;
-	eTF[5] = 0.8 ;
-	eTF[6] = 0.8 ;
-	eTF[7] = 0.8 ;
+	eTF[0] = 0.7 ;
+	eTF[1] = 0.7 ;
+	eTF[2] = 0.7 ;
+	eTF[3] = 0.7 ;
+	eTF[4] = 0.7 ;
+	eTF[5] = 0.7 ;
+	eTF[6] = 0.7 ;
+	eTF[7] = 0.7 ;
 
 	string free_fix_indicator_filename;
 	ExprPredictor::one_qbtm_per_crm = ONE_QBTM;
@@ -122,14 +122,14 @@ int main( int argc, char* argv[] )
     // additional control parameters
     double gcContent = 0.5;
     FactorIntType intOption = BINARY;     // type of interaction function
-    ExprPar::searchOption = UNCONSTRAINED;      // search option: unconstrained; constrained. 
+    ExprPar::searchOption = CONSTRAINED;      // search option: unconstrained; constrained. 
     ExprPar::estBindingOption = 1;
 
     ExprPredictor::nRandStarts = 0;
     ExprPredictor::min_delta_f_SSE = 1.0E-10;
     ExprPredictor::min_delta_f_Corr = 1.0E-10;
     ExprPredictor::min_delta_f_CrossCorr = 1.0E-10;
-    ExprPredictor::nSimplexIters = 200000;
+    ExprPredictor::nSimplexIters = 20000;
     ExprPredictor::nGradientIters = 2000;
 
     int rval;

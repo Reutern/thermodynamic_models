@@ -922,7 +922,7 @@ double least_square( const vector< double >& x, const vector< double >& y, doubl
 
     double rss = 0;
     for ( int i = 0; i < n; i++ ) {
-    	rss += ( y[i] - beta * x[i] ) * ( y[i] - beta * x[i] );
+    	rss += ( y[i] - beta * x[i] )* ( y[i] - beta * x[i] );
     }
     return rss;
 }
