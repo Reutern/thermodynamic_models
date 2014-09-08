@@ -1701,7 +1701,7 @@ double ExprPredictor::comp_SSE_NormCorr( const ExprPar& par )
     obj_norm_corr = correlation / nSeqs();
     obj_sse = sqrt( squaredErr / ( nSeqs() * nConds() ) ); 
     if (objOption == SSE)	return obj_sse;
-    if (objOption == Norm_Corr)	return obj_norm_corr;
+    if (objOption == NORM_CORR)	return obj_norm_corr;
     return 0;
 }
 
@@ -2001,6 +2001,11 @@ int ExprPredictor::simplex_minimize( ExprPar& par_result, double& obj_result )
 	cout << "======================================" << endl;
 	cout << "======================================" << endl << endl;
 	#endif // SHORT_OUTPUT
+
+	// Save parameters
+	if( iter % 1000 == 0 ) save_param();
+
+
     } while ( status == GSL_CONTINUE && iter < nSimplexIters );
 
     // get the results
