@@ -631,11 +631,16 @@ double ExprFunc::predictExpr( int length, const vector< double >& factorConcs, i
     double Z_off = 0;
     double Z_on = 0;
 
+
+
     Z_off = compPartFuncOff(factorConcs);
     Z_on = compPartFuncOn(factorConcs);
     #endif //TOSCA
 
 
+    // Test if partition functions are in the range of double and set output accordingly
+    if(std::isnan(Z_off) || std::isinf(Z_off)) return 0;
+    if(std::isnan(Z_on) || std::isinf(Z_on)) return 1;
 
     // compute the expression (promoter occupancy)
     double efficiency = Z_on / Z_off;
