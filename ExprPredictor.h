@@ -206,6 +206,7 @@ public:
     // predict the expression value of a given sequence (its site representation, sorted by the start positions) under given TF concentrations
     double predictExpr( int length, const vector< double >& factorConcs, int seq_num );
     double predictExpr( int length, const vector< double >& factorConcs, int seq_num, std::ofstream& fout );
+    double predictExpr_segal( int length, const vector< double >& factorConcs, int seq_num);
     // Returns the efficiency Z_ON/Z_OFF
     double predictExpr_scalefree( int length, const vector< double >& factorConcs, int seq_num );    
     static ModelType modelOption;     // model option   

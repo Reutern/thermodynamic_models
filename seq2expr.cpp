@@ -42,14 +42,14 @@ int main( int argc, char* argv[] )
     int maxContact = 1;
 	vector<double> eTF (8);
 
-	eTF[0] = 0.7 ;
-	eTF[1] = 0.7 ;
-	eTF[2] = 0.7 ;
-	eTF[3] = 0.7 ;
-	eTF[4] = 0.7 ;
-	eTF[5] = 0.7 ;
-	eTF[6] = 0.7 ;
-	eTF[7] = 0.7 ;
+	eTF[0] = 1.0 ;
+	eTF[1] = 1.0 ;
+	eTF[2] = 1.0 ;
+	eTF[3] = 1.0 ;
+	eTF[4] = 1.0 ;
+	eTF[5] = 1.0 ;
+	eTF[6] = 1.0 ;
+	eTF[7] = 1.0 ;
 
 	string free_fix_indicator_filename;
 	ExprPredictor::one_qbtm_per_crm = ONE_QBTM;

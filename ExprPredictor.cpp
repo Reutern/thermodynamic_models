@@ -7,6 +7,7 @@
 #include <sys/time.h>
 #include <omp.h>
 #include <unistd.h>
+#include <set>
 
 ModelType getModelOption( const string& modelOptionStr )
 {
@@ -699,6 +700,44 @@ double ExprFunc::predictExpr( int length, const vector< double >& factorConcs, i
     double promoterOcc = efficiency * par.basalTxps[ promoter_number ] / ( 1.0 + efficiency * par.basalTxps[ promoter_number ] );
     fout << Z_on << "\t" << Z_off << "\t" << par.basalTxps [ promoter_number ] << endl;
     return promoterOcc;
+}
+
+double ExprFunc::predictExpr_segal( int length, const vector< double >& factorConcs, int seq_num)
+{
+
+    int promoter_number = seq_num;
+	if( !one_qbtm_per_crm )
+		promoter_number = 0;	// Only one promoter strength
+
+    int n = sites.size();
+
+    double weigth_total = compPartFuncOff(factorConcs);
+
+    double expression = 0;
+
+    for(int c = 0; c < 1000; c++){
+	// Generate a index sample of length sample_length
+	int sample_length = rand() % n +1;
+	std::set<unsigned int> sample_idx;
+	while (sample_idx.size() < sample_length)
+		sample_idx.insert( rand() % n );
+
+	// Calculate the weight of the sampled configuration and the contribution for expression
+	double weight_sample = 0;
+	double contribution_sample = par.basalTxps[ seq_num ] ;
+	set<unsigned int>::iterator iter;
+	for (iter = sample_idx.begin(); iter != sample_idx.end(); ++iter){
+		int i = *iter;
+		cout << bindingWts[ i ] * factorConcs[sites[ i ].factorIdx] << endl;
+		weight_sample *= bindingWts[ i ] * factorConcs[sites[ i ].factorIdx];
+		contribution_sample += par.txpEffects[ i ];
+	}	
+	
+	// Combine weigth and contribution for the expression probability
+	expression += weight_sample / weigth_total / (1 + exp(0 - contribution_sample ) );
+    }
+
+    return expression;
 }
 
 ModelType ExprFunc::modelOption = DIRECT;
