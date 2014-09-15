@@ -25,9 +25,11 @@ SeqAnnotator.o : Tools.h SeqAnnotator.h param.h SeqAnnotator.cpp
 	$(CC) $(CFLAGS) -c SeqAnnotator.cpp
 ExprPredictor.o : Tools.h siman.h SeqAnnotator.h ExprPredictor.h param.h ExprPredictor.cpp 
 	$(CC) $(CFLAGS) -c ExprPredictor.cpp
-seq2expr.o : Tools.h siman.h SeqAnnotator.h ExprPredictor.h param.h seq2expr.cpp
+OccPredictor.o : OccPredictor.h param.h SeqAnnotator.h ExprPredictor.h OccPredictor.cpp 
+	$(CC) $(CFLAGS) -c OccPredictor.cpp
+seq2expr.o : Tools.h siman.h SeqAnnotator.h ExprPredictor.h OccPredictor.h param.h seq2expr.cpp
 	$(CC) $(CFLAGS) -c seq2expr.cpp
 
-seq2expr : Tools.o siman.o SeqAnnotator.o ExprPredictor.o seq2expr.o 
-	$(CC) -o $@ Tools.o siman.o SeqAnnotator.o ExprPredictor.o seq2expr.o $(LFLAGS)
+seq2expr : Tools.o siman.o SeqAnnotator.o ExprPredictor.o OccPredictor.o seq2expr.o 
+	$(CC) -o $@ Tools.o siman.o SeqAnnotator.o ExprPredictor.o OccPredictor.o seq2expr.o $(LFLAGS)
 

@@ -22,6 +22,7 @@
 * Note that (5), (6), (7) and (8) may be empty
 ******************************************************/
 #include "ExprPredictor.h"
+#include "OccPredictor.h"
 #include <time.h>
 #include <math.h> // for fmod
 #include "param.h" 
@@ -42,14 +43,14 @@ int main( int argc, char* argv[] )
     int maxContact = 1;
 	vector<double> eTF (8);
 
-	eTF[0] = 1.0 ;
-	eTF[1] = 1.0 ;
-	eTF[2] = 1.0 ;
-	eTF[3] = 1.0 ;
-	eTF[4] = 1.0 ;
-	eTF[5] = 1.0 ;
-	eTF[6] = 1.0 ;
-	eTF[7] = 1.0 ;
+	eTF[0] = 0.7 ;
+	eTF[1] = 0.7 ;
+	eTF[2] = 0.7 ;
+	eTF[3] = 0.7 ;
+	eTF[4] = 0.7 ;
+	eTF[5] = 0.7 ;
+	eTF[6] = 0.7 ;
+	eTF[7] = 0.7 ;
 
 	string free_fix_indicator_filename;
 	ExprPredictor::one_qbtm_per_crm = ONE_QBTM;
@@ -129,7 +130,7 @@ int main( int argc, char* argv[] )
     ExprPredictor::min_delta_f_SSE = 1.0E-10;
     ExprPredictor::min_delta_f_Corr = 1.0E-10;
     ExprPredictor::min_delta_f_CrossCorr = 1.0E-10;
-    ExprPredictor::nSimplexIters = 20000;
+    ExprPredictor::nSimplexIters = 0000;
     ExprPredictor::nGradientIters = 2000;
 
     int rval;
@@ -323,24 +324,6 @@ int main( int argc, char* argv[] )
 		}
 	}
 
-
-    // CHECK POINT
-//     cout << "Sequences:" << endl;
-//     for ( int i = 0; i < seqs.size(); i++ ) cout << seqNames[i] << endl << seqs[i] << endl;
-//     cout << "Expression: " << endl << exprData << endl;
-//     cout << "Factor motifs:" << endl;
-//     for ( int i = 0; i < motifs.size(); i++ ) cout << motifNames[i] << endl << motifs[i] << endl;
-//     cout << "Factor expression:" << endl << factorExprData << endl;
-//     cout << "Cooperativity matrix:" << endl << coopMat << endl;
-//     cout << "Activators:" << endl << actIndicators << endl;
-//     cout << "Repressors:" << endl << repIndicators << endl;
-//     cout << "Repression matrix:" << endl << repressionMat << endl;
-//     cout << "Site representation of sequences:" << endl;
-//     for ( int i = 0; i < nSeqs; i++ ) {
-//         cout << ">" << seqNames[i] << endl;
-//         for ( int j = 0; j < seqSites[i].size(); j++ ) cout << seqSites[i][j] << endl;
-//     }
-
     // print the parameters for running the analysis
     cout << "Program settings: " << endl; 
     cout << "Model = " << getModelOptionStr( ExprPredictor::modelOption ) << endl;
@@ -407,14 +390,6 @@ int main( int argc, char* argv[] )
     #endif //SAVE_ENERGIES
 
 
-    // create the expression predictor
-//    FactorIntFunc* intFunc; 
-//    if ( intOption == BINARY ) intFunc = new FactorIntFuncBinary( coopDistThr ); 
-//    else if ( intOption == GAUSSIAN ) intFunc = new FactorIntFuncGaussian( coopDistThr, factorIntSigma );
-//    else {
-//        cerr << "Interaction Function is invalid " << endl; exit( 1 ); 
-//    }
-
  // read the initial parameter values
     ExprPar par_init( nFactors, nSeqs );
     if ( !parFile.empty() ) {
@@ -443,7 +418,7 @@ int main( int argc, char* argv[] )
     // print the training results
     ExprPar par = predictor->getPar();
 
-    // print the parameter
+    // print the parameters
     ofstream pout( print_parFile.c_str() );
     if ( !pout ) {
         cout << "Estimated values of parameters:" << endl;
@@ -478,6 +453,16 @@ int main( int argc, char* argv[] )
 	cout << motifNames[tf] << "\t" << impact << endl;
 
     }
+
+    #if CALCULATE_OCCUPANCY
+    // Initialise the occupancy predictor
+    OccPredictor* occpred = new OccPredictor( seqSites[1], motifs, factorExprData, coopMat, coopDistThr, par_init );
+
+    occpred ->predictOcc();
+    
+    delete occpred;
+
+    #endif // CALCULATE_OCCUPANCY
 
     #if CROSS_VALIDATION
 
