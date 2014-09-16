@@ -13,7 +13,7 @@ OccPredictor::OccPredictor(const SiteVec & _sites, const vector< Motif >& _motif
     int n = sites.size();
     vector< double > _bindingWts (n,0.0);
     vector< int > _boundaries (n,0);
-	
+
     // Determin the boundaries for occpred
     _boundaries[0] = 0;
     int range = coopDistThr;
@@ -25,6 +25,7 @@ OccPredictor::OccPredictor(const SiteVec & _sites, const vector< Motif >& _motif
     _boundaries[k] = l ;
     }	
     set_boundaries(_boundaries);
+
     
     // compute the Boltzman weights of binding for all sites for occpred
     _bindingWts[0] = 1.0;
@@ -35,19 +36,21 @@ OccPredictor::OccPredictor(const SiteVec & _sites, const vector< Motif >& _motif
 
 }
 
-double OccPredictor::predictOcc( )
+double OccPredictor::predictOcc(int idx_site, int position )
 {
-    vector< double > factorConcs = factorExprData.getCol( 50 );
+    vector< double > factorConcs = factorExprData.getCol( position );
     double Z_total = 0;
     double Z = 0;
 
     Z_total = compPartFunc_total(factorConcs);
-    Z = compPartFunc(factorConcs, 10);
-
+    Z = compPartFunc(factorConcs, idx_site);
 
     // compute the expression (promoter occupancy)
     double occupancy = Z / Z_total;
-    cout << occupancy <<endl;
+    if(occupancy > 0.0)
+    	cout << sites[idx_site].factorIdx << " " << occupancy <<endl;
+   
+
     return occupancy;
 }
 
@@ -91,16 +94,24 @@ double OccPredictor::compPartFunc(const vector< double >& factorConcs, int centr
 
     // recurrence 
     for ( int i = 1; i <= n; i++ ) {
-	double sum = Zt[boundaries[i]];
-        for ( int j = boundaries[i] + 1; j < i; j++ ) {
+
+	// The final boundary calculation (If the boundary is upstream of the central position, terms without the central position bound will be taken into account.)
+	int boundary;
+	if(boundaries[i] < centre && centre < i)
+		boundary = centre;		// In case centre lies between boundaries[i] and i 
+	else
+		boundary = boundaries[i];	// the regular case
+
+	double sum = Zt[boundary];
+        for ( int j = boundary + 1; j < i; j++ ) {
                 if ( siteOverlap( sites[ i ], sites[ j ], motifs ) ) continue;
                 sum += compFactorInt( sites[ i ], sites[ j ] ) * Z[ j ];	
         }
         Z[i] = bindingWts[ i ] * factorConcs[sites[ i ].factorIdx] * sum;
-	if(i != centre)
-      		  Zt[i] = Z[i] + Zt[i - 1];		// normal partition function calculation  
-	else
-      		  Zt[i] = Z[i];				// binding site centre is always occupied 
+	if( i == centre )   
+		Zt[i] = Z[i];
+	else  
+		Zt[i] = Z[i] + Zt[i - 1];		
     }
 
     return Zt[n];

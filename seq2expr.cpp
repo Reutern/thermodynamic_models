@@ -57,7 +57,7 @@ int main( int argc, char* argv[] )
 	ExprPar::one_qbtm_per_crm = ONE_QBTM;
 	ExprFunc::one_qbtm_per_crm = ONE_QBTM;
 
-    ExprPredictor::nAlternations = 3;
+    ExprPredictor::nAlternations = 0;
     for ( int i = 1; i < argc; i++ ) {
         if ( !strcmp( "-s", argv[ i ] ) )
             seqFile = argv[ ++i ];
@@ -130,7 +130,7 @@ int main( int argc, char* argv[] )
     ExprPredictor::min_delta_f_SSE = 1.0E-10;
     ExprPredictor::min_delta_f_Corr = 1.0E-10;
     ExprPredictor::min_delta_f_CrossCorr = 1.0E-10;
-    ExprPredictor::nSimplexIters = 0000;
+    ExprPredictor::nSimplexIters = 20000;
     ExprPredictor::nGradientIters = 2000;
 
     int rval;
@@ -456,9 +456,10 @@ int main( int argc, char* argv[] )
 
     #if CALCULATE_OCCUPANCY
     // Initialise the occupancy predictor
-    OccPredictor* occpred = new OccPredictor( seqSites[1], motifs, factorExprData, coopMat, coopDistThr, par_init );
+    OccPredictor* occpred = new OccPredictor( seqSites[10], motifs, factorExprData, coopMat, coopDistThr, par_init );
 
-    occpred ->predictOcc();
+    for(int site_idx = 0; site_idx < seqSites[1].size(); site_idx++)
+    	occpred -> predictOcc(site_idx,50);
     
     delete occpred;
 

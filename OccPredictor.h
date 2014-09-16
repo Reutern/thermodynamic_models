@@ -18,7 +18,7 @@ public:
     }
     
     // predict the occupancy value of a given sequence under given TF concentrations
-    double predictOcc( );
+    double predictOcc(int idx_site, int position);
 
     // Access functions to privat variables
     void set_sites( SiteVec _sites) {sites = _sites;}
