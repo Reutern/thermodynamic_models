@@ -1170,7 +1170,7 @@ double ExprFunc::compFactorInt( const Site& a, const Site& b ) const
 
     assert(  modelOption == DIRECT  );	// For now only Direct model implemented
     #if FactorIntFunc
-    double spacingTerm = ( dist < coopDistThr ? maxInt *  (1 - dist/coopDistThr ) + 1.0: 1.0 );
+    double spacingTerm = ( dist < coopDistThr ? maxInt *  (1 - float(dist/coopDistThr) ) + 1.0: 1.0 );
     #else 
     double spacingTerm = ( dist < coopDistThr ? maxInt : 1.0 );
     #endif // FactorIntFunc
@@ -1192,7 +1192,7 @@ double ExprFunc::compFactorInt( int t_1, int t_2, int _dist  ) const
 
     assert(  modelOption == DIRECT  );	// For now only Direct model implemented
     #if FactorIntFunc
-    double spacingTerm = ( dist < coopDistThr ? maxInt *  (1 - dist/coopDistThr ) + 1.0: 1.0 );
+    double spacingTerm = ( dist < coopDistThr ? maxInt *  (1 - float(dist/coopDistThr) ) + 1.0: 1.0 );
     #else
     double spacingTerm = ( dist < coopDistThr ? maxInt : 1.0 );
     #endif // FactorIntFunc

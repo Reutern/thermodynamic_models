@@ -358,7 +358,7 @@ int main( int argc, char* argv[] )
 			weight_count[seqSites[seqs_idx][idx].factorIdx] = weight_count[seqSites[seqs_idx][idx].factorIdx] + seqSites[seqs_idx][idx].wtRatio;
 		}
         for( int l = 0; l < nFactors; l++){
-	        cout <<  round(100*  weight_count[l]) << " \t "; }
+	        cout << sites_count[l] << " \t ";} // round(100*  weight_count[l]) << " \t "; }
 	cout << seqSites[seqs_idx].size() << " \t " << seqNames[seqs_idx] << " \t " << seqLengths[seqs_idx] <<  endl;}
     cout << endl; 
     cout << average_number << endl;
@@ -459,7 +459,7 @@ int main( int argc, char* argv[] )
     OccPredictor* occpred = new OccPredictor( seqSites[10], motifs, factorExprData, coopMat, coopDistThr, par_init );
 
     for(int site_idx = 0; site_idx < seqSites[1].size(); site_idx++)
-    	occpred -> predictOcc(site_idx,50);
+    	occpred -> predictOcc(site_idx,99);
     
     delete occpred;
 

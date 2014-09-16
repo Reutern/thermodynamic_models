@@ -47,8 +47,8 @@ double OccPredictor::predictOcc(int idx_site, int position )
 
     // compute the expression (promoter occupancy)
     double occupancy = Z / Z_total;
-    if(occupancy > 0.0)
-    	cout << sites[idx_site].factorIdx << " " << occupancy <<endl;
+    if(occupancy > -1.0)
+    	cout << sites[idx_site].factorIdx << " " << factorConcs[sites[idx_site].factorIdx] << " " << occupancy <<endl;
    
 
     return occupancy;
@@ -95,7 +95,14 @@ double OccPredictor::compPartFunc(const vector< double >& factorConcs, int centr
     // recurrence 
     for ( int i = 1; i <= n; i++ ) {
 
-	// The final boundary calculation (If the boundary is upstream of the central position, terms without the central position bound will be taken into account.)
+
+	if( siteOverlap( sites[ i ], sites[ centre ], motifs ) && i != centre){
+		Z[i] = 0;		// sites overlapping the central position can never bind
+		Zt[i] = Zt[i-1];	// they carry the sum of the previous site	
+		continue;
+	}
+
+	// The final boundary calculation (If the boundary is upstream of the central position, terms without the central position bound won't be taken into account.)
 	int boundary;
 	if(boundaries[i] < centre && centre < i)
 		boundary = centre;		// In case centre lies between boundaries[i] and i 
@@ -107,13 +114,17 @@ double OccPredictor::compPartFunc(const vector< double >& factorConcs, int centr
                 if ( siteOverlap( sites[ i ], sites[ j ], motifs ) ) continue;
                 sum += compFactorInt( sites[ i ], sites[ j ] ) * Z[ j ];	
         }
-        Z[i] = bindingWts[ i ] * factorConcs[sites[ i ].factorIdx] * sum;
-	if( i == centre )   
-		Zt[i] = Z[i];
-	else  
-		Zt[i] = Z[i] + Zt[i - 1];		
-    }
 
+        Z[i] = bindingWts[ i ] * factorConcs[sites[ i ].factorIdx] * sum;
+
+	if( i == centre )   
+		Zt[i] = Z[i];			// the central position is always bound
+	else  
+		Zt[i] = Z[i] + Zt[i - 1];	// the regular case, where i could be free and therefore one takes the previous summand into account	
+    }
+   // for (int idx = 1; idx <= n; idx ++){
+	//if(Zt[idx] < Zt[idx-1])	 cout << centre << " " << idx << " " << Zt[idx-1] << " " << Zt[idx] << endl;
+    //}
     return Zt[n];
 }
 
@@ -128,7 +139,7 @@ double OccPredictor::compFactorInt( const Site& a, const Site& b ) const
     assert( dist >= 0 );
 
     #if FactorIntFunc
-    double spacingTerm = ( dist < coopDistThr ? maxInt *  (1 - dist/coopDistThr ) + 1.0: 1.0 );
+    double spacingTerm = ( dist < coopDistThr ? maxInt *  (1 - float(dist)/coopDistThr ) + 1.0: 1.0 );
     #else 
     double spacingTerm = ( dist < coopDistThr ? maxInt : 1.0 );
     #endif // FactorIntFunc
