@@ -9,7 +9,7 @@ OUTPUT_PATH="../data/nocoop"
  
 
 echo " "
- echo "${yellow} trained Run 0${NC}"
+ echo "${yellow} christophe Run 0${NC}"
  echo " "
 
 ./seq2expr \
@@ -17,10 +17,10 @@ echo " "
 -e $INPUT_PATH/expr_smooth.tab  \
 -m $INPUT_PATH/factors_christophe.wtmx \
 -c $INPUT_PATH/coop.txt \
--p $OUTPUT_PATH/par_christophe_nocoop_con_07.par \
+-p $OUTPUT_PATH/par_christophe_coop_con_07.par \
 -f $INPUT_PATH/factor_expr_full_cic.tab \
 -fo $OUTPUT_PATH/obs_pre_test.txt \
--oc $OUTPUT_PATH/occ_pre_test.txt \
+-oc $OUTPUT_PATH/occ_pre_test_2.txt \
 -pp $OUTPUT_PATH/par_test.par \
 -i $INPUT_PATH/factor_info.txt \
 -r $INPUT_PATH/rep.txt \

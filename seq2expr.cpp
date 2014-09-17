@@ -355,13 +355,13 @@ int main( int argc, char* argv[] )
 	average_number += seqSites[seqs_idx].size()/nSeqs;
 	int sites_count[] = {0,0,0,0,0,0,0,0};
         double weight_count[] = {0,0,0,0,0,0,0,0};
-	for( int idx = 1; idx <= seqSites[seqs_idx].size() ; idx++ ){
+	for( int idx = 1; idx < seqSites[seqs_idx].size() ; idx++ ){
 			sites_count[seqSites[seqs_idx][idx].factorIdx]++;
 			weight_count[seqSites[seqs_idx][idx].factorIdx] = weight_count[seqSites[seqs_idx][idx].factorIdx] + seqSites[seqs_idx][idx].wtRatio;
 		}
         for( int l = 0; l < nFactors; l++){
-	        cout << sites_count[l] << " \t ";} // round(100*  weight_count[l]) << " \t "; }
-	cout << seqSites[seqs_idx].size() << " \t " << seqNames[seqs_idx] << " \t " << seqLengths[seqs_idx] <<  endl;}
+	        cout <<  round(100*  weight_count[l]) / 100.0 << " \t "; }
+	cout << seqSites[seqs_idx].size() - 1 << " \t " << seqNames[seqs_idx] << " \t " << seqLengths[seqs_idx] <<  endl;}
     cout << endl; 
     cout << average_number << endl;
 	
