@@ -47,7 +47,7 @@ double OccPredictor::predictOcc(int idx_site, int position )
 
     // compute the expression (promoter occupancy)
     double occupancy = Z / Z_total;
-    if(occupancy > -1.0)
+    if(occupancy > 1.0)
     	cout << sites[idx_site].factorIdx << " " << factorConcs[sites[idx_site].factorIdx] << " " << occupancy <<endl;
    
 

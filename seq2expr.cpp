@@ -36,7 +36,7 @@ int main( int argc, char* argv[] )
   
     // command line processing
     string seqFile, test_seqFile, annFile, exprFile, test_exprFile, motifFile, factorExprFile, coopFile, factorInfoFile, repressionFile, parFile, print_parFile, axis_wtFile;
-    string outFile;     // output file
+    string outFile, occFile;     // output files
     int coopDistThr = 50;
     double factorIntSigma = 25.0;   // sigma parameter for the Gaussian interaction function
     int repressionDistThr = 50;
@@ -87,6 +87,8 @@ int main( int argc, char* argv[] )
             maxContact = atoi( argv[++i] );
         else if ( !strcmp( "-fo", argv[i] ) )
             outFile = argv[++i];    
+        else if ( !strcmp( "-oc", argv[i] ) )
+            occFile = argv[++i];    
         else if ( !strcmp( "-p", argv[i] ) )
             parFile = argv[++i]; 
         else if ( !strcmp( "-pp", argv[i] ) )
@@ -353,7 +355,7 @@ int main( int argc, char* argv[] )
 	average_number += seqSites[seqs_idx].size()/nSeqs;
 	int sites_count[] = {0,0,0,0,0,0,0,0};
         double weight_count[] = {0,0,0,0,0,0,0,0};
-	for( int idx = 0; idx < seqSites[seqs_idx].size() ; idx++ ){
+	for( int idx = 1; idx <= seqSites[seqs_idx].size() ; idx++ ){
 			sites_count[seqSites[seqs_idx][idx].factorIdx]++;
 			weight_count[seqSites[seqs_idx][idx].factorIdx] = weight_count[seqSites[seqs_idx][idx].factorIdx] + seqSites[seqs_idx][idx].wtRatio;
 		}
@@ -376,7 +378,7 @@ int main( int argc, char* argv[] )
         for(int n=0; n < nConds; n++){
 	weight[n] = 0;
 		for(int seqs_idx = 0; seqs_idx < nSeqs; seqs_idx++){
-			for( int idx = 0; idx < seqSites[seqs_idx].size() ; idx++ ){
+			for( int idx = 1; idx <= seqSites[seqs_idx].size() ; idx++ ){
 				if(seqSites[seqs_idx][idx].factorIdx != tf)  continue;
 				weight[n] += seqSites[seqs_idx][idx].wtRatio * exprData.getRow(seqs_idx)[n];
 			}
@@ -443,7 +445,7 @@ int main( int argc, char* argv[] )
 
 	double totalweight = 0;
 	for(int seqs_idx = 0; seqs_idx < nSeqs; seqs_idx++){
-		for( int idx = 0; idx < seqSites[seqs_idx].size(); idx++ ){
+		for( int idx = 1; idx <= seqSites[seqs_idx].size(); idx++ ){
 			if(seqSites[seqs_idx][idx].factorIdx != tf)  continue;
 			totalweight += seqSites[seqs_idx][idx].wtRatio;
 		}
@@ -455,14 +457,49 @@ int main( int argc, char* argv[] )
     }
 
     #if CALCULATE_OCCUPANCY
-    // Initialise the occupancy predictor
-    OccPredictor* occpred = new OccPredictor( seqSites[10], motifs, factorExprData, coopMat, coopDistThr, par_init );
 
-    for(int site_idx = 0; site_idx < seqSites[1].size(); site_idx++)
-    	occpred -> predictOcc(site_idx,99);
-    
-    delete occpred;
+    ofstream Occout( occFile.c_str() );
 
+    for ( int seq_idx = 0; seq_idx < nSeqs; seq_idx++ ) {
+
+	printf( "\rOccupancy prediction for sequence: %i ", seq_idx+1);
+	fflush(stdout);
+
+    	// Initialise the occupancy predictor
+    	OccPredictor* occpred = new OccPredictor( seqSites[seq_idx], motifs, factorExprData, coopMat, coopDistThr, par_init );
+	
+	vector < vector <double> > tf_occupancy (nConds, vector <double> (nFactors, 0.0));
+
+	    for(int position_idx = 0; position_idx < 100; position_idx++){ 
+		vector <int> tf_number (nFactors, 0);
+	    	for(int site_idx = 1; site_idx < seqSites[seq_idx].size(); site_idx++){
+			tf_number[ seqSites[seq_idx][site_idx].factorIdx ] += 1;
+			tf_occupancy[position_idx][ seqSites[seq_idx][site_idx].factorIdx ] += occpred -> predictOcc(site_idx,position_idx);
+		}
+	
+		for(int tf_idx = 0; tf_idx < nFactors; tf_idx++ )
+			tf_occupancy[position_idx][tf_idx] = tf_occupancy[position_idx][tf_idx] / tf_number[tf_idx];
+
+	    }
+
+	// First line is the name of the enhancer and the position indices
+        Occout << seqNames[seq_idx] ; 
+	for ( int position_idx = 0; position_idx < nConds; position_idx++ )
+		Occout << "\t" << position_idx;
+	Occout << endl;
+
+	// The following lines are the TF names and their occupancies
+	for ( int tf_idx = 0; tf_idx < nFactors; tf_idx++ ){
+		Occout << motifNames[tf_idx] ; 
+       		for ( int position_idx = 0; position_idx < nConds; position_idx++ )
+			Occout << "\t" << tf_occupancy[position_idx][tf_idx] ;       // occupancy predictions
+	        Occout << endl;
+		}
+
+    	delete occpred;		// clean up the predictor
+
+    }
+    cout << endl;	
     #endif // CALCULATE_OCCUPANCY
 
     #if CROSS_VALIDATION
