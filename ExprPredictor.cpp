@@ -604,7 +604,7 @@ double ExprFunc::predictExpr( int length, const vector< double >& factorConcs, i
   //gettimeofday(&start, 0);
     double Z_off = 0;
     double Z_on = 0;
-    compPartFunc_seq(Z_on, Z_off, seq_num, factorConcs);
+    compPartFunc_seq_interfactor(Z_on, Z_off, seq_num, factorConcs);
   //gettimeofday(&end, 0);
   //cout <<end.tv_usec-start.tv_usec << endl;
     #else
@@ -661,7 +661,7 @@ double ExprFunc::predictExpr( int length, const vector< double >& factorConcs, i
   //gettimeofday(&start, 0);
     double Z_off = 0;
     double Z_on = 0;
-    compPartFunc_seq(Z_on, Z_off, seq_num, factorConcs);
+    compPartFunc_seq_interfactor(Z_on, Z_off, seq_num, factorConcs);
   //gettimeofday(&end, 0);
   //cout <<end.tv_usec-start.tv_usec << endl;
   
@@ -772,7 +772,7 @@ int ExprFunc::compPartFunc_seq_interfactor(double &result_Z_on, double &result_Z
 {
 
     // The distance index
-    int dmax = max( coopDistThr, repressionDistThr );
+    int dmax = max( coopDistThr, repressionDistThr ) + 1;
 
     // The binder index
     int tmax = motifs.size();	
@@ -782,15 +782,13 @@ int ExprFunc::compPartFunc_seq_interfactor(double &result_Z_on, double &result_Z
     // The Sequenz index
     int n = seqs[_seq_num].size();
 
-    // initialization of the partition sums with value 1
-    vector<vector<vector<double> > > Z_off (n+1,vector<vector<double> >(tmax,vector <double>(dmax + 1,0.0)));
-    vector<vector<vector<double> > > Z_on  (n+1,vector<vector<double> >(tmax,vector <double>(dmax + 1,0.0))); 
-
-    //Z_on[motif_length[0]][0][dmax] = 1.0;
-    //Z_off[motif_length[0]][0][dmax] = 1.0;
+//    vector<vector<vector<double> > > Z_off (n + 1,vector <vector <double> > ( tmax , vector <double>(dmax + 1,0.0)));
+//    vector<vector<vector<double> > >Z_on  (n + 1,vector <vector <double> > ( tmax , vector <double>(dmax + 1,0.0))); 
+    double* Z_off = new double[n  * tmax * dmax + tmax * dmax + dmax]();
+    double* Z_on = new double[n  * tmax * dmax + tmax * dmax + dmax]();
 
     // recurrence 
-    for (int i = 1; i < n+1; i++ ) {
+    for (int i = 1; i < n; i++ ) {
 
 //	#pragma omp parallel for
 	for ( int t = 0; t < tmax; t++ ) {
@@ -800,15 +798,15 @@ int ExprFunc::compPartFunc_seq_interfactor(double &result_Z_on, double &result_Z
 		   double sum_on = 1.0;
 		   double sum_off = 1.0;
 		   for (int d = 1; d < dmax; d++ ){
-			Z_on[i][t][d] = Z_on[i-1][t][d-1];
-			Z_off[i][t][d] = Z_off[i-1][t][d-1];
+			Z_on[i * tmax * dmax + t * dmax + d ] = Z_on[(i - 1) * tmax * dmax + t * dmax + d - 1];
+			Z_off[i * tmax * dmax + t * dmax + d] = Z_off[(i - 1) * tmax * dmax + t * dmax + d - 1];
 		   } 
 
 		   for (int t_alt = 0; t_alt < tmax; t_alt++ ){ 
-			double int_factor = par.factorIntMat(t,t_alt);
+			double int_factor = min(par.factorIntMat(t,t_alt), 1.0);
 				for ( int d = motif_length[t]; d < dmax+1; d++ ) {
-					sum_on  += int_factor * Z_on[idx_t][t_alt][d] ;
-					sum_off += int_factor * Z_off[idx_t][t_alt][d] ;
+					sum_on  += int_factor * Z_on[idx_t * tmax * dmax + t_alt * dmax + d] ;
+					sum_off += int_factor * Z_off[idx_t * tmax * dmax + t_alt * dmax + d] ;
 				}
 		   }
 
@@ -818,11 +816,11 @@ int ExprFunc::compPartFunc_seq_interfactor(double &result_Z_on, double &result_Z
 		   double e2 =  exp( -motifs[ t ].energy( elem_comp ) );
         	   double binding_weight = par.maxBindingWts[ t ] * factorConcs[t] * ( e1+e2 );
 
-	           Z_on[i][t][0] = par.txpEffects[ t ] * binding_weight * sum_on;
-	           Z_off[i][t][0] =  binding_weight * sum_off;
+	           Z_on[i * tmax * dmax + t * dmax ] = par.txpEffects[ t ] * binding_weight * sum_on;
+	           Z_off[i * tmax * dmax + t * dmax ] =  binding_weight * sum_off;
  
-		   Z_on[i][t][dmax] = Z_on[i-1][t][dmax] + Z_on[i-1][t][dmax-1];
-		   Z_off[i][t][dmax] = Z_off[i-1][t][dmax] + Z_off[i-1][t][dmax-1];
+		   Z_on[i * tmax * dmax + t * dmax + dmax] = Z_on[(i-1) * tmax * dmax + t * dmax + dmax] + Z_on[(i-1) * tmax * dmax + t * dmax + dmax - 1];
+		   Z_off[i * tmax * dmax + t * dmax + dmax] = Z_off[(i-1) * tmax * dmax + t * dmax + dmax] + Z_off[(i-1) * tmax * dmax + t * dmax + dmax - 1];
 	}
     }
     
@@ -831,10 +829,14 @@ int ExprFunc::compPartFunc_seq_interfactor(double &result_Z_on, double &result_Z
     result_Z_off = 1;
     for( int t = 0; t < tmax; t++ ) { 
 	for(int d = 0; d < dmax+1; d++ ) {
-		result_Z_on += Z_on[n][t][d];
-		result_Z_off += Z_off[n][t][d];
+		result_Z_on += Z_on[n * tmax * dmax + t * dmax + d];
+		result_Z_off += Z_off[n * tmax * dmax + t * dmax + d];
 	}        
     }
+ 
+    delete Z_off;
+    delete Z_on;
+
     return 1;
 }
 
@@ -858,13 +860,23 @@ int ExprFunc::compPartFunc_seq(double &result_Z_on, double &result_Z_off, int _s
 
     for ( int t = 0; t < tmax; t++ ) {
    // initialization of the partition sums with value 1
-    vector<vector<double> > Z_off (dmax + 1,vector <double>(n,1.0));
-    vector<vector<double> > Z_on  (dmax + 1,vector <double>(n,1.0)); 
+//    vector<vector<double> > Z_off (dmax + 1,vector <double>(n,1.0));
+//    vector<vector<double> > Z_on  (dmax + 1,vector <double>(n,1.0)); 
+
+    double Z_off [dmax + 1][n];
+    double Z_on [dmax + 1][n];
+
+    for(int d = 0; d < dmax + 1; d++){
+	Z_on[d][0] = 0;
+	Z_off[d][0] = 0;
+    }
 
     int motif_length_tmp =  motifs[ t ].length();
    
-	for ( int i = 1; i < n - motif_length_tmp; i++ ) {
-		   idx = i ;
+    for ( int i = 1; i < n - motif_length_tmp; i++ ) {
+	idx = i ;
+
+
 		   
 		   double sum_on = 1;
 		   double sum_off = 1;
@@ -876,8 +888,8 @@ int ExprFunc::compPartFunc_seq(double &result_Z_on, double &result_Z_off, int _s
 			Z_on[d][idx] = Z_on[d-1][idx-1];
 			Z_off[d][idx] = Z_off[d-1][idx-1];
 
-			sum_on  += compFactorInt( t, t, d ) * Z_on[d -motif_length_tmp][idx-motif_length_tmp] ;
-			sum_off += compFactorInt( t, t, d )  * Z_off[d - motif_length_tmp][idx-motif_length_tmp] ;
+			sum_on  += compFactorInt( t, t, d ) * Z_on[d - motif_length_tmp][idx - motif_length_tmp] ;
+			sum_off += compFactorInt( t, t, d ) * Z_off[d - motif_length_tmp][idx - motif_length_tmp] ;
 			
 		   }
 
@@ -885,13 +897,13 @@ int ExprFunc::compPartFunc_seq(double &result_Z_on, double &result_Z_off, int _s
 	           Sequence elem_comp( seqs[_seq_num], i, motif_length_tmp , false );
         	   double binding_weight = par.maxBindingWts[ t ] * factorConcs[t] * (exp( -motifs[ t ].energy( elem ) ) + exp( -motifs[ t ].energy( elem_comp ) ));
 
-	           Z_on[0][idx] = par.txpEffects[ t ] *   binding_weight * sum_on;
+	           Z_on[0][idx] = par.txpEffects[ t ] * binding_weight * sum_on;
 	           Z_off[0][idx] =  binding_weight * sum_off;
  
 		   Z_on[dmax][idx] = Z_on[dmax][idx-1] + Z_on[dmax-1][idx-1];
 		   Z_off[dmax][idx] = Z_off[dmax][idx-1] + Z_off[dmax-1][idx-1];
 	}
-	for(int d = 0; d < dmax+1; d++ ) {
+	for(int d = 0; d < dmax + 1; d++ ) {
 		result_Z_on += Z_on[d][idx];
 		result_Z_off += Z_off[d][idx];
 	}        
@@ -975,19 +987,9 @@ double ExprFunc::compPartFuncOnQuenching(const vector< double >& factorConcs) co
 {
     int n = sites.size() - 1;
     int N0 = maxContact;
-    //vector< vector< double > > Z1( n + 1, N0 + 1 );
-    ////vector< vector< double > > Z1( n + 1, vector < double > ( N0 + 1 ) );
-    vector < vector < double > >Z1;
-    for( int i = 0; i < n + 1; i++ ){
-    	Z1.push_back( vector < double > ( N0 + 1, 0 ));
-    }
-    //vector< vector< double > > Z0( n + 1, N0 + 1 );
-    ////vector< vector< double > > Z0( n + 1, vector < double > ( N0 + 1 ) );
 
-	vector < vector <double> > Z0;
-	for( int i = 0; i < n + 1; i++ ){
-		Z0.push_back( vector < double > ( N0 + 1, 0 ) );
-	}
+    vector < vector <double> > Z0 (N0 + 1, vector <double> (n + 1, 0.0));
+    vector < vector <double> > Z1 (N0 + 1, vector <double> (n + 1, 0.0));
 
     // k = 0
     for ( int i = 0; i <= n; i++ ) {
@@ -995,33 +997,33 @@ double ExprFunc::compPartFuncOnQuenching(const vector< double >& factorConcs) co
         for ( int j = 1; j < i; j++ ) {
             if ( siteOverlap( sites[ i ], sites[ j ], motifs ) ) continue;
             bool R = testRepression( sites[j], sites[i] );
-            double term = compFactorInt( sites[ i ], sites[ j ] ) * ( Z1[j][0] + Z0[j][0] );
+            double term = compFactorInt( sites[ i ], sites[ j ] ) * ( Z1[0][j] + Z0[0][j] );
             sum1 += ( 1 - R )* term;
             sum0 += R * term;
         }
-        Z1[i][0] = bindingWts[i] * factorConcs[sites[ i ].factorIdx] * sum1;
-        Z0[i][0] = bindingWts[i] * factorConcs[sites[ i ].factorIdx] * sum0;
+        Z1[0][i] = bindingWts[i] * factorConcs[sites[ i ].factorIdx] * sum1;
+        Z0[0][i] = bindingWts[i] * factorConcs[sites[ i ].factorIdx] * sum0;
     }
     
     // k >= 1
     for ( int k = 1; k <= N0; k++ ) {
         for ( int i = 0; i <= n; i++ ) {
             if ( i < k ) {
-                Z1[i][k] = 0; 
-                Z1[i][k] = 0;
+                Z1[k][i] = 0; 
+                Z1[k][i] = 0;
                 continue;
             }
             double sum1 = 0, sum0 = 0;
             for ( int j = 1; j < i; j++ ) {
                 if ( siteOverlap( sites[ i ], sites[ j ], motifs ) ) continue;
                 bool R = testRepression( sites[j], sites[i] );
-                double effect = actIndicators[sites[j].factorIdx] * ( 1 - testRepression( sites[i], sites[j] ) ) * Z1[j][k - 1] * par.txpEffects[sites[j].factorIdx];
-                double term = compFactorInt( sites[ i ], sites[ j ] ) * ( Z1[j][k] + Z0[j][k] + effect );
+                double effect = actIndicators[sites[j].factorIdx] * ( 1 - testRepression( sites[i], sites[j] ) ) * Z1[k - 1][j] * par.txpEffects[sites[j].factorIdx];
+                double term = compFactorInt( sites[ i ], sites[ j ] ) * ( Z1[k][j] + Z0[k][j] + effect );
                 sum1 += ( 1 - R )* term;
                 sum0 += R * term;
             }
-            Z1[i][k] = bindingWts[i] * factorConcs[sites[ i ].factorIdx] * sum1;
-            Z0[i][k] = bindingWts[i] * factorConcs[sites[ i ].factorIdx] * sum0;
+            Z1[k][i] = bindingWts[i] * factorConcs[sites[ i ].factorIdx] * sum1;
+            Z0[k][i] = bindingWts[i] * factorConcs[sites[ i ].factorIdx] * sum0;
         }       
     }
 
@@ -1037,11 +1039,11 @@ double ExprFunc::compPartFuncOnQuenching(const vector< double >& factorConcs) co
     double Z_on = 1;
     for ( int i = 1; i <= n; i++ ) {
         for ( int k = 0; k <= N0; k++ ) {
-            double term = Z1[i][k] + Z0[i][k];
+            double term = Z1[k][i] + Z0[k][i];
             Z_on += term;
         }	
         for ( int k = 0; k <= N0 - 1; k++ ) {
-            Z_on += actIndicators[sites[i].factorIdx] * Z1[i][k] * par.txpEffects[sites[i].factorIdx];
+            Z_on += actIndicators[sites[i].factorIdx] * Z1[k][i] * par.txpEffects[sites[i].factorIdx];
         }
     }
     return Z_on;
@@ -1159,6 +1161,7 @@ double ExprFunc::compPartFuncOnChrMod_Limited(const vector< double >& factorConc
     return sum( Zt[n] );         
 }
 
+// The interaction function for direct model
 double ExprFunc::compFactorInt( const Site& a, const Site& b ) const
 {
 
@@ -1168,9 +1171,9 @@ double ExprFunc::compFactorInt( const Site& a, const Site& b ) const
     unsigned dist = abs( a.start - b.start );
     assert( dist >= 0 );
 
-    assert(  modelOption == DIRECT  );	// For now only Direct model implemented
+    //assert(  modelOption == DIRECT  );	// For now only Direct model implemented
     #if FactorIntFunc
-    double spacingTerm = ( dist < coopDistThr ? maxInt *  (1 - float(dist/coopDistThr) ) + 1.0: 1.0 );
+    double spacingTerm = ( dist < coopDistThr ? maxInt *  (1 - float(dist/coopDistThr) ) + 1.0: 1.0 ); // Range 1.0 <-> (maxint + 1.0)
     #else 
     double spacingTerm = ( dist < coopDistThr ? maxInt : 1.0 );
     #endif // FactorIntFunc
@@ -1183,6 +1186,7 @@ double ExprFunc::compFactorInt( const Site& a, const Site& b ) const
     #endif //ORIENTATION
 }
 
+// The interaction function for TOSCA
 double ExprFunc::compFactorInt( int t_1, int t_2, int _dist  ) const
 {
 
@@ -1190,11 +1194,11 @@ double ExprFunc::compFactorInt( int t_1, int t_2, int _dist  ) const
     int dist = _dist;
     assert( dist >= 0 );
 
-    assert(  modelOption == DIRECT  );	// For now only Direct model implemented
+    //assert(  modelOption == DIRECT  );	// For now only Direct model implemented
     #if FactorIntFunc
-    double spacingTerm = ( dist < coopDistThr ? maxInt *  (1 - float(dist/coopDistThr) ) + 1.0: 1.0 );
+    double spacingTerm = ( dist < coopDistThr ? maxInt *  (1 - float(dist/coopDistThr) ) : 0.0 );	// Range 0 <-> maxint 
     #else
-    double spacingTerm = ( dist < coopDistThr ? maxInt : 1.0 );
+    double spacingTerm = ( dist < coopDistThr ? maxInt : 0.0 );
     #endif // FactorIntFunc
 
     #if ORIENTATION
@@ -1674,8 +1678,10 @@ double ExprPredictor::comp_SSE_NormCorr( const ExprPar& par )
     // error of each sequence
     double squaredErr = 0;
     double correlation = 0;
-    //timeval start, end;
-    //gettimeofday(&start, 0);
+    #if TIMER 
+    timeval start, end;
+    gettimeofday(&start, 0);
+    #endif // TIMER
 
     for ( int i = 0; i < nSeqs(); i++ ) {
 
@@ -1738,8 +1744,11 @@ double ExprPredictor::comp_SSE_NormCorr( const ExprPar& par )
         squaredErr +=  least_square( predictedExprs, observedExprs, beta );
 	correlation  +=  norm_corr( predictedExprs, observedExprs ); 
     }	
-    //gettimeofday(&end, 0);
-    //cout << "Time " << (end.tv_sec-start.tv_sec)+1e-6*(end.tv_usec-start.tv_usec) << endl;
+
+    #if TIMER 
+    gettimeofday(&end, 0);
+    cout << "Time " << (end.tv_sec-start.tv_sec)+1e-6*(end.tv_usec-start.tv_usec) << endl;
+    #endif // TIMER
 
     delete func;
     obj_norm_corr = correlation / nSeqs();

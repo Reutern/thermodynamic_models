@@ -57,7 +57,7 @@ int main( int argc, char* argv[] )
 	ExprPar::one_qbtm_per_crm = ONE_QBTM;
 	ExprFunc::one_qbtm_per_crm = ONE_QBTM;
 
-    ExprPredictor::nAlternations = 0;
+    ExprPredictor::nAlternations = 3;
     for ( int i = 1; i < argc; i++ ) {
         if ( !strcmp( "-s", argv[ i ] ) )
             seqFile = argv[ ++i ];
@@ -378,7 +378,7 @@ int main( int argc, char* argv[] )
         for(int n=0; n < nConds; n++){
 	weight[n] = 0;
 		for(int seqs_idx = 0; seqs_idx < nSeqs; seqs_idx++){
-			for( int idx = 1; idx <= seqSites[seqs_idx].size() ; idx++ ){
+			for( int idx = 1; idx < seqSites[seqs_idx].size() ; idx++ ){
 				if(seqSites[seqs_idx][idx].factorIdx != tf)  continue;
 				weight[n] += seqSites[seqs_idx][idx].wtRatio * exprData.getRow(seqs_idx)[n];
 			}
@@ -458,9 +458,36 @@ int main( int argc, char* argv[] )
 
     #if CALCULATE_OCCUPANCY
 
-    ofstream Occout( occFile.c_str() );
 
-    for ( int seq_idx = 0; seq_idx < nSeqs; seq_idx++ ) {
+  ofstream Occout( occFile.c_str() );
+
+  for ( int seq_idx = 0; seq_idx < nSeqs; seq_idx++ ) {
+
+	printf( "\rOccupancy prediction for sequence: %i ", seq_idx+1);
+	fflush(stdout);
+
+    	// Initialise the occupancy predictor
+    	OccPredictor* occpred = new OccPredictor( seqSites[seq_idx], motifs, factorExprData, coopMat, coopDistThr, par_init );
+	
+	Occout << seqNames[seq_idx] << "\t" << seqSites[seq_idx].size() - 1 << "\t" << seqLengths[seq_idx] << endl ; 
+
+
+
+    	for(int site_idx = 1; site_idx < seqSites[seq_idx].size(); site_idx++){
+		double occ_avg = 0;
+		for(int position_idx = 50; position_idx < 100; position_idx++){ 
+			occ_avg += occpred -> predictOcc(site_idx,position_idx) / 50.0 ;
+		}
+		Occout << seqSites[seq_idx][site_idx].start << "\t" << seqSites[seq_idx][site_idx].factorIdx <<  "\t" << occ_avg << endl;
+	}
+    	delete occpred;		// clean up the predictor
+    }
+
+    cout << endl;
+	
+  /*    ofstream Occout( occFile.c_str() );
+
+  for ( int seq_idx = 0; seq_idx < nSeqs; seq_idx++ ) {
 
 	printf( "\rOccupancy prediction for sequence: %i ", seq_idx+1);
 	fflush(stdout);
@@ -499,7 +526,7 @@ int main( int argc, char* argv[] )
     	delete occpred;		// clean up the predictor
 
     }
-    cout << endl;	
+    cout << endl;	*/
     #endif // CALCULATE_OCCUPANCY
 
     #if CROSS_VALIDATION
@@ -539,7 +566,8 @@ int main( int argc, char* argv[] )
             test_seqLengths[i] = test_seqs[i].size();
         }
     }
-
+    double squaredErr = 0;
+    double correlation = 0;
     for ( int i = 0; i < test_nSeqs; i++ ) {
         vector< double > targetExprs;
         predictor->predict( test_seqSites[i], test_seqLengths[i], targetExprs, i );
@@ -551,7 +579,16 @@ int main( int argc, char* argv[] )
 
         for ( int j = 0; j < nConds; j++ ) fout << "\t" << targetExprs[j];       // predictions
         fout << endl;
-    }
+
+        double beta = 1.0;
+        squaredErr +=  least_square( targetExprs, observedExprs, beta );
+	correlation  +=  norm_corr( targetExprs, observedExprs ); 
+    }	
+
+    double obj_norm_corr = correlation / test_nSeqs;
+    double obj_sse = sqrt( squaredErr / ( test_nSeqs * nConds ) ); 
+ 
+    cout << "Performance on test set: SSE = " << obj_sse << "\t" << "Norm_Corr = " << obj_norm_corr << endl;
 
     #else
     for ( int i = 0; i < nSeqs; i++ ) {
