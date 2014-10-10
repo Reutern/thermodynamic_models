@@ -232,7 +232,7 @@ private:
     // model parameters
     const ExprPar& par;
 
-    // the sequenz
+    // the sequences
     const vector< Sequence >& seqs;
 		    
     // the sequence whose expression is to be predicted
@@ -385,7 +385,7 @@ private:
     double obj_norm_corr;	
     double obj_sse;	
 
-    // the sequenz
+    // the sequence
     const vector< Sequence >& seqs;
 
     // randomly sample parameter values (only those free parameters), the parameters should be initialized

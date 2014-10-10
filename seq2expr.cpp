@@ -23,6 +23,7 @@
 ******************************************************/
 #include "ExprPredictor.h"
 #include "OccPredictor.h"
+#include <fstream>
 #include <time.h>
 #include <math.h> // for fmod
 #include "param.h" 
@@ -57,7 +58,7 @@ int main( int argc, char* argv[] )
 	ExprPar::one_qbtm_per_crm = ONE_QBTM;
 	ExprFunc::one_qbtm_per_crm = ONE_QBTM;
 
-    ExprPredictor::nAlternations = 3;
+    ExprPredictor::nAlternations = 0;
     for ( int i = 1; i < argc; i++ ) {
         if ( !strcmp( "-s", argv[ i ] ) )
             seqFile = argv[ ++i ];
@@ -133,7 +134,7 @@ int main( int argc, char* argv[] )
     ExprPredictor::min_delta_f_Corr = 1.0E-10;
     ExprPredictor::min_delta_f_CrossCorr = 1.0E-10;
     ExprPredictor::nSimplexIters = 20000;
-    ExprPredictor::nGradientIters = 2000;
+    ExprPredictor::nGradientIters = 200;
 
     int rval;
     vector< vector< double > > data;    // buffer for reading matrix data
@@ -144,6 +145,7 @@ int main( int argc, char* argv[] )
     vector< Sequence > seqs;
     vector< string > seqNames;
     rval = readSequences( seqFile, seqs, seqNames );
+
     assert( rval != RET_ERROR );
     int nSeqs = seqs.size();
 
@@ -459,9 +461,9 @@ int main( int argc, char* argv[] )
     #if CALCULATE_OCCUPANCY
 
 
-  ofstream Occout( occFile.c_str() );
+    ofstream Occout( occFile.c_str() );
 
-  for ( int seq_idx = 0; seq_idx < nSeqs; seq_idx++ ) {
+    for ( int seq_idx = 0; seq_idx < nSeqs; seq_idx++ ) {
 
 	printf( "\rOccupancy prediction for sequence: %i ", seq_idx+1);
 	fflush(stdout);
@@ -484,50 +486,8 @@ int main( int argc, char* argv[] )
     }
 
     cout << endl;
-	
-  /*    ofstream Occout( occFile.c_str() );
-
-  for ( int seq_idx = 0; seq_idx < nSeqs; seq_idx++ ) {
-
-	printf( "\rOccupancy prediction for sequence: %i ", seq_idx+1);
-	fflush(stdout);
-
-    	// Initialise the occupancy predictor
-    	OccPredictor* occpred = new OccPredictor( seqSites[seq_idx], motifs, factorExprData, coopMat, coopDistThr, par_init );
-	
-	vector < vector <double> > tf_occupancy (nConds, vector <double> (nFactors, 0.0));
-
-	    for(int position_idx = 0; position_idx < 100; position_idx++){ 
-		vector <int> tf_number (nFactors, 0);
-	    	for(int site_idx = 1; site_idx < seqSites[seq_idx].size(); site_idx++){
-			tf_number[ seqSites[seq_idx][site_idx].factorIdx ] += 1;
-			tf_occupancy[position_idx][ seqSites[seq_idx][site_idx].factorIdx ] += occpred -> predictOcc(site_idx,position_idx);
-		}
-	
-		for(int tf_idx = 0; tf_idx < nFactors; tf_idx++ )
-			tf_occupancy[position_idx][tf_idx] = tf_occupancy[position_idx][tf_idx] / tf_number[tf_idx];
-
-	    }
-
-	// First line is the name of the enhancer and the position indices
-        Occout << seqNames[seq_idx] ; 
-	for ( int position_idx = 0; position_idx < nConds; position_idx++ )
-		Occout << "\t" << position_idx;
-	Occout << endl;
-
-	// The following lines are the TF names and their occupancies
-	for ( int tf_idx = 0; tf_idx < nFactors; tf_idx++ ){
-		Occout << motifNames[tf_idx] ; 
-       		for ( int position_idx = 0; position_idx < nConds; position_idx++ )
-			Occout << "\t" << tf_occupancy[position_idx][tf_idx] ;       // occupancy predictions
-	        Occout << endl;
-		}
-
-    	delete occpred;		// clean up the predictor
-
-    }
-    cout << endl;	*/
     #endif // CALCULATE_OCCUPANCY
+
 
     #if CROSS_VALIDATION
 
@@ -539,17 +499,17 @@ int main( int argc, char* argv[] )
     int test_nSeqs = test_seqs.size();
 
     // read the expression data
-    rval = readMatrix( test_exprFile, labels, condNames, data );
+    vector< vector< double > > test_data;
+    rval = readMatrix( test_exprFile, labels, condNames, test_data );
     assert( rval != RET_ERROR );
   //  assert( labels.size() == nSeqs );
     for ( int i = 0; i < test_nSeqs; i++ ){
     	if( labels[ i ] != test_seqNames[ i ] ) cout << labels[i] << test_seqNames[i] << endl;
 	//assert( labels[i] == seqNames[i] );
     }
-    Matrix test_exprData( data ); 
+    Matrix test_exprData( test_data ); 
 
-    // site representation of the sequences
-	
+    // site representation of the sequences	
     vector< SiteVec > test_seqSites( test_nSeqs );
     vector< int > test_seqLengths( test_nSeqs );
     if ( annFile.empty() ) {        // construct site representation
@@ -566,13 +526,53 @@ int main( int argc, char* argv[] )
             test_seqLengths[i] = test_seqs[i].size();
         }
     }
+
+
+    // Additional parameter training for the qbtm of the test enhancers
+    if(ExprPredictor::one_qbtm_per_crm){
+	// Create indicator vector
+	vector <bool> indicator_bool_modified;
+        vector <double> basalTxps_modified;
+	basalTxps_modified.clear();
+	indicator_bool_modified.clear();
+	for( int index = 0; index < nFactors + num_of_coop_pairs + nFactors; index++ ){
+		indicator_bool_modified.push_back( false );		// TF parameters are fixed
+	}
+	for( int index = 0; index < test_nSeqs; index++ ){
+		indicator_bool_modified.push_back( true );		// qbtm get trained again
+		basalTxps_modified.push_back( 0.1 );
+	}
+
+	// New predictor 
+	delete predictor;
+        ExprPredictor* predictor = new ExprPredictor( test_seqSites, test_seqLengths, test_exprData, motifs, factorExprData, coopMat, actIndicators, maxContact, repIndicators, repressionMat, repressionDistThr, coopDistThr, indicator_bool_modified, motifNames, axis_start, axis_end, axis_wts, test_seqs );
+        // random number generator
+	gsl_rng* rng;
+	gsl_rng_env_setup();
+	const gsl_rng_type * T = gsl_rng_default;	// create rng type
+	rng = gsl_rng_alloc( T );
+	gsl_rng_set( rng, time( 0 ) );		// set the seed equal to simulTime(0)
+
+        ExprPredictor::nAlternations = 1;
+
+	// Modify parameters
+	par.basalTxps = basalTxps_modified;
+
+        // train qbtm
+	cout << "Cross validation training:" << endl;
+        predictor->train( par, rng );
+        gsl_rng_free( rng );
+
+    }
+
     double squaredErr = 0;
     double correlation = 0;
     for ( int i = 0; i < test_nSeqs; i++ ) {
         vector< double > targetExprs;
+        //cout << i << endl;
         predictor->predict( test_seqSites[i], test_seqLengths[i], targetExprs, i );
         vector< double > observedExprs = test_exprData.getRow( i );
-        
+
         // print the results
         fout << test_seqNames[i] << "\t" << observedExprs << endl;      // observations
         fout << test_seqNames[i];

@@ -497,7 +497,7 @@ void ExprPar::constrain_parameters()
 }
 
 ModelType ExprPar::modelOption = DIRECT;
-SearchType ExprPar::searchOption = UNCONSTRAINED;
+SearchType ExprPar::searchOption = CONSTRAINED;
 int ExprPar::estBindingOption = 1;  // 1. estimate binding parameters; 0. not estimate binding parameters
  
 double ExprPar::default_weight = 1.0;
@@ -510,7 +510,7 @@ double ExprPar::default_basal_Thermo = 0.01;
 double ExprPar::min_weight = 0.0001;		
 double ExprPar::max_weight = 5000;//500;		
 double ExprPar::min_interaction = 0.0001;	
-double ExprPar::max_interaction = 500;//500;
+double ExprPar::max_interaction = 500;
 double ExprPar::min_effect_Logistic = -5;	
 double ExprPar::max_effect_Logistic = 5;
 // double ExprPar::min_effect_Direct = 0.01;
@@ -520,7 +520,7 @@ double ExprPar::min_repression = 1.0E-3;
 double ExprPar::max_repression = 500; 
 double ExprPar::min_basal_Logistic = -9.0;	
 double ExprPar::max_basal_Logistic = -1.0;
-double ExprPar::min_basal_Thermo = 1.0E-5;	
+double ExprPar::min_basal_Thermo = 1.0E-6;	
 double ExprPar::max_basal_Thermo = 1;
 double ExprPar::delta = 0.0001;
 
@@ -749,11 +749,11 @@ double ExprFunc::compPartFuncOff(const vector< double >& factorConcs) const
     int n = sites.size() - 1;
 
     // initialization
-    vector< double > Z( n + 1 );
+    vector <double> Z (n + 1, 0.0);
     Z[0] = 1.0;
-    vector< double > Zt( n + 1 );
+    vector <double> Zt (n + 1, 0.0);
     Zt[0] = 1.0;
-
+	
     // recurrence 
     for ( int i = 1; i <= n; i++ ) {
 	double sum = Zt[boundaries[i]];
@@ -917,13 +917,13 @@ double ExprFunc::compPartFuncOffChrMod(const vector< double >& factorConcs) cons
     int n = sites.size()- 1;
 
     // initialization
-    vector< double > Z0( n + 1 );
+    double Z0 [n + 1];
     Z0[0] = 1.0;
-    vector< double > Z1( n + 1 ); 
+    double Z1 [n + 1];
     Z1[0] = 1.0;
-    vector< double > Zt( n + 1 );
+    double Zt [n + 1];
     Zt[0] = 1.0;
-    
+
     // recurrence
     for ( int i = 1; i <= n; i++ ) {
         double sum = Zt[boundaries[i]]; 
@@ -965,11 +965,12 @@ double ExprFunc::compPartFuncOnDirect(const vector< double >& factorConcs) const
    int n = sites.size() - 1;
     
     // initialization
-    vector< double > Z( n + 1 );
+    vector <double> Z (n + 1, 0.0);
     Z[0] = 1.0;
-    vector< double > Zt( n + 1 );
+    vector <double> Zt (n + 1, 0.0);
     Zt[0] = 1.0;
 	
+
     // recurrence 
     for ( int i = 1; i <= n; i++ ) {
         double sum = Zt[boundaries[i]];
@@ -1383,19 +1384,20 @@ int ExprPredictor::predict( const SiteVec& targetSites, int targetSeqLength, vec
 
     targetExprs.clear();
     targetExprs.resize( nConds() );
-    
     // create site representation of the target sequence
 //     SiteVec targetSites;
 //     SeqAnnotator ann( motifs, energyThrs );	
 //     ann.annot( targetSeq, targetSites );
             
     // predict the expression
+
     ExprFunc* func = createExprFunc( par_model );
     func->set_sites(targetSites);
     int n = targetSites.size();
     vector< double > _bindingWts (n,0.0);
     vector< int > _boundaries (n,0);
-	
+
+
     // Determin the boundaries for func
     _boundaries[0] = 0;
     int range = max(coopDistThr, repressionDistThr );
