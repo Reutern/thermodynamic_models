@@ -5,11 +5,11 @@ yellow='\033[0;33m'
 NC='\033[0m' # No Color
 
 INPUT_PATH="../data/Input"
-OUTPUT_PATH="../data/test"
+OUTPUT_PATH="../data/obj_func_comp"
  
 
 echo " "
- echo "${yellow} untrained Run 0${NC}"
+ echo "${yellow} untrained NORM_CORR Run 0${NC}"
  echo " "
 
 ./seq2expr \
@@ -18,9 +18,8 @@ echo " "
 -m $INPUT_PATH/factors_untrained_pc.wtmx \
 -c $INPUT_PATH/coop.txt \
 -f $INPUT_PATH/factor_expr_full_cic.tab \
--fo $OUTPUT_PATH/obs_pre_test_3.txt \
--pp $OUTPUT_PATH/par_test_3.par \
--p untrained.par \
+-fo $OUTPUT_PATH/obs_pre_norm_corr.txt \
+-pp $OUTPUT_PATH/par_norm_corr.par \
 -i $INPUT_PATH/factor_info.txt \
 -r $INPUT_PATH/rep.txt \
 -o Direct	# modelOption: Logistic, Direct, Quenching, ChrMod_Unlimited, ChrMod_Limite

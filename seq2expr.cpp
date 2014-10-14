@@ -58,7 +58,7 @@ int main( int argc, char* argv[] )
 	ExprPar::one_qbtm_per_crm = ONE_QBTM;
 	ExprFunc::one_qbtm_per_crm = ONE_QBTM;
 
-    ExprPredictor::nAlternations = 0;
+    ExprPredictor::nAlternations = 3;
     for ( int i = 1; i < argc; i++ ) {
         if ( !strcmp( "-s", argv[ i ] ) )
             seqFile = argv[ ++i ];
@@ -397,7 +397,7 @@ int main( int argc, char* argv[] )
  // read the initial parameter values
     ExprPar par_init( nFactors, nSeqs );
     if ( !parFile.empty() ) {
-        rval = par_init.load( parFile );
+        rval = par_init.load( parFile, seqNames);
         if ( rval == RET_ERROR ) {
             cerr << "Cannot read parameters from " << parFile << endl;
             exit( 1 );
@@ -405,7 +405,7 @@ int main( int argc, char* argv[] )
     }
 
     // Initialise the predictor class
-    ExprPredictor* predictor = new ExprPredictor( seqSites, seqLengths, exprData, motifs, factorExprData, coopMat, actIndicators, maxContact, repIndicators, repressionMat, repressionDistThr, coopDistThr, indicator_bool, motifNames, axis_start, axis_end, axis_wts, seqs );
+    ExprPredictor* predictor = new ExprPredictor( seqSites, seqLengths, exprData, motifs, factorExprData, coopMat, actIndicators, maxContact, repIndicators, repressionMat, repressionDistThr, coopDistThr, indicator_bool, motifNames, seqNames, axis_start, axis_end, axis_wts, seqs );
    
 
     // random number generator
@@ -426,10 +426,10 @@ int main( int argc, char* argv[] )
     ofstream pout( print_parFile.c_str() );
     if ( !pout ) {
         cout << "Estimated values of parameters:" << endl;
-        par.print( cout, motifNames, coopMat );
+        par.print( cout, motifNames, seqNames, coopMat );
     }
     else {
-        par.print( pout, motifNames, coopMat );
+        par.print( pout, motifNames, seqNames, coopMat );
     }
     cout << "Performance = " << setprecision( 5 ) << ( ExprPredictor::objOption == SSE ? predictor->getObj() : -predictor->getObj() ) << endl;
 
@@ -545,7 +545,7 @@ int main( int argc, char* argv[] )
 
 	// New predictor 
 	delete predictor;
-        ExprPredictor* predictor = new ExprPredictor( test_seqSites, test_seqLengths, test_exprData, motifs, factorExprData, coopMat, actIndicators, maxContact, repIndicators, repressionMat, repressionDistThr, coopDistThr, indicator_bool_modified, motifNames, axis_start, axis_end, axis_wts, test_seqs );
+        ExprPredictor* predictor = new ExprPredictor( test_seqSites, test_seqLengths, test_exprData, motifs, factorExprData, coopMat, actIndicators, maxContact, repIndicators, repressionMat, repressionDistThr, coopDistThr, indicator_bool_modified, motifNames, test_seqNames, axis_start, axis_end, axis_wts, test_seqs );
         // random number generator
 	gsl_rng* rng;
 	gsl_rng_env_setup();

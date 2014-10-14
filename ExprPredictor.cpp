@@ -303,7 +303,7 @@ void ExprPar::getFreePars( vector< double >& pars, const IntMatrix& coopMat, con
     }
 }
 
-void ExprPar::print( ostream& os, const vector< string >& motifNames, const IntMatrix& coopMat ) const
+void ExprPar::print( ostream& os, const vector< string >& motifNames, const vector< string >& seqNames, const IntMatrix& coopMat ) const
 {
 //     os.setf( ios::fixed );
 //     os.precision( 3 );
@@ -320,11 +320,14 @@ void ExprPar::print( ostream& os, const vector< string >& motifNames, const IntM
     }
 
     // print the basal transcription
-    os << "basal_transcription = " << basalTxps[ 0 ] << endl;
-    for( int _i = 1; _i < basalTxps.size(); _i++ ){
-    	os << basalTxps[ _i ] << endl;
+    if (one_qbtm_per_crm == false){
+        os << "basal_transcription = " << basalTxps[ 0 ] << endl;
     }
-    
+    else{
+	for( int _i = 0; _i < basalTxps.size(); _i++ ){
+	    os << seqNames[_i] << "\t" << basalTxps[ _i ] << endl;
+	}	
+    }
     // print the cooperative interactions
     os << "Cooperativity Factor:"  << endl;
     for ( int i = 0; i < nFactors(); i++ ) {
@@ -356,16 +359,79 @@ int ExprPar::load( const string& file )
 
     // read the basal transcription
     string symbol, eqSign, value;
-    fin >> symbol >> eqSign >> value;
-    if ( symbol != "basal_transcription" || eqSign != "=" ) return RET_ERROR;
-    double basalTxp_val = atof( value.c_str() );
-    basalTxps[ 0 ] =  basalTxp_val ;
     if( one_qbtm_per_crm ){
-    	for( int _i = 1; _i < nSeqs; _i++ ){
-    		fin >> value;
+    	for( int _i = 0; _i < nSeqs; _i++ ){
+    		fin >> symbol >> value;
     		double basalTxp_val = atof( value.c_str() );
     		basalTxps[ _i ] = basalTxp_val;
     	}
+    }
+    else{
+	fin >> symbol >> eqSign >> value;
+	if ( symbol != "basal_transcription" || eqSign != "=" ) return RET_ERROR;
+	double basalTxp_val = atof( value.c_str() );
+	basalTxps[ 0 ] =  basalTxp_val ;
+    }
+
+    fin >> symbol >> eqSign;
+    if (symbol != "Cooperativity" || eqSign != "Factor:") return RET_ERROR;
+
+    // read the cooperative interactions
+    string factor1, factor2;
+    double coopVal;
+    while ( fin >> factor1 >> factor2 >> coopVal ) {
+        if( !factorIdxMap.count( factor1 ) || !factorIdxMap.count( factor2 ) ) return RET_ERROR;
+        int idx1 = factorIdxMap[factor1];
+        int idx2 = factorIdxMap[factor2];
+        factorIntMat( idx1, idx2 ) = coopVal;
+        factorIntMat( idx2, idx1 ) = coopVal;
+    }
+
+    fin.close();
+    return fin ? RET_ERROR : 0;
+}
+
+int ExprPar::load( const string& file, const vector <string>& seqNames )
+{
+    // open the file
+    ifstream fin( file.c_str() );
+    if ( !fin ){ cerr << "Cannot open parameter file " << file << endl;	exit( 1 ); } 
+
+    // read the factor information
+    vector< string > motifNames( nFactors() );
+    for ( int i = 0; i < nFactors(); i++ ) {
+        fin >> motifNames[i] >> maxBindingWts[i] >> txpEffects[i]; 
+        if ( modelOption == CHRMOD_UNLIMITED || modelOption == CHRMOD_LIMITED ) fin >> repEffects[i];
+    }
+
+    // factor name to index mapping
+    map< string, int > factorIdxMap;
+    for ( int i = 0; i < nFactors(); i++ ) {
+        factorIdxMap[motifNames[i]] = i;
+    }
+
+
+    // read the basal transcription
+    string symbol, eqSign, value;
+    if( one_qbtm_per_crm ){
+    	if( seqNames.size() != nSeqs ) return RET_ERROR;
+    	for( int _i = 0; _i < nSeqs; _i++ ){
+    		fin >> symbol >> value;
+    		double basalTxp_val = atof( value.c_str() );
+		// allocate basalTxps to seqence names
+		for( int _l = 0; _l < nSeqs; _l++ ){
+    			if (symbol == seqNames[_l] ){
+				basalTxps[ _l ] = basalTxp_val;
+				break;
+			}
+		}
+    	}
+    }
+    else{
+	fin >> symbol >> eqSign >> value;
+	if ( symbol != "basal_transcription" || eqSign != "=" ) return RET_ERROR;
+	double basalTxp_val = atof( value.c_str() );
+	basalTxps[ 0 ] =  basalTxp_val ;
     }
 
     fin >> symbol >> eqSign;
@@ -1219,12 +1285,12 @@ bool ExprFunc::testRepression( const Site& a, const Site& b ) const
     return repressionMat( a.factorIdx, b.factorIdx ) && ( dist <= repressionDistThr );
 }
 
-ExprPredictor::ExprPredictor( const vector< SiteVec >& _seqSites, const vector< int >& _seqLengths, const Matrix& _exprData, const vector< Motif >& _motifs, const Matrix& _factorExprData, const IntMatrix& _coopMat, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr, int _coopDistThr, const vector < bool >& _indicator_bool, const vector <string>& _motifNames, const vector < int >& _axis_start, const vector < int >& _axis_end, const vector < double >& _axis_wts, const vector< Sequence >& _seqs  ) : seqSites( _seqSites ), seqLengths( _seqLengths ), exprData( _exprData ), motifs( _motifs ), factorExprData( _factorExprData ), actIndicators( _actIndicators ), maxContact( _maxContact ), repIndicators( _repIndicators ), repressionMat( _repressionMat ), repressionDistThr( _repressionDistThr ), coopDistThr( _coopDistThr ) ,indicator_bool ( _indicator_bool ),  axis_start ( _axis_start ), axis_end( _axis_end ), axis_wts( _axis_wts ), seqs(_seqs)
+ExprPredictor::ExprPredictor( const vector< SiteVec >& _seqSites, const vector< int >& _seqLengths, const Matrix& _exprData, const vector< Motif >& _motifs, const Matrix& _factorExprData, const IntMatrix& _coopMat, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr, int _coopDistThr, const vector < bool >& _indicator_bool, const vector <string>& _motifNames, const vector <string>& _seqNames, const vector < int >& _axis_start, const vector < int >& _axis_end, const vector < double >& _axis_wts, const vector< Sequence >& _seqs  ) : seqSites( _seqSites ), seqLengths( _seqLengths ), exprData( _exprData ), motifs( _motifs ), factorExprData( _factorExprData ), actIndicators( _actIndicators ), maxContact( _maxContact ), repIndicators( _repIndicators ), repressionMat( _repressionMat ), repressionDistThr( _repressionDistThr ), coopDistThr( _coopDistThr ) ,indicator_bool ( _indicator_bool ), axis_start ( _axis_start ), axis_end( _axis_end ), axis_wts( _axis_wts ), seqs(_seqs)
 {
 
     motifNames = _motifNames;
     coopMat = _coopMat;
-
+    seqNames = _seqNames;
 
     assert( exprData.nRows() == nSeqs() );
     assert( factorExprData.nRows() == nFactors() && factorExprData.nCols() == nConds() );
@@ -1497,6 +1563,7 @@ bool ExprPredictor::one_qbtm_per_crm = ONE_QBTM;
 ExprPar ExprPredictor::par_curr;
 IntMatrix ExprPredictor::coopMat = IntMatrix();
 vector <string> ExprPredictor::motifNames = vector <string>();
+vector <string> ExprPredictor::seqNames = vector <string>();
 
 int ExprPredictor::randSamplePar( const gsl_rng* rng, ExprPar& par ) const
 {
@@ -1756,7 +1823,7 @@ double ExprPredictor::comp_SSE_NormCorr( const ExprPar& par )
     obj_norm_corr = correlation / nSeqs();
     obj_sse = sqrt( squaredErr / ( nSeqs() * nConds() ) ); 
     if (objOption == SSE)	return obj_sse;
-    if (objOption == NORM_CORR)	return obj_norm_corr;
+    if (objOption == NORM_CORR)	return -obj_norm_corr;
     return 0;
 }
 
@@ -2040,9 +2107,15 @@ int ExprPredictor::simplex_minimize( ExprPar& par_result, double& obj_result )
 // 		if ( status == GSL_SUCCESS ) { cout << "converged to minimum at " << iter << endl; }
 
         // print the current parameter and function values
+	#if FILE_OUTPUT
+	if(iter % 1000 == 0){
+      		printf( "\r %zu \t SSE = %8.5f \t Norm_Corr = %8.5f", iter, obj_sse, -obj_norm_corr);
+		fflush(stdout);
+	}	
+	#else
 	#ifdef SHORT_OUTPUT
 	if(iter % SHORT_OUTPUT == 0){
-      		printf( "\r %zu \t SSE = %8.5f \t Norm_Corr = %8.5f", iter, obj_sse, obj_norm_corr);
+      		printf( "\r %zu \t SSE = %8.5f \t Norm_Corr = %8.5f", iter, obj_sse, -obj_norm_corr);
 		fflush(stdout);
 	}	
 	#else
@@ -2052,11 +2125,11 @@ int ExprPredictor::simplex_minimize( ExprPar& par_result, double& obj_result )
         printPar( par_curr );
         printf( "\tf() = %8.5f size = %.3f\n", s->fval, size );
 	cout << "======================================" << endl;
-	par_curr.print( cout, motifNames, coopMat);
+	par_curr.print( cout, motifNames, seqNames, coopMat);
 	cout << "======================================" << endl;
 	cout << "======================================" << endl << endl;
 	#endif // SHORT_OUTPUT
-
+	#endif // FILE_OUTPUT
 	// Save parameters
 	if( iter % 1000 == 0 ) save_param();
 
@@ -2208,7 +2281,7 @@ int ExprPredictor::gradient_minimize( ExprPar& par_result, double& obj_result )
 	motifNames.push_back( "kni" );
 	motifNames.push_back( "Kr" );
 	motifNames.push_back( "nub" );*/
-	par_curr.print( cout, motifNames, coopMat);
+	par_curr.print( cout, motifNames, seqNames, coopMat);
 	cout << "========================================" << endl;
 	cout << "========================================" << endl << endl;
 	#endif // SHORT_OUTPUT
@@ -2299,7 +2372,7 @@ void siman_stepper(const gsl_rng * r, gsl_vector* v, double step_size)
 int ExprPredictor::save_param()
 {
 	ofstream fparam_sm( "param.save" );
-	par_curr.print( fparam_sm, motifNames, getCoopMat() );
+	par_curr.print( fparam_sm, motifNames, seqNames, getCoopMat() );
         fparam_sm.close();
 	return 0;
 }

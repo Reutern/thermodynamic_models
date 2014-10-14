@@ -138,17 +138,18 @@ public:
     void getFreePars( vector< double >& pars, const IntMatrix& coopMat, const vector< bool >& actIndicators, const vector< bool >& repIndicators ) const; 
 	
     // print the parameters
-    void print( ostream& os, const vector< string >& motifNames, const IntMatrix& coopMat ) const;
+    void print( ostream& os, const vector< string >& motifNames, const vector< string >& seqNames, const IntMatrix& coopMat ) const;
  		
     // load the parameter values from a file, assuming the parameter has the correct dimensions (and initialized)
     int load( const string& file ); 
+    int load( const string& file, const vector <string>& seqNames);	// extended version of load with automated seqName allocation for q_btm 
 
     // adjust the values of parameters: if the value is close to min or max allowed value, slightly change it s.t. it is away from the boundary
     void adjust(); 
 
     // constrain the parameters between the minimum and maximum value
     void constrain_parameters();
-    
+
     // parameters
     vector< double > maxBindingWts;			// binding weight of the strongest site for each TF: K(S_max) [TF_max]
     Matrix factorIntMat; 		// (maximum) interactions between pairs of factors: omega(f,f')
@@ -287,7 +288,7 @@ private:
 class ExprPredictor {
 public:
     // constructors
-    ExprPredictor( const vector< SiteVec >& _seqSites, const vector< int >& _seqLengths, const Matrix& _exprData, const vector< Motif >& _motifs, const Matrix& _factorExprData, const IntMatrix& _coopMat, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr, int _coopDistThr,const vector < bool >& _indicator_bool, const vector <string>& _motifNames, const vector < int >& _axis_start, const vector < int >& _axis_end, const vector < double >& _axis_wts, const vector< Sequence >& _seqs  );
+    ExprPredictor( const vector< SiteVec >& _seqSites, const vector< int >& _seqLengths, const Matrix& _exprData, const vector< Motif >& _motifs, const Matrix& _factorExprData, const IntMatrix& _coopMat, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr, int _coopDistThr,const vector < bool >& _indicator_bool, const vector <string>& _motifNames, const vector <string>& _seqNames, const vector < int >& _axis_start, const vector < int >& _axis_end, const vector < double >& _axis_wts, const vector< Sequence >& _seqs  );
 
     // access methods
     int nSeqs() const {
@@ -351,6 +352,7 @@ public:
     static bool one_qbtm_per_crm;
     vector < bool > indicator_bool;	// States if Parameters are free or fixed for training
     static vector <string> motifNames;
+    static vector <string> seqNames;
     vector < double > fix_pars;
     vector < double > free_pars;
 
