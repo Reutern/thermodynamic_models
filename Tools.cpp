@@ -968,10 +968,9 @@ double least_square_equal( const vector< double >& x, const vector< double >& y,
 // The error of the measuremnt increases with signal intensity (expression level)
 // Measurement data must be second parameter y
 
-double least_square_variance( const vector< double >& x, const vector< double >& y, double& beta, double background_measurement_error )
+double least_square_variance( const vector< double >& x, const vector< double >& y, double& beta)
 {
     assert( x.size() == y.size() );
-    assert(background_measurement_error > 0.0 );
     int n = x.size();
 
 //    double numerator = 0, denom = 0;
@@ -982,8 +981,8 @@ double least_square_variance( const vector< double >& x, const vector< double >&
 //    beta = numerator / denom;
     beta = 1;
     double rss = 0;
-    for ( int i = 0; i < n; i++ ) {
-        rss += ( y[i] - beta * x[i] ) * ( y[i] - beta * x[i] ) / ( background_measurement_error + y[i] );
+    for ( int i = 1; i < n; i++ ) {
+        rss +=  (y[i] - x[i]) * (y[i] - x[i]) + ( (y[i] - x[i]) - (y[i-1] - x[i-1]) )  * ( (y[i] - x[i]) - (y[i-1] - x[i-1]) )   ;
     }
 
     return rss;

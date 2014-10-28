@@ -308,7 +308,7 @@ double least_square( const vector< double >& x, const vector< double >& y, doubl
 double least_square_equal( const vector< double >& x, const vector< double >& y, double& beta );
 
 // least-square fit of two vectors: beta - coefficient, but with measurement error incorporated 
-double least_square_variance( const vector< double >& x, const vector< double >& y, double& beta, double background_measurement_error );
+double least_square_variance( const vector< double >& x, const vector< double >& y, double& beta);
 
 // The normalised correlation of to vectors (scalar-product divided by both norms)
 double norm_corr( const vector< double >& x, const vector< double >& y );

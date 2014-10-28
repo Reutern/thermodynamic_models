@@ -166,7 +166,7 @@ int readMotifs( const string& file, const vector< double >& background, vector< 
 class Site {
 public:
     // constructors
-    Site() : start( 0 ), strand( true ), factorIdx( 0 ), energy( 0 ), wtRatio( 1 ) {}
+    Site() : start( 0 ), strand( true ), factorIdx( 0 ), energy( 0 ), wtRatio( 0 ) {}
     Site( int _start, bool _strand, int _factorIdx ) : start( _start ), strand( _strand ), factorIdx( _factorIdx ), energy( 0 ), wtRatio( 1 ) {}
     Site( int _start, bool _strand, int _factorIdx, double _energy ) : start( _start ), strand( _strand ), factorIdx( _factorIdx ), energy( _energy ) { wtRatio = exp( -energy ); }	
     void copy( const Site& other ) { start = other.start; strand = other.strand; factorIdx = other.factorIdx; energy = other.energy; wtRatio = other.wtRatio; }

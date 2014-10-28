@@ -566,6 +566,7 @@ ModelType ExprPar::modelOption = DIRECT;
 SearchType ExprPar::searchOption = CONSTRAINED;
 int ExprPar::estBindingOption = 1;  // 1. estimate binding parameters; 0. not estimate binding parameters
  
+// Parameter limits
 double ExprPar::default_weight = 1.0;
 double ExprPar::default_interaction = 1.0;
 double ExprPar::default_effect_Logistic = 0.0;
@@ -586,8 +587,8 @@ double ExprPar::min_repression = 1.0E-3;
 double ExprPar::max_repression = 500; 
 double ExprPar::min_basal_Logistic = -9.0;	
 double ExprPar::max_basal_Logistic = -1.0;
-double ExprPar::min_basal_Thermo = 1.0E-6;	
-double ExprPar::max_basal_Thermo = 1;
+double ExprPar::min_basal_Thermo = 1.0E-5;	
+double ExprPar::max_basal_Thermo = 1.0;
 double ExprPar::delta = 0.0001;
 
 
@@ -698,8 +699,6 @@ double ExprFunc::predictExpr( int length, const vector< double >& factorConcs, i
     double Z_off = 0;
     double Z_on = 0;
 
-
-
     Z_off = compPartFuncOff(factorConcs);
     Z_on = compPartFuncOn(factorConcs);
     #endif //TOSCA
@@ -777,33 +776,47 @@ double ExprFunc::predictExpr_segal( int length, const vector< double >& factorCo
 
     int n = sites.size();
 
-    double weigth_total = compPartFuncOff(factorConcs);
+    double weight_total = compPartFuncOff(factorConcs);
 
     double expression = 0;
+    double delta_expression = 1; 
+    double weight_sample = 1;
+    double contribution_sample = par.basalTxps[ seq_num ] ;
+    vector <bool> sample_idx (false,n);
 
-    for(int c = 0; c < 1000; c++){
-	// Generate a index sample of length sample_length
-	int sample_length = rand() % n +1;
-	std::set<unsigned int> sample_idx;
-	while (sample_idx.size() < sample_length)
-		sample_idx.insert( rand() % n );
+    int idx = 0;
 
-	// Calculate the weight of the sampled configuration and the contribution for expression
-	double weight_sample = 0;
-	double contribution_sample = par.basalTxps[ seq_num ] ;
-	set<unsigned int>::iterator iter;
-	for (iter = sample_idx.begin(); iter != sample_idx.end(); ++iter){
-		int i = *iter;
-		cout << bindingWts[ i ] * factorConcs[sites[ i ].factorIdx] << endl;
-		weight_sample *= bindingWts[ i ] * factorConcs[sites[ i ].factorIdx];
-		contribution_sample += par.txpEffects[ i ];
-	}	
+    do{
+	idx++;
+	idx = idx % n; 
+	// draw a random number between 0 and 1
+	double p = (float)rand()/(float)(RAND_MAX);
+	double weight = bindingWts[ n+1 ] * factorConcs[sites[ n+1 ].factorIdx];
+	// sample a new site
+	if(sample_idx[n+1] == true ){ 
+		if( weight / (1 + weight) < p ) {
+			sample_idx[n+1] = false;
+			contribution_sample -= par.txpEffects[ n+1 ];  		
+		}		
+	
+	}
+	else{
+		if( weight / (1 + weight) > p ) {
+			sample_idx[n+1] = true;
+			contribution_sample += par.txpEffects[ n+1 ];  		
+		}		
+	
+	}
 	
 	// Combine weigth and contribution for the expression probability
-	expression += weight_sample / weigth_total / (1 + exp(0 - contribution_sample ) );
-    }
+	delta_expression = 1 / (1 + exp( - contribution_sample ) );
+	expression += delta_expression;
 
-    return expression;
+    } while( delta_expression > 0.0001 || idx == 1);
+    
+
+
+    return expression/weight_total;
 }
 
 ModelType ExprFunc::modelOption = DIRECT;
@@ -819,7 +832,7 @@ double ExprFunc::compPartFuncOff(const vector< double >& factorConcs) const
     Z[0] = 1.0;
     vector <double> Zt (n + 1, 0.0);
     Zt[0] = 1.0;
-	
+
     // recurrence 
     for ( int i = 1; i <= n; i++ ) {
 	double sum = Zt[boundaries[i]];
@@ -1320,10 +1333,9 @@ ExprPredictor::ExprPredictor( const vector< SiteVec >& _seqSites, const vector< 
 
 double ExprPredictor::objFunc( const ExprPar& par ) 
 {
-    if ( objOption == SSE ||  objOption == NORM_CORR ) return comp_SSE_NormCorr( par );	
+    if ( objOption == SSE ||  objOption == NORM_CORR || objOption == PGP) return comp_SSE_NormCorr_PGP( par );	
     if ( objOption == CORR ) return -compAvgCorr( par );
     if ( objOption == CROSS_CORR ) return -compAvgCrossCorr( par ); 
-    if ( objOption == PGP ) return -compPGP( par );
 }
 
 int ExprPredictor::train( const ExprPar& par_init )
@@ -1362,6 +1374,7 @@ int ExprPredictor::train( const ExprPar& par_init )
     double obj_result;
     for ( int i = 0; i < nAlternations; i++ ) {
 	cout << "Minimisation step " << i+1 << " of " << nAlternations << endl; 
+	//objOption = SSE;
 	cout << "Simplex minimisation: " << endl; 
         simplex_minimize( par_result, obj_result );
 	//simulated_annealing( par_result, obj_result );
@@ -1371,14 +1384,16 @@ int ExprPredictor::train( const ExprPar& par_init )
         //par_model = par_result; 
 	//save_param();	
 
-        // par_model.adjust();
 
-	//cout << "Gradient minimisation: " << endl; 
-        //gradient_minimize( par_result, obj_result );
+
+	//objOption = NORM_CORR;
+	//cout << "Simplex minimisation Norm_Corr: " << endl; 
+        //simplex_minimize( par_result, obj_result );	
 	//cout << endl;
 
 	// save result
         par_model = par_result;
+        par_model.adjust();
 	save_param();
 
 //         par_model.adjust();
@@ -1740,13 +1755,14 @@ int indices_of_crm_in_gene[] = {
 	5, 11, 17, 23, 29
 };
 
-double ExprPredictor::comp_SSE_NormCorr( const ExprPar& par ) 
+double ExprPredictor::comp_SSE_NormCorr_PGP( const ExprPar& par ) 
 {
     // create the expression function
     ExprFunc* func = createExprFunc( par );
     // error of each sequence
     double squaredErr = 0;
     double correlation = 0;
+    double pgp_score = 0;
     #if TIMER 
     timeval start, end;
     gettimeofday(&start, 0);
@@ -1787,24 +1803,12 @@ double ExprPredictor::comp_SSE_NormCorr( const ExprPar& par )
 
 
         #pragma omp parallel for schedule(dynamic)
-        for (int j = 0; j < nConds(); j++ ) {
-
-			
-            	concs[j] = factorExprData.getCol( j );
-		//for( int _i = 0; _i < sizeof ( indices_of_crm_in_gene ) / sizeof ( int ); _i++ ){
-		//	if( i == indices_of_crm_in_gene[ _i ] ){
-		//		gene_crm_fout << i << "\t" << j << "\t";
-           	//		predictedExprs[j] = func->predictExpr( seqSites[ i ], seqLengths[ i ], concs[j], i, gene_crm_fout );
-		//		break;
-		//	}
-		//}	
-		//if ( predictedExprs[j] < 0 ){
-            		predictedExprs[j] = func->predictExpr( seqLengths[ i ], concs[j], i );
-		//}
-
-            // observed expression for the i-th sequence at the j-th condition
-            observedExprs[j] = exprData( i, j );
-	    //weight += observedExprs[j];				// The weight of an enhancer is proportional to its expression width
+        for (int j = 0; j < nConds(); j++ ) {		
+         	concs[j] = factorExprData.getCol( j );
+      		predictedExprs[j] = func->predictExpr( seqLengths[ i ], concs[j], i );
+                // observed expression for the i-th sequence at the j-th condition
+                observedExprs[j] = exprData( i, j );
+	        //weight += observedExprs[j];				// The weight of an enhancer is proportional to its expression width
         }
 
 	//weight = ( 100 - weight ) / 100.0;			// Transformation of the weight from 0 - 100 to 1 - 0
@@ -1812,6 +1816,7 @@ double ExprPredictor::comp_SSE_NormCorr( const ExprPar& par )
         double beta = 1.0;
         squaredErr +=  least_square( predictedExprs, observedExprs, beta );
 	correlation  +=  norm_corr( predictedExprs, observedExprs ); 
+        pgp_score += pgp( predictedExprs, observedExprs, beta );
     }	
 
     #if TIMER 
@@ -1822,8 +1827,10 @@ double ExprPredictor::comp_SSE_NormCorr( const ExprPar& par )
     delete func;
     obj_norm_corr = correlation / nSeqs();
     obj_sse = sqrt( squaredErr / ( nSeqs() * nConds() ) ); 
+    obj_pgp = pgp_score / nSeqs();
     if (objOption == SSE)	return obj_sse;
     if (objOption == NORM_CORR)	return -obj_norm_corr;
+    if (objOption == PGP)	return -obj_pgp;
     return 0;
 }
 
@@ -1956,61 +1963,9 @@ double ExprPredictor::compAvgCrossCorr( const ExprPar& par )
         totalSim += exprSimCrossCorr( predictedExprs, observedExprs ); 
     }	
 
- 
-
 
     return totalSim / nSeqs();
 }
-
-double ExprPredictor::compPGP( const ExprPar& par )
-{
-    // create the expression function
-    ExprFunc* func = createExprFunc( par );
-    double totalSim = 0;
-    for ( int i = 0; i < nSeqs(); i++ )
-    {
-        vector< double > predictedExprs (nConds(), -1);
-        vector< double > observedExprs (nConds(), 1);
-        vector < vector < double > > concs (nConds(), vector <double> (factorExprData.nRows(), 0) );
-
-	int n = seqSites[i].size();
-	vector< double > _bindingWts (n,0.0);
-	vector< int > _boundaries (n,0.0);
-	
-	// Determin the boundaries for func
-	_boundaries[0] = 0;
-	int range = max(coopDistThr, repressionDistThr );
-        for ( int k = 1; k < n; k++ ) {
-	       	int l; 
-		for ( l = k - 1; l >= 1; l-- ) {
-		    if ( ( seqSites[i][k].start - seqSites[i][l].start ) > range ) break; 
-		}
-	    _boundaries[k] = l ;
-	}	
-        func->set_boundaries(_boundaries);
-    
-	// compute the Boltzman weights of binding for all sites for func
-        _bindingWts[0] = 1.0;
-        for ( int k = 1; k < n; k++ ) {
-            _bindingWts[k] = par.maxBindingWts[ seqSites[i][k].factorIdx ] * seqSites[i][k].wtRatio ;	
-        }
-	func->set_bindingWts(_bindingWts); 
-        
-	#if TOSCA
-        #pragma omp parallel for schedule(dynamic)
-	#endif
-        for (int j = 0; j < nConds(); j++ ) {
-            	concs[j] = factorExprData.getCol( j );
-            	predictedExprs[j] = func->predictExpr(  seqLengths[ i ], concs[j], i );
-		observedExprs[j] = exprData( i, j );
-        }
-
-        double beta;
-        totalSim += pgp( predictedExprs, observedExprs, beta );
-    }
-    return totalSim / nSeqs();
-}
-
 
 int ExprPredictor::simplex_minimize( ExprPar& par_result, double& obj_result ) 
 {
@@ -2109,13 +2064,13 @@ int ExprPredictor::simplex_minimize( ExprPar& par_result, double& obj_result )
         // print the current parameter and function values
 	#if FILE_OUTPUT
 	if(iter % 1000 == 0){
-      		printf( "\r %zu \t SSE = %8.5f \t Norm_Corr = %8.5f", iter, obj_sse, -obj_norm_corr);
+    		printf( "\r %zu \t SSE = %8.5f \t Norm_Corr = %8.5f \t PGP = %8.5f", iter, obj_sse, obj_norm_corr, obj_pgp);
 		fflush(stdout);
 	}	
 	#else
 	#ifdef SHORT_OUTPUT
 	if(iter % SHORT_OUTPUT == 0){
-      		printf( "\r %zu \t SSE = %8.5f \t Norm_Corr = %8.5f", iter, obj_sse, -obj_norm_corr);
+   		printf( "\r %zu \t SSE = %8.5f \t Norm_Corr = %8.5f \t PGP = %8.5f", iter, obj_sse, obj_norm_corr, obj_pgp);
 		fflush(stdout);
 	}	
 	#else

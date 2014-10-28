@@ -384,6 +384,7 @@ private:
     // model parameters and the value of the objective function
     ExprPar par_model;
     double obj_model;	
+    double obj_pgp;
     double obj_norm_corr;	
     double obj_sse;	
 
@@ -400,10 +401,10 @@ private:
     ExprFunc* createExprFunc( const ExprPar& par ) const;
     
     // objective functions
-    double comp_SSE_NormCorr( const ExprPar& par );		// root mean square error between predicted and observed expressions
+    double comp_SSE_NormCorr_PGP( const ExprPar& par );		// major objective functions for comparison of predicted and observed expressions
     double compAvgCorr( const ExprPar& par );     	// the average Pearson correlation
     double compAvgCrossCorr( const ExprPar& par );    	// the average cross correlation -based similarity
-    double compPGP( const ExprPar& par );              // the average cross correlation -based similarity
+
 
     // minimize the objective function, using the current model parameters as initial values
     int simplex_minimize( ExprPar& par_result, double& obj_result );	// simplex	

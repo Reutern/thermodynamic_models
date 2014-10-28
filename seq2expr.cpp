@@ -44,21 +44,21 @@ int main( int argc, char* argv[] )
     int maxContact = 1;
 	vector<double> eTF (8);
 
-	eTF[0] = 0.7 ;
-	eTF[1] = 0.7 ;
-	eTF[2] = 0.7 ;
-	eTF[3] = 0.7 ;
-	eTF[4] = 0.7 ;
-	eTF[5] = 0.7 ;
-	eTF[6] = 0.7 ;
-	eTF[7] = 0.7 ;
+	eTF[0] = 0.6 ;
+	eTF[1] = 0.6 ;
+	eTF[2] = 0.6 ;
+	eTF[3] = 0.6 ;
+	eTF[4] = 0.6 ;
+	eTF[5] = 0.6 ;
+	eTF[6] = 0.6 ;
+	eTF[7] = 0.6 ;
 
 	string free_fix_indicator_filename;
 	ExprPredictor::one_qbtm_per_crm = ONE_QBTM;
 	ExprPar::one_qbtm_per_crm = ONE_QBTM;
 	ExprFunc::one_qbtm_per_crm = ONE_QBTM;
 
-    ExprPredictor::nAlternations = 3;
+    ExprPredictor::nAlternations = 10;
     for ( int i = 1; i < argc; i++ ) {
         if ( !strcmp( "-s", argv[ i ] ) )
             seqFile = argv[ ++i ];
@@ -174,7 +174,7 @@ int main( int argc, char* argv[] )
     for ( int i = 0; i < motifNames.size(); i++ ) {
         factorIdxMap[motifNames[i]] = i;
     }
-     
+
     // read the factor expression data
     labels.clear();
     data.clear();
@@ -192,7 +192,7 @@ int main( int argc, char* argv[] )
 		energyThrFactors.push_back( eTF[index] );
 	}
     // site representation of the sequences
-	
+
     vector< SiteVec > seqSites( nSeqs );
     vector< int > seqLengths( nSeqs );
     SeqAnnotator ann( motifs, energyThrFactors );
@@ -253,7 +253,7 @@ int main( int argc, char* argv[] )
             i++;
         }
     }
-    
+
     // read the repression matrix 
     IntMatrix repressionMat( nFactors, nFactors, false );
     if ( !repressionFile.empty() ) {

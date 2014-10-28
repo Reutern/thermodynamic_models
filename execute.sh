@@ -5,11 +5,11 @@ yellow='\033[0;33m'
 NC='\033[0m' # No Color
 
 INPUT_PATH="../data/Input"
-OUTPUT_PATH="../data/obj_func_comp"
+OUTPUT_PATH="../data/pwm_comparison"
  
 
 echo " "
- echo "${yellow} untrained NORM_CORR Run 0${NC}"
+ echo "${yellow} untrained Run 0${NC}"
  echo " "
 
 ./seq2expr \
@@ -18,28 +18,39 @@ echo " "
 -m $INPUT_PATH/factors_untrained_pc.wtmx \
 -c $INPUT_PATH/coop.txt \
 -f $INPUT_PATH/factor_expr_full_cic.tab \
--fo $OUTPUT_PATH/obs_pre_norm_corr.txt \
--pp $OUTPUT_PATH/par_norm_corr.par \
--i $INPUT_PATH/factor_info.txt \
--r $INPUT_PATH/rep.txt \
--o Direct	# modelOption: Logistic, Direct, Quenching, ChrMod_Unlimited, ChrMod_Limite
+-fo $OUTPUT_PATH/obs_pre_untrained.txt \
+-pp $OUTPUT_PATH/par_untrained.par \
+-o Direct 		# modelOption: Logistic, Direct, Quenching, ChrMod_Unlimited, ChrMod_Limite
+
+
+echo " "
+ echo "${yellow} wolfe Run 0${NC}"
+ echo " "
+
+./seq2expr \
+-s $INPUT_PATH/seqs.fa  \
+-e $INPUT_PATH/expr_smooth.tab  \
+-m $INPUT_PATH/factors_wolfe.wtmx \
+-c $INPUT_PATH/coop.txt \
+-f $INPUT_PATH/factor_expr_full_cic.tab \
+-fo $OUTPUT_PATH/obs_pre_wolfe.txt \
+-pp $OUTPUT_PATH/par_wolfe.par \
+-o Direct 		# modelOption: Logistic, Direct, Quenching, ChrMod_Unlimited, ChrMod_Limite
 
 
 for i in `seq 1 0`
 do
- echo "${yellow} trained Run $i ${NC}"
+ echo "${yellow} fa based Run $i ${NC}"
  echo " "
 ./seq2expr \
 -s $INPUT_PATH/seqs.fa  \
--e $INPUT_PATH/expr.tab  \
--m $INPUT_PATH/factors_trained.wtmx \
+-e $INPUT_PATH/expr_smooth.tab  \
+-m $INPUT_PATH/factors_fa.wtmx \
 -c $INPUT_PATH/coop.txt \
--f $INPUT_PATH/factor_expr.tab \
+-f $INPUT_PATH/factor_expr_full_cic.tab \
+-fo $OUTPUT_PATH/obs_pre_fa.txt \
+-pp $OUTPUT_PATH/par_fa.par \
 -p param.save \
--fo $OUTPUT_PATH/obs_pre_trained_06.txt \
--pp $OUTPUT_PATH/par_trained_06.par \
--i $INPUT_PATH/factor_info.txt \
--r $INPUT_PATH/rep.txt \
 -o Direct	# modelOption: Logistic, Direct, Quenching, ChrMod_Unlimited, ChrMod_Limite
 done
 
