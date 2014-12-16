@@ -5,54 +5,24 @@ yellow='\033[0;33m'
 NC='\033[0m' # No Color
 
 INPUT_PATH="../data/Input"
-OUTPUT_PATH="../data/pwm_comparison"
+OUTPUT_PATH="../data/old_pwm"
  
 
 echo " "
- echo "${yellow} untrained Run 0${NC}"
+ echo "${yellow} new cad test${NC}"
  echo " "
 
 ./seq2expr \
 -s $INPUT_PATH/seqs.fa  \
 -e $INPUT_PATH/expr_smooth.tab  \
--m $INPUT_PATH/factors_untrained_pc.wtmx \
+-m $INPUT_PATH/factors_fa_old.wtmx \
 -c $INPUT_PATH/coop.txt \
--f $INPUT_PATH/factor_expr_full_cic.tab \
--fo $OUTPUT_PATH/obs_pre_untrained.txt \
--pp $OUTPUT_PATH/par_untrained.par \
--o Direct 		# modelOption: Logistic, Direct, Quenching, ChrMod_Unlimited, ChrMod_Limite
-
-
-echo " "
- echo "${yellow} wolfe Run 0${NC}"
- echo " "
-
-./seq2expr \
--s $INPUT_PATH/seqs.fa  \
--e $INPUT_PATH/expr_smooth.tab  \
--m $INPUT_PATH/factors_wolfe.wtmx \
--c $INPUT_PATH/coop.txt \
--f $INPUT_PATH/factor_expr_full_cic.tab \
--fo $OUTPUT_PATH/obs_pre_wolfe.txt \
--pp $OUTPUT_PATH/par_wolfe.par \
--o Direct 		# modelOption: Logistic, Direct, Quenching, ChrMod_Unlimited, ChrMod_Limite
-
-
-for i in `seq 1 0`
-do
- echo "${yellow} fa based Run $i ${NC}"
- echo " "
-./seq2expr \
--s $INPUT_PATH/seqs.fa  \
--e $INPUT_PATH/expr_smooth.tab  \
--m $INPUT_PATH/factors_fa.wtmx \
--c $INPUT_PATH/coop.txt \
--f $INPUT_PATH/factor_expr_full_cic.tab \
--fo $OUTPUT_PATH/obs_pre_fa.txt \
--pp $OUTPUT_PATH/par_fa.par \
 -p param.save \
--o Direct	# modelOption: Logistic, Direct, Quenching, ChrMod_Unlimited, ChrMod_Limite
-done
+-f $INPUT_PATH/factor_expr_full_cic.tab \
+-fo $OUTPUT_PATH/obs_pre_test_3.txt \
+-pp $OUTPUT_PATH/par_test_3.par \
+-o Direct 		# modelOption: Logistic, Direct, Quenching, ChrMod_Unlimited, ChrMod_Limite
+
 
 
 # Example Falgs

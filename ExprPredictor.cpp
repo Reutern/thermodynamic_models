@@ -1344,7 +1344,7 @@ int ExprPredictor::train( const ExprPar& par_init )
     par_curr = par_init;	// The working parameter, which get saved in case of an emergancy
     signal(SIGINT, catch_signal);
 
-/*
+/*  
     cout << "*** Diagnostic printing BEFORE adjust() ***" << endl;
     cout << "Parameters: " << endl;
     printPar( par_curr );
@@ -1366,12 +1366,12 @@ int ExprPredictor::train( const ExprPar& par_init )
 
     if ( nAlternations > 0 && ExprPar::searchOption == CONSTRAINED ) { par_model.constrain_parameters(); 
 								       par_model.adjust(); }
-
     if ( nAlternations == 0 ) return 0;
     
     // alternate between two different methods
     ExprPar par_result;
     double obj_result;
+
     for ( int i = 0; i < nAlternations; i++ ) {
 	cout << "Minimisation step " << i+1 << " of " << nAlternations << endl; 
 	//objOption = SSE;
@@ -1563,14 +1563,14 @@ double ExprPredictor::exprSimCrossCorr( const vector< double >& x, const vector<
 int ExprPredictor::maxShift = 5; 
 double ExprPredictor::shiftPenalty = 0.8; 
 
-int ExprPredictor::nAlternations = 1;
+int ExprPredictor::nAlternations = 3;
 int ExprPredictor::nRandStarts = 5;
 double ExprPredictor::min_delta_f_SSE = 1.0E-8;
 double ExprPredictor::min_delta_f_Corr = 1.0E-8;
 double ExprPredictor::min_delta_f_CrossCorr = 1.0E-8;
 double ExprPredictor::min_delta_f_NormCorr = 1.0E-8;
 double ExprPredictor::min_delta_f_PGP = 1.0E-8;
-int ExprPredictor::nSimplexIters = 10000;
+int ExprPredictor::nSimplexIters = 20000;
 int ExprPredictor::nGradientIters = 50;
 bool ExprPredictor::one_qbtm_per_crm = ONE_QBTM;
 

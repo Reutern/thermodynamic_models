@@ -53,12 +53,13 @@ int main( int argc, char* argv[] )
 	eTF[6] = 0.6 ;
 	eTF[7] = 0.6 ;
 
+
 	string free_fix_indicator_filename;
 	ExprPredictor::one_qbtm_per_crm = ONE_QBTM;
 	ExprPar::one_qbtm_per_crm = ONE_QBTM;
 	ExprFunc::one_qbtm_per_crm = ONE_QBTM;
 
-    ExprPredictor::nAlternations = 10;
+    //ExprPredictor::nAlternations = 0;
     for ( int i = 1; i < argc; i++ ) {
         if ( !strcmp( "-s", argv[ i ] ) )
             seqFile = argv[ ++i ];
@@ -351,12 +352,12 @@ int main( int argc, char* argv[] )
     #if PRINT_STATISTICS
     cout << "Statistics: " << endl; 
     cout << "Factors "<< nFactors << "\t " << "Sequences " << nSeqs <<  endl;
-    cout << motifNames[0] << " \t " << motifNames[1] << " \t " << motifNames[2] << " \t " << motifNames[3] << " \t " << motifNames[4] << " \t " << motifNames[5] << " \t " << motifNames[6] << " \t " << motifNames[7] << " \t " << "Sum \t Length \t Name" << endl;
+    cout << motifNames[0] << " \t " << motifNames[1] << " \t " << motifNames[2] << " \t " << motifNames[3] << " \t " << motifNames[4] << " \t " << motifNames[5] << " \t " << motifNames[6] << " \t " << motifNames[7] << " \t " << motifNames[8] << " \t " << "Sum \t Length \t Name" << endl;
     double average_number = 0;
     for(int seqs_idx = 0; seqs_idx < nSeqs; seqs_idx++){
 	average_number += seqSites[seqs_idx].size()/nSeqs;
-	int sites_count[] = {0,0,0,0,0,0,0,0};
-        double weight_count[] = {0,0,0,0,0,0,0,0};
+	int sites_count[] = {0,0,0,0,0,0,0,0,0};
+        double weight_count[] = {0,0,0,0,0,0,0,0,0};
 	for( int idx = 1; idx < seqSites[seqs_idx].size() ; idx++ ){
 			sites_count[seqSites[seqs_idx][idx].factorIdx]++;
 			weight_count[seqSites[seqs_idx][idx].factorIdx] = weight_count[seqSites[seqs_idx][idx].factorIdx] + seqSites[seqs_idx][idx].wtRatio;
@@ -507,6 +508,10 @@ int main( int argc, char* argv[] )
     	if( labels[ i ] != test_seqNames[ i ] ) cout << labels[i] << test_seqNames[i] << endl;
 	//assert( labels[i] == seqNames[i] );
     }
+
+
+
+
     Matrix test_exprData( test_data ); 
 
     // site representation of the sequences	
