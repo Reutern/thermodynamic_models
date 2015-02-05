@@ -1494,7 +1494,7 @@ int ExprPredictor::predict( const SiteVec& targetSites, int targetSeqLength, vec
     // compute the Boltzman weights of binding for all sites for func
     _bindingWts[0] = 1.0;
     for ( int k = 1; k < n; k++ ) {
-        _bindingWts[k] = par_model.maxBindingWts[ targetSites[k].factorIdx ] * targetSites[k].wtRatio ;	
+        _bindingWts[k] = targetSites[k].accessibility * par_model.maxBindingWts[ targetSites[k].factorIdx ] * targetSites[k].wtRatio ;	
     }
     func->set_bindingWts(_bindingWts); 
 	
@@ -1797,7 +1797,7 @@ double ExprPredictor::comp_SSE_NormCorr_PGP( const ExprPar& par )
 	// compute the Boltzman weights of binding for all sites for func
         _bindingWts[0] = 1.0;
         for ( int k = 1; k < n; k++ ) {
-            _bindingWts[k] = par.maxBindingWts[ seqSites[i][k].factorIdx ] * seqSites[i][k].wtRatio ;	
+            _bindingWts[k] = seqSites[i][k].accessibility * par.maxBindingWts[ seqSites[i][k].factorIdx ] * seqSites[i][k].wtRatio ;	
         }
 	func->set_bindingWts(_bindingWts); 
 
@@ -1865,7 +1865,7 @@ double ExprPredictor::compAvgCorr( const ExprPar& par )
 	// compute the Boltzman weights of binding for all sites for func
         _bindingWts[0] = 1.0;
         for ( int k = 1; k < n; k++ ) {
-            _bindingWts[k] = par.maxBindingWts[ seqSites[i][k].factorIdx ] * seqSites[i][k].wtRatio ;	
+            _bindingWts[k] = seqSites[i][k].accessibility * par.maxBindingWts[ seqSites[i][k].factorIdx ] * seqSites[i][k].wtRatio ;	
         }
 	func->set_bindingWts(_bindingWts); 
 
@@ -1936,7 +1936,7 @@ double ExprPredictor::compAvgCrossCorr( const ExprPar& par )
 	// compute the Boltzman weights of binding for all sites for func
         _bindingWts[0] = 1.0;
         for ( int k = 1; k < n; k++ ) {
-            _bindingWts[k] = par.maxBindingWts[ seqSites[i][k].factorIdx ] * seqSites[i][k].wtRatio ;	
+            _bindingWts[k] = seqSites[i][k].accessibility * par.maxBindingWts[ seqSites[i][k].factorIdx ] * seqSites[i][k].wtRatio ;	
         }
 	func->set_bindingWts(_bindingWts); 
 

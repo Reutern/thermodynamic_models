@@ -61,10 +61,12 @@ vector< double > createNtDistr( double gcContent )
 Sequence::Sequence( const string& str )
 {
     nts.resize(str.size());
+    accessibility.resize(str.size());
     for ( int i = 0; i < str.size(); i++ ) {
         int nt = symbolToInt( str[ i ] );	// could be a NNN or gap
         if ( nt >= 0 && nt < ALPHABET_SIZE ) {
             nts[i] = nt ;
+	    accessibility[i] = 1.0;
         } else {
             cerr << "Illegal symbol: " << nt << " in " << str << endl;
             exit( 0 );	
@@ -77,24 +79,24 @@ Sequence::Sequence( const Sequence& other, int start, int length, bool strand )
     assert( start >= 0 && length >= 0 && ( start + length ) <= other.size() );	
 
     nts.resize(length);
-
+    accessibility.resize(length);
     for ( int i = 0; i < length; i++ ) {
-        if ( strand ) {	nts[i] = other[ start + i ] ; }
-        else { nts[i] = complement( other[ start + length - 1 - i ] ) ; }
+        if ( strand ) {	nts[i] = other[ start + i ] ; accessibility[i] = other.get_accessibility(i); }
+        else { nts[i] = complement( other[ start + length - 1 - i ] ) ; accessibility[i] = other.get_accessibility( start + length - 1 - i ); }
     }	
 }
 
-int Sequence::push_back( int nt )
+int Sequence::push_back( int nt, double ac )
 {	
     assert( nt >= 0 && nt < ALPHABET_SIZE );
     nts.push_back( nt );
-    
+    accessibility.push_back( ac );
     return 0;
 }
 
 int Sequence::push_back( const Sequence& elem )
 {
-    for ( int i = 0; i < elem.size(); i++ ) push_back( elem[ i ] );	
+    for ( int i = 0; i < elem.size(); i++ ) push_back( elem[ i ], elem.accessibility[ i ] );	
     return 0;
 }
 
@@ -124,11 +126,11 @@ bool Sequence::containsMissing() const
     return false;
 }
 
-int Sequence::load( const string& file, string& name, int format )
+int Sequence::load( const string& file, const string& accfile, string& name, int format )
 {
     vector< Sequence > seqs;
     vector< string > names;
-    int rval = readSequences( file, seqs, names, format );
+    int rval = readSequences( file, accfile, seqs, names, format );
     if ( rval == RET_ERROR ) return RET_ERROR;
     
     copy( seqs[ 0 ] );
@@ -136,10 +138,10 @@ int Sequence::load( const string& file, string& name, int format )
     return rval;
 }
 
-int Sequence::load( const string& file, int format )
+int Sequence::load( const string& file,const string& accfile, int format )
 {
     string name;
-    int rval = load( file, name, format );
+    int rval = load( file, accfile, name, format );
     
     return rval;	
 }
@@ -154,23 +156,30 @@ ostream& operator<<( ostream& os, const Sequence& seq )
     return os;
 }
 
-int readSequences( const string& file, vector< Sequence >& seqs, vector< string >& names, int format )
+int readSequences( const string& file, const string& accfile, vector< Sequence >& seqs, vector< string >& names, int format )
 {
     // check if the format character is legal
     if ( format != FASTA ) { return RET_ERROR; }
     seqs.clear();
     names.clear();
      
-    // 	open the file
+    // 	open the files
     ifstream fin( file.c_str() );
     if ( !fin ) { cerr << "Cannot open" << file << endl; exit( 1 ); }
 
+    ifstream facc( accfile.c_str() );
+    if ( !facc ) { cerr << "Cannot open" << accfile << endl; exit( 1 ); }
+
     string line;
+    string line_acc;
     Sequence seq;
     
     // read sequences: FASTA format
     if ( format == FASTA ) {
         while ( getline( fin, line ) ) {
+	    
+	    getline( facc, line_acc );
+
             // add the sequence and start a new sequence if the line starts with >
             //cout << line << endl;
             if ( line[ 0 ] == '>' ) { 	
@@ -189,11 +198,89 @@ int readSequences( const string& file, vector< Sequence >& seqs, vector< string 
                 int last = line.find_last_not_of( " \t\r" );
                 if ( start == string::npos || last == string::npos ) continue;
                         
-                // append the sequence	
+                // append the sequence
+		int ac_counter = 10;
+		double ac = 1.0;
+
+
+                for ( int i = start; i <= last; i++ ) {
+                    int nt = symbolToInt( line[ i ] );	// could be a NNN or gap
+			//cout << ac_counter << " " <<ac <<endl;
+		    // accessibility information gets read out every 10th step
+		    if(ac_counter == 10){
+			ac_counter = 0; 
+		        ac = std::stod (line_acc);	// read in according accessibility
+                        std::size_t pos = line_acc.find("\t");      // position of next gap in line_acc
+  		        line_acc = line_acc.substr(pos+1);   	// Truncate line_acc for next read-out
+		    }
+		    ac_counter +=1;
+
+                    if ( nt >= 0 && nt < ALPHABET_SIZE ) {
+                        seq.push_back( nt, ac ); 	// seq.push_back( nt, ac );
+                    } else {
+                        //cerr << "Illegal symbol: " << nt << " in " << file << endl;
+                        return RET_ERROR;	
+                    } 
+                }
+            }			
+        }
+            
+        // add the last sequence
+        if( seq.size() ) seqs.push_back( seq );
+                        
+        return 0;
+    }	
+}
+
+int readSequences( const string& file, const string& accfile, vector< Sequence >& seqs, int format )
+{
+    vector< string > names;
+    int rval = readSequences( file, accfile, seqs, names, format );	
+    return rval;
+}
+
+int readSequences( const string& file, vector< Sequence >& seqs, vector< string >& names, int format )
+{
+    // check if the format character is legal
+    if ( format != FASTA ) { return RET_ERROR; }
+    seqs.clear();
+    names.clear();
+     
+    // 	open the files
+    ifstream fin( file.c_str() );
+    if ( !fin ) { cerr << "Cannot open" << file << endl; exit( 1 ); }
+
+    string line;
+    Sequence seq;
+    
+    // read sequences: FASTA format
+    if ( format == FASTA ) {
+        while ( getline( fin, line ) ) {
+	    
+
+            // add the sequence and start a new sequence if the line starts with >
+            //cout << line << endl;
+            if ( line[ 0 ] == '>' ) { 	
+                if ( seq.size() ) {
+                    seqs.push_back( seq );
+                    seq.clear();	
+                }
+                        
+                stringstream ss( line.substr( 1 ) );
+                string name; 
+                ss >> name;
+                names.push_back( name );
+            } else { 
+                // check if the line contains content
+                int start = line.find_first_not_of( " \t\r" );
+                int last = line.find_last_not_of( " \t\r" );
+                if ( start == string::npos || last == string::npos ) continue;
+                        
+
                 for ( int i = start; i <= last; i++ ) {
                     int nt = symbolToInt( line[ i ] );	// could be a NNN or gap
                     if ( nt >= 0 && nt < ALPHABET_SIZE ) {
-                        seq.push_back( nt );
+                        seq.push_back( nt, 1.0 ); 	// seq.push_back( nt, ac );
                     } else {
                         //cerr << "Illegal symbol: " << nt << " in " << file << endl;
                         return RET_ERROR;	
@@ -215,6 +302,7 @@ int readSequences( const string& file, vector< Sequence >& seqs, int format )
     int rval = readSequences( file, seqs, names, format );	
     return rval;
 }
+
 
 int writeSequences( const string& file, const vector< Sequence >& seqs, const vector< string >& names, int format )
 {
@@ -329,7 +417,7 @@ void Motif::sample( const gsl_rng* rng, Sequence& elem, bool strand ) const
         
         // sample nt. from this distribution	
         int nt = sampleMul( rng, distr );
-        sampleElem.push_back( nt );
+        sampleElem.push_back( nt, 1.0 );
     }		
     
     if ( strand == 0 ) elem = sampleElem.compRevCompl();
@@ -378,7 +466,7 @@ void Motif::init()
     for ( int i = 0; i < l; i++ ) {
         int b_max;
         max( pwm.getRow( i ) , b_max );
-        maxSite.push_back( b_max );	
+        maxSite.push_back( b_max, 1.0 );	
     }
     
     // compute the LLR of the strongest site
@@ -486,7 +574,7 @@ int readSites( const string& file, const map< string, int >& factorIdxMap, vecto
             if ( readEnergy ) ss >> energy; 
             bool strand = strandChar == '+' ? 1 : 0;
             map<string, int>::const_iterator iter = factorIdxMap.find( factor );
-            currVec.push_back( Site( start - 1, strand, iter->second , energy ) );
+            currVec.push_back( Site( start - 1, strand, iter->second , energy, 1.0 ) );		// TODO: read in accessibility
         }
     }
 
@@ -514,24 +602,26 @@ int SeqAnnotator::annot( const Sequence& seq, SiteVec& sites ) const
             		int l = motifs[ k ].length();
             		if ( i + l > seq.size() ) continue;
            	 	double energy;
-			
+			double access;
             
             		// positive strand
             		Sequence elem( seq, i, l, 1 );
+			access = elem.get_accessibility();
             		energy = motifs[ k ].energy( elem );
-			if ( energy <= energyThrFactors[ k ] * motifs[ k ].getMaxLLR() ) {
+			if ( energy <= access * energyThrFactors[ k ] * motifs[ k ].getMaxLLR() ) {		// accessibility is incorporated in the decision if something is a bninding site
 				//cout << "Energy Diff for motif: " << k << " = " << energy << "\t";
 				//cout << elem << Site( i, 1, k,  energy ) << endl;	            
-		    		sites.push_back( Site( i, 1, k, energy ) );
+		    		sites.push_back( Site( i, 1, k, energy, access ) );
             		}	
             
             		// negative strand
             		Sequence rcElem( seq, i, l, 0 );
             		energy = motifs[ k ].energy( rcElem );
-			if ( energy <= energyThrFactors[ k ]  * motifs[k].getMaxLLR() ) {
+			access = rcElem.get_accessibility();
+			if ( energy <= access * energyThrFactors[ k ] * motifs[k].getMaxLLR() ) {		// accessibility is incorporated in the decision if something is a bninding site
 				//cout << "Energy Diff for motif: " << k << " = " << energy << "\t";
 		 	    	//cout << rcElem << Site( i, 0, k,  energy ) << endl;			
-                		sites.push_back( Site( i, 0, k, energy ) );
+                		sites.push_back( Site( i, 0, k, energy, access ) );
             		}				
         	}	
     	}

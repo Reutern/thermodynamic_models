@@ -36,13 +36,13 @@ int main( int argc, char* argv[] )
     long time_start = time(NULL);
   
     // command line processing
-    string seqFile, test_seqFile, annFile, exprFile, test_exprFile, motifFile, factorExprFile, coopFile, factorInfoFile, repressionFile, parFile, print_parFile, axis_wtFile;
+    string seqFile, test_seqFile, accFile, annFile, exprFile, test_exprFile, motifFile, factorExprFile, coopFile, factorInfoFile, repressionFile, parFile, print_parFile, axis_wtFile;
     string outFile, occFile;     // output files
     int coopDistThr = 50;
     double factorIntSigma = 25.0;   // sigma parameter for the Gaussian interaction function
     int repressionDistThr = 50;
     int maxContact = 1;
-	vector<double> eTF (8);
+	vector<double> eTF (16);
 
 	eTF[0] = 0.6 ;
 	eTF[1] = 0.6 ;
@@ -52,7 +52,14 @@ int main( int argc, char* argv[] )
 	eTF[5] = 0.6 ;
 	eTF[6] = 0.6 ;
 	eTF[7] = 0.6 ;
-
+	eTF[8] = 0.6 ;
+	eTF[9] = 0.6 ;
+	eTF[10] = 0.6 ;
+	eTF[11] = 0.6 ;
+	eTF[12] = 0.6 ;
+	eTF[13] = 0.6 ;
+	eTF[14] = 0.6 ;
+	eTF[15] = 0.6 ;
 
 	string free_fix_indicator_filename;
 	ExprPredictor::one_qbtm_per_crm = ONE_QBTM;
@@ -67,6 +74,8 @@ int main( int argc, char* argv[] )
             test_seqFile = argv[ ++i ];
         else if ( !strcmp( "-a", argv[ i ] ) )
             annFile = argv[ ++i ];      
+        else if ( !strcmp( "-acc", argv[ i ] ) )
+            accFile = argv[ ++i ];      
         else if ( !strcmp( "-e", argv[ i ] ) )
             exprFile = argv[ ++i ];            
         else if ( !strcmp( "-te", argv[ i ] ) )
@@ -145,7 +154,11 @@ int main( int argc, char* argv[] )
     // read the sequences
     vector< Sequence > seqs;
     vector< string > seqNames;
+    #if ACCESSIBILITY
+    rval = readSequences( seqFile, accFile, seqs, seqNames );
+    #else
     rval = readSequences( seqFile, seqs, seqNames );
+    #endif // ACCESSIBILITY
 
     assert( rval != RET_ERROR );
     int nSeqs = seqs.size();
@@ -352,18 +365,20 @@ int main( int argc, char* argv[] )
     #if PRINT_STATISTICS
     cout << "Statistics: " << endl; 
     cout << "Factors "<< nFactors << "\t " << "Sequences " << nSeqs <<  endl;
-    cout << motifNames[0] << " \t " << motifNames[1] << " \t " << motifNames[2] << " \t " << motifNames[3] << " \t " << motifNames[4] << " \t " << motifNames[5] << " \t " << motifNames[6] << " \t " << motifNames[7] << " \t " << motifNames[8] << " \t " << "Sum \t Length \t Name" << endl;
+    for(int motif_idx = 0; motif_idx < nFactors; motif_idx++){
+    cout << motifNames[ motif_idx ] << " \t ";}
+    cout << "Sum\t Name\t Length" << endl;
     double average_number = 0;
     for(int seqs_idx = 0; seqs_idx < nSeqs; seqs_idx++){
 	average_number += seqSites[seqs_idx].size()/nSeqs;
-	int sites_count[] = {0,0,0,0,0,0,0,0,0};
-        double weight_count[] = {0,0,0,0,0,0,0,0,0};
+	int sites_count[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+        double weight_count[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 	for( int idx = 1; idx < seqSites[seqs_idx].size() ; idx++ ){
 			sites_count[seqSites[seqs_idx][idx].factorIdx]++;
 			weight_count[seqSites[seqs_idx][idx].factorIdx] = weight_count[seqSites[seqs_idx][idx].factorIdx] + seqSites[seqs_idx][idx].wtRatio;
 		}
         for( int l = 0; l < nFactors; l++){
-	        cout <<  round(100*  weight_count[l]) / 100.0 << " \t "; }
+	        cout <<  round(100*  weight_count[l]) / 100.0  << " \t "; }
 	cout << seqSites[seqs_idx].size() - 1 << " \t " << seqNames[seqs_idx] << " \t " << seqLengths[seqs_idx] <<  endl;}
     cout << endl; 
     cout << average_number << endl;
@@ -478,8 +493,8 @@ int main( int argc, char* argv[] )
 
     	for(int site_idx = 1; site_idx < seqSites[seq_idx].size(); site_idx++){
 		double occ_avg = 0;
-		for(int position_idx = 50; position_idx < 100; position_idx++){ 
-			occ_avg += occpred -> predictOcc(site_idx,position_idx) / 50.0 ;
+		for(int position_idx = 0; position_idx < 100; position_idx++){ 
+			occ_avg += occpred -> predictOcc(site_idx,position_idx) / 100.0 ;
 		}
 		Occout << seqSites[seq_idx][site_idx].start << "\t" << seqSites[seq_idx][site_idx].factorIdx <<  "\t" << occ_avg << endl;
 	}
@@ -558,7 +573,7 @@ int main( int argc, char* argv[] )
 	rng = gsl_rng_alloc( T );
 	gsl_rng_set( rng, time( 0 ) );		// set the seed equal to simulTime(0)
 
-        ExprPredictor::nAlternations = 1;
+        ExprPredictor::nAlternations = 0;
 
 	// Modify parameters
 	par.basalTxps = basalTxps_modified;

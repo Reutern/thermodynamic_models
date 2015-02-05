@@ -44,7 +44,7 @@ public:
     Sequence( const vector< int >& _nts ) : nts( _nts ) {}
     Sequence( const string& str );
     Sequence( const Sequence& other, int start, int length, bool strand = true ); 
-    void copy( const Sequence& other ) { nts = other.nts; }
+    void copy( const Sequence& other ) { nts = other.nts; accessibility = other.accessibility; }
     Sequence( const Sequence& other ) { copy( other ); }
     
     // assignment
@@ -66,9 +66,22 @@ public:
         assert( pos >= 0 && pos < size() );
         return nts[ pos ];	
     }
-    
+
+    // get average accessibility of whole sequnce
+    double get_accessibility() const {
+	double avg_ac = 0;    
+	for(int pos = 0; pos < size(); pos++){avg_ac += accessibility[ pos ]; }
+        return avg_ac / size();	
+    }
+
+    // get accessibility of a single position
+    double get_accessibility( int pos ) const {
+        assert( pos >= 0 && pos < size() );
+        return accessibility[ pos ];	
+    }
+
     // insert a nt. or a sequence segment at the end of sequence
-    int push_back( int nt );
+    int push_back( int nt, double ac );
     int push_back( const Sequence& elem );	
     
     // the reverse complement of a sequence
@@ -79,19 +92,22 @@ public:
     bool containsMissing() const;
             
     // clear the sequence
-    void clear() { nts.clear(); }
+    void clear() { nts.clear(); accessibility.clear(); }
     
     // load Sequence from a file
-    int load( const string& file, string& name, int format = FASTA );
-    int load( const string& file, int format = FASTA );	
+    int load( const string& file, const string& accfile, string& name, int format = FASTA );
+    int load( const string& file, const string& accfile, int format = FASTA );	
     
     // output
     friend ostream& operator<<( ostream& os, const Sequence& seq );
 private:
     vector< int > nts;		// nts[ i ]: the i-th nt.
+    vector< double > accessibility;		// the dnase data for every sequence position
 };
 
 // read sequences from a file
+int readSequences( const string& file, const string& accfile, vector< Sequence >& seqs, vector< string >& names, int format = FASTA );
+int readSequences( const string& file, const string& accfile, vector< Sequence >& seqs, int format = FASTA );
 int readSequences( const string& file, vector< Sequence >& seqs, vector< string >& names, int format = FASTA );
 int readSequences( const string& file, vector< Sequence >& seqs, int format = FASTA );
 
@@ -166,10 +182,10 @@ int readMotifs( const string& file, const vector< double >& background, vector< 
 class Site {
 public:
     // constructors
-    Site() : start( 0 ), strand( true ), factorIdx( 0 ), energy( 0 ), wtRatio( 0 ) {}
-    Site( int _start, bool _strand, int _factorIdx ) : start( _start ), strand( _strand ), factorIdx( _factorIdx ), energy( 0 ), wtRatio( 1 ) {}
-    Site( int _start, bool _strand, int _factorIdx, double _energy ) : start( _start ), strand( _strand ), factorIdx( _factorIdx ), energy( _energy ) { wtRatio = exp( -energy ); }	
-    void copy( const Site& other ) { start = other.start; strand = other.strand; factorIdx = other.factorIdx; energy = other.energy; wtRatio = other.wtRatio; }
+    Site() : start( 0 ), strand( true ), factorIdx( 0 ), energy( 0 ), wtRatio( 0 ), accessibility(0) {}
+    Site( int _start, bool _strand, int _factorIdx ) : start( _start ), strand( _strand ), factorIdx( _factorIdx ), energy( 0 ), wtRatio( 1 ), accessibility(0) {}
+    Site( int _start, bool _strand, int _factorIdx, double _energy, double _accessibility ) : start( _start ), strand( _strand ), factorIdx( _factorIdx ), energy( _energy ) { wtRatio = exp( -energy ); accessibility = _accessibility;} 	
+    void copy( const Site& other ) { start = other.start; strand = other.strand; factorIdx = other.factorIdx; energy = other.energy; wtRatio = other.wtRatio; accessibility = other.accessibility; }
     Site( const Site& other ) { copy( other ); }
     
     // assignment
@@ -182,7 +198,8 @@ public:
     int factorIdx;	// the index of the associated TF, starting from 0
     double energy;	// the energy relative to the strongest site (nonnegative)
     double wtRatio;	// the binding weight ratio (<= 1) of site vs the strongest site: K(S) / K(S_max) = q(S) / q(S_max)
-    int boundary;
+    int boundary;	// the index of the first binding site with which it could interact
+    double accessibility;   // the average accessibility of the underlying sequence (raw DNase information)
 };
 
 // test if two sites overlap

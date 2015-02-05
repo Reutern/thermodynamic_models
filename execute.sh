@@ -5,22 +5,23 @@ yellow='\033[0;33m'
 NC='\033[0m' # No Color
 
 INPUT_PATH="../data/Input"
-OUTPUT_PATH="../data/old_pwm"
+OUTPUT_PATH="../data/extended"
  
 
 echo " "
- echo "${yellow} new cad test${NC}"
+ echo "${yellow} Extended data set${NC}"
  echo " "
 
 ./seq2expr \
--s $INPUT_PATH/seqs.fa  \
--e $INPUT_PATH/expr_smooth.tab  \
--m $INPUT_PATH/factors_fa_old.wtmx \
--c $INPUT_PATH/coop.txt \
+-s $INPUT_PATH/seqs_extended.fa  \
+-e $INPUT_PATH/expr_extended.tab  \
+-m $INPUT_PATH/factors_fa_full.wtmx \
 -p param.save \
--f $INPUT_PATH/factor_expr_full_cic.tab \
--fo $OUTPUT_PATH/obs_pre_test_3.txt \
--pp $OUTPUT_PATH/par_test_3.par \
+-c $INPUT_PATH/coop.txt \
+-f $INPUT_PATH/factor_expr_full.tab \
+-oc $OUTPUT_PATH/occ_pre_test_coop.txt \
+-fo $OUTPUT_PATH/obs_pre_test_coop.txt \
+-pp $OUTPUT_PATH/par_test_coop.par \
 -o Direct 		# modelOption: Logistic, Direct, Quenching, ChrMod_Unlimited, ChrMod_Limite
 
 
