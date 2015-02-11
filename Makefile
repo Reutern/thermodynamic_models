@@ -27,7 +27,7 @@ $(ODIR)/%.o: %.cpp $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
 seq2expr : $(OBJ)
-	$(CC) -o $@ Tools.o siman.o SeqAnnotator.o ExprPredictor.o OccPredictor.o seq2expr.o $(LFLAGS)
+	$(CC) -o $@ $(OBJ) $(LFLAGS)
 
 .PHONY: clean
 
