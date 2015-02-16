@@ -188,7 +188,8 @@ ExprPar::ExprPar( const vector< double >& pars, const IntMatrix& coopMat, const 
             double effect = searchOption == CONSTRAINED ? inverse_infty_transform( pars[counter++], min_effect_Logistic, max_effect_Logistic ) : pars[counter++];
             txpEffects.push_back( effect );
         } else if ( modelOption == DIRECT ) {
-            double effect = searchOption == CONSTRAINED ? exp( inverse_infty_transform( pars[counter++], log( min_effect_Thermo ), log( max_effect_Thermo ) ) ) : exp( pars[counter++] );
+            //double effect = searchOption == CONSTRAINED ? exp( inverse_infty_transform( pars[counter++], log( min_effect_Thermo ), log( max_effect_Thermo ) ) ) : exp( pars[counter++] );
+            double effect = searchOption == CONSTRAINED ? inverse_infty_transform( pars[counter++],  min_effect_Thermo ,  max_effect_Thermo  ) :  pars[counter++] ;
             txpEffects.push_back( effect ); 
         } else {
             if ( actIndicators[i] ) {
@@ -271,7 +272,8 @@ void ExprPar::getFreePars( vector< double >& pars, const IntMatrix& coopMat, con
             double effect = searchOption == CONSTRAINED ? infty_transform( txpEffects[i], min_effect_Logistic, max_effect_Logistic ) : txpEffects[i];
             pars.push_back( effect );
         } else if ( modelOption == DIRECT ) {
-            double effect = searchOption == CONSTRAINED ? infty_transform( log( txpEffects[i] ), log( min_effect_Thermo ), log( max_effect_Thermo ) ) : log( txpEffects[i] );
+            //double effect = searchOption == CONSTRAINED ? infty_transform( log( txpEffects[i] ), log( min_effect_Thermo ), log( max_effect_Thermo ) ) : log( txpEffects[i] );
+	    double effect = searchOption == CONSTRAINED ? infty_transform( txpEffects[i] , min_effect_Thermo , max_effect_Thermo  ) :  txpEffects[i] ;
             pars.push_back( effect );
         } else {
             if ( actIndicators[i] ) {
@@ -581,8 +583,8 @@ double ExprPar::max_interaction = 500;
 double ExprPar::min_effect_Logistic = -5;	
 double ExprPar::max_effect_Logistic = 5;
 // double ExprPar::min_effect_Direct = 0.01;
-double ExprPar::min_effect_Thermo = 0.001;	
-double ExprPar::max_effect_Thermo = 5000;
+double ExprPar::min_effect_Thermo = 0.0001;	
+double ExprPar::max_effect_Thermo = 1000;
 double ExprPar::min_repression = 1.0E-3;
 double ExprPar::max_repression = 500; 
 double ExprPar::min_basal_Logistic = -9.0;	
@@ -767,57 +769,76 @@ double ExprFunc::predictExpr( int length, const vector< double >& factorConcs, i
     return promoterOcc;
 }
 
-double ExprFunc::predictExpr_segal( int length, const vector< double >& factorConcs, int seq_num)
+double ExprFunc::predictExpr_scanning_mode( int length, const vector< double >& factorConcs, int seq_num )
 {
 
     int promoter_number = seq_num;
 	if( !one_qbtm_per_crm )
 		promoter_number = 0;	// Only one promoter strength
 
+    int n = sites.size() - 1;
+
+    vector<double> p_bound;
+
+    compProb_scanning_mode( factorConcs, p_bound );
+
+    // Parse the sequence into fragments
+    const int nFragments = max(static_cast<int>( (length - 300)/ 50 ),1);
+    vector<int> sites_begin (nFragments+1, 1);    
+    vector<int> sites_end (nFragments+1, n);    
+
+
+    int fragment_counter_start = 0;
+    int fragment_counter_end = 0;
+    for ( int idx_site = 1; idx_site <= n; idx_site++ ) {
+	int position = sites[idx_site].start;
+	if( ( position > 50 * fragment_counter_start ) &&  ( fragment_counter_start < nFragments ) ) {
+		sites_begin[fragment_counter_start] = idx_site; 
+		fragment_counter_start++ ;	
+	} 
+	if( position > 50 * fragment_counter_end + 300) {
+		sites_end[fragment_counter_end] = idx_site; 
+		fragment_counter_end++ ;	
+	}
+    }
+
+    double promoterOcc = 0.0;
+    for(int idx_fragagment = 0; idx_fragagment < max(fragment_counter_end,1); idx_fragagment++){
+	double weight_complex = 1;
+	for(int idx = sites_begin[idx_fragagment]; idx < sites_end[idx_fragagment]; idx++){
+		weight_complex *= exp( - p_bound[idx] * par.txpEffects[ sites[idx].factorIdx ] );
+	}
+	double p_tmp = weight_complex * par.basalTxps[ promoter_number ] / ( 1.0 + par.basalTxps[ promoter_number ] * weight_complex );
+	promoterOcc = promoterOcc * (1-p_tmp) + p_tmp; 
+    }
+
+    
+    return promoterOcc;
+
+}
+
+void ExprFunc::compProb_scanning_mode(const vector< double >& factorConcs, vector< double >& p_bound)
+{
+
+    // initialization
     int n = sites.size();
 
-    double weight_total = compPartFuncOff(factorConcs);
+    p_bound.clear();
+    p_bound.resize(n);
 
-    double expression = 0;
-    double delta_expression = 1; 
-    double weight_sample = 1;
-    double contribution_sample = par.basalTxps[ seq_num ] ;
-    vector <bool> sample_idx (false,n);
-
-    int idx = 0;
-
-    do{
-	idx++;
-	idx = idx % n; 
-	// draw a random number between 0 and 1
-	double p = (float)rand()/(float)(RAND_MAX);
-	double weight = bindingWts[ n+1 ] * factorConcs[sites[ n+1 ].factorIdx];
-	// sample a new site
-	if(sample_idx[n+1] == true ){ 
-		if( weight / (1 + weight) < p ) {
-			sample_idx[n+1] = false;
-			contribution_sample -= par.txpEffects[ n+1 ];  		
-		}		
-	
-	}
-	else{
-		if( weight / (1 + weight) > p ) {
-			sample_idx[n+1] = true;
-			contribution_sample += par.txpEffects[ n+1 ];  		
-		}		
-	
-	}
-	
-	// Combine weigth and contribution for the expression probability
-	delta_expression = 1 / (1 + exp( - contribution_sample ) );
-	expression += delta_expression;
-
-    } while( delta_expression > 0.0001 || idx == 1);
-    
-
-
-    return expression/weight_total;
+    for ( int i = 1; i < n; i++ ) {
+	double weight_competition = 0;
+	double weight_cooperativity = 1;
+        for ( int j = max(i - 30,0); j < min(i + 30 , n); j++ ) {
+                if ( siteOverlap( sites[ i ], sites[ j ], motifs ) ) weight_competition += bindingWts[ j ] * factorConcs[sites[ j ].factorIdx];
+		else weight_cooperativity += (compFactorInt( sites[ i ], sites[ j ] )-1) * bindingWts[ j ] * factorConcs[sites[ j ].factorIdx];
+                }
+	double weight = bindingWts[ i ] * factorConcs[sites[ i ].factorIdx];
+        p_bound[i] = weight * weight_cooperativity / (1.0 + weight * weight_cooperativity + weight_competition);
+    }
+ 
 }
+
 
 ModelType ExprFunc::modelOption = DIRECT;
 
@@ -1500,7 +1521,7 @@ int ExprPredictor::predict( const SiteVec& targetSites, int targetSeqLength, vec
 	
     for ( int j = 0; j < nConds(); j++ ) {
         vector< double > concs = factorExprData.getCol( j );
-        double predicted = func->predictExpr( targetSeqLength, concs, seq_num );
+        double predicted = func->predictExpr( targetSeqLength, concs, seq_num );	//_scanning_mode
         targetExprs[j] = predicted ;
     }
     
@@ -1802,10 +1823,10 @@ double ExprPredictor::comp_SSE_NormCorr_PGP( const ExprPar& par )
 	func->set_bindingWts(_bindingWts); 
 
 
-        #pragma omp parallel for schedule(dynamic)
+       #pragma omp parallel for schedule(dynamic)
         for (int j = 0; j < nConds(); j++ ) {		
          	concs[j] = factorExprData.getCol( j );
-      		predictedExprs[j] = func->predictExpr( seqLengths[ i ], concs[j], i );
+      		predictedExprs[j] = func->predictExpr( seqLengths[ i ], concs[j], i );	//_scanning_mode
                 // observed expression for the i-th sequence at the j-th condition
                 observedExprs[j] = exprData( i, j );
 	        //weight += observedExprs[j];				// The weight of an enhancer is proportional to its expression width
@@ -1876,12 +1897,13 @@ double ExprPredictor::compAvgCorr( const ExprPar& par )
 		for( int _i = 0; _i < sizeof ( indices_of_crm_in_gene ) / sizeof ( int ); _i++ ){
 			if( i == indices_of_crm_in_gene[ _i ] ){
 				gene_crm_fout << i << "\t" << j << "\t";
-            			predicted = func->predictExpr( seqLengths[ i ], concs, i, gene_crm_fout );
+            			//predicted = func->predictExpr_scanning_mode( seqLengths[ i ], concs, i, gene_crm_fout );
+            			predicted = func->predictExpr_scanning_mode( seqLengths[ i ], concs, i );
 				break;
 			}
 		}	
 		if ( predicted < 0 ){
-            		predicted = func->predictExpr( seqLengths[ i ], concs, i );
+            		predicted = func->predictExpr_scanning_mode( seqLengths[ i ], concs, i );
 		}
 		
             
@@ -1953,7 +1975,7 @@ double ExprPredictor::compAvgCrossCorr( const ExprPar& par )
 		//	}
 		//}	
 		//if ( predictedExprs[j] < 0 ){
-            		predictedExprs[j] = func->predictExpr( seqLengths[ i ], concs[j], i );
+            		predictedExprs[j] = func->predictExpr_scanning_mode( seqLengths[ i ], concs[j], i );
 		//}
 
             // observed expression for the i-th sequence at the j-th condition

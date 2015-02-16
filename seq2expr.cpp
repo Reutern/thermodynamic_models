@@ -390,20 +390,15 @@ int main( int argc, char* argv[] )
     cout << "Save site energies" << endl;
     ofstream site_energies;
     site_energies.open ("../data/site_energies.txt");
-    for(int tf = 0; tf < nFactors; tf++){
-	site_energies << motifNames[tf] << "\t" << factorExprData.getRow(tf) << endl;
-	vector <double> weight(nConds);
-        for(int n=0; n < nConds; n++){
-	weight[n] = 0;
-		for(int seqs_idx = 0; seqs_idx < nSeqs; seqs_idx++){
-			for( int idx = 1; idx < seqSites[seqs_idx].size() ; idx++ ){
-				if(seqSites[seqs_idx][idx].factorIdx != tf)  continue;
-				weight[n] += seqSites[seqs_idx][idx].wtRatio * exprData.getRow(seqs_idx)[n];
-			}
-		}
+    for(int seqs_idx = 0; seqs_idx < nSeqs; seqs_idx++){
+	site_energies << seqNames[seqs_idx] << "\t" << seqSites[seqs_idx].size()-1 << "\t" << seqLengths[seqs_idx] << endl;
+        for(int sites_idx = 1; sites_idx < seqSites[seqs_idx].size(); sites_idx++){
+		int idx = seqSites[seqs_idx][sites_idx].factorIdx;
+		site_energies << seqSites[seqs_idx][sites_idx].start + static_cast<int> (motifs[ idx ].length()/2) << "\t" << idx << "\t" << seqSites[seqs_idx][sites_idx].wtRatio << endl;
 	}
-	site_energies << motifNames[tf] << "\t" << weight << endl;
     }
+
+
     // Write site energies to site_energies.txt	
     site_energies.close();
     cout << "Site energies saved" << endl;

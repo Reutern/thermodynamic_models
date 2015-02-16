@@ -207,7 +207,7 @@ public:
     // predict the expression value of a given sequence (its site representation, sorted by the start positions) under given TF concentrations
     double predictExpr( int length, const vector< double >& factorConcs, int seq_num );
     double predictExpr( int length, const vector< double >& factorConcs, int seq_num, std::ofstream& fout );
-    double predictExpr_segal( int length, const vector< double >& factorConcs, int seq_num);
+    double predictExpr_scanning_mode( int length, const vector< double >& factorConcs, int seq_num );
     // Returns the efficiency Z_ON/Z_OFF
     double predictExpr_scalefree( int length, const vector< double >& factorConcs, int seq_num );    
     static ModelType modelOption;     // model option   
@@ -245,6 +245,9 @@ private:
 		
     // compute the partition function when the basal transcriptional machinery (BTM) is not bound
     double compPartFuncOff( const vector< double >& factorConcs) const;
+
+
+    void compProb_scanning_mode( const vector< double >& factorConcs, vector< double >& p_bound);
 
     // compute the partition function with BTM bound and unbound on a sequence basis 
     int compPartFunc_seq(double &result_Z_on, double &result_Z_off, int seq_num, const vector< double >& factorConcs) const;

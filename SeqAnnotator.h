@@ -15,7 +15,10 @@ using namespace std;
 // alphabet
 const char ALPHABET[] = { 'A', 'C', 'G', 'T', 'N', '-' };
 const int NBASES = 4;	// number of bases
+const char ALPHABET_EXTENDED[] = { 'AA', 'CA', 'GA', 'TA','AC', 'CC', 'GC', 'TC','AG', 'CG', 'GG', 'TG','AT', 'CT', 'GT', 'TT', };
+const int NDINUC = 16;	// number of bases
 const int ALPHABET_SIZE = 6;
+const int ALPHABET_EXTENDED_SIZE = 16;
 const int MISSING = 4;		// missing nt.
 const int GAP = 5;		// '-'
 
