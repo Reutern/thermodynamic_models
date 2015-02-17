@@ -131,9 +131,13 @@ ExprPar::ExprPar( int _nFactors, int _nSeqs ) : factorIntMat()
 		double basalTxp_val = modelOption == LOGISTIC ? ExprPar::default_basal_Logistic : ExprPar::default_basal_Thermo; 
     		basalTxps.push_back( basalTxp_val ); 
 	}
+
+    acc_scale = ExprPar::default_acc_scale;
+    acc_base = ExprPar::default_acc_base;
+
 }
 	
-ExprPar::ExprPar( const vector< double >& _maxBindingWts, const Matrix& _factorIntMat, const vector< double >& _txpEffects, const vector< double >& _repEffects, const vector < double >& _basalTxps, int _nSeqs ) : maxBindingWts( _maxBindingWts ), factorIntMat( _factorIntMat ), txpEffects( _txpEffects ), repEffects( _repEffects ), basalTxps( _basalTxps ), nSeqs( _nSeqs  )
+ExprPar::ExprPar( const vector< double >& _maxBindingWts, const Matrix& _factorIntMat, const vector< double >& _txpEffects, const vector< double >& _repEffects, const vector < double >& _basalTxps, int _nSeqs, double _acc_scale, double _acc_base ) : maxBindingWts( _maxBindingWts ), factorIntMat( _factorIntMat ), txpEffects( _txpEffects ), repEffects( _repEffects ), basalTxps( _basalTxps ), nSeqs( _nSeqs  ), acc_scale(_acc_scale), acc_base(_acc_base)
 {
     if ( !factorIntMat.isEmpty() ) assert( factorIntMat.nRows() == maxBindingWts.size() && factorIntMat.isSquare() ); 	
     assert( txpEffects.size() == maxBindingWts.size() && repEffects.size() == maxBindingWts.size() );
@@ -216,7 +220,7 @@ ExprPar::ExprPar( const vector< double >& pars, const IntMatrix& coopMat, const 
     }
     
     // set the basal transcription
-if( one_qbtm_per_crm ){	
+    if( one_qbtm_per_crm ){	
 	nSeqs = _nSeqs;
 	for( int i = 0; i < nSeqs; i++ ){
 		if ( modelOption == LOGISTIC ) {
@@ -238,6 +242,13 @@ if( one_qbtm_per_crm ){
         		basalTxps.push_back( basal );
     		}
 	}
+
+    #if ACCESSIBILITY
+    // Write the accessibility parameter
+    acc_scale = searchOption == CONSTRAINED ? inverse_infty_transform( pars[counter++], min_acc_scale, max_acc_scale ) : pars[counter++]; 
+    acc_base = searchOption == CONSTRAINED ? inverse_infty_transform( pars[counter++], min_acc_base, max_acc_base ) : pars[counter++]; 
+    #endif // ACCESSIBILITY
+
 }
 
 void ExprPar::getFreePars( vector< double >& pars, const IntMatrix& coopMat, const vector< bool >& actIndicators, const vector< bool >& repIndicators ) const
@@ -303,6 +314,17 @@ void ExprPar::getFreePars( vector< double >& pars, const IntMatrix& coopMat, con
         	pars.push_back( basal );
     	}
     }
+    
+    #if ACCESSIBILITY
+    // Write the accessibility parameter
+    double scale = searchOption == CONSTRAINED ? infty_transform( acc_scale, min_acc_scale, max_acc_scale ) : acc_scale;
+    pars.push_back( scale );
+
+    double base = searchOption == CONSTRAINED ? infty_transform( acc_base, min_acc_base, max_acc_base ) : acc_base;
+    pars.push_back( base );
+  
+    #endif // ACCESSIBILITY
+
 }
 
 void ExprPar::print( ostream& os, const vector< string >& motifNames, const vector< string >& seqNames, const IntMatrix& coopMat ) const
@@ -320,6 +342,10 @@ void ExprPar::print( ostream& os, const vector< string >& motifNames, const vect
         if ( modelOption == CHRMOD_UNLIMITED || modelOption == CHRMOD_LIMITED ) os << "\t \t " << repEffects[i];
         os << endl;
     }
+
+    #if ACCESSIBILITY
+    os << "Accessibility = " << acc_scale << "\t " << acc_base << endl;
+    #endif // ACCESSIBILITY
 
     // print the basal transcription
     if (one_qbtm_per_crm == false){
@@ -357,10 +383,18 @@ int ExprPar::load( const string& file )
     for ( int i = 0; i < nFactors(); i++ ) {
         factorIdxMap[motifNames[i]] = i;
     }
+    
+    string symbol, eqSign, value;
 
+    #if ACCESSIBILITY
+    string value1, value2;
+    fin >> symbol >> eqSign >> value1 >> value2;
+    if (symbol != "Accessibility" || eqSign != "=") return RET_ERROR;
+    acc_scale = atof( value1.c_str() );
+    acc_base = atof( value2.c_str() );
+    #endif // ACCESSIBILITY
 
     // read the basal transcription
-    string symbol, eqSign, value;
     if( one_qbtm_per_crm ){
     	for( int _i = 0; _i < nSeqs; _i++ ){
     		fin >> symbol >> value;
@@ -412,9 +446,17 @@ int ExprPar::load( const string& file, const vector <string>& seqNames )
         factorIdxMap[motifNames[i]] = i;
     }
 
+    string symbol, eqSign, value;
+
+    #if ACCESSIBILITY
+    string value1, value2;
+    fin >> symbol >> eqSign >> value1 >> value2;
+    if (symbol != "Accessibility" || eqSign != "=") return RET_ERROR;
+    acc_scale = atof( value1.c_str() );
+    acc_base = atof( value2.c_str() );
+    #endif // ACCESSIBILITY
 
     // read the basal transcription
-    string symbol, eqSign, value;
     if( one_qbtm_per_crm ){
     	if( seqNames.size() != nSeqs ) return RET_ERROR;
     	for( int _i = 0; _i < nSeqs; _i++ ){
@@ -507,6 +549,15 @@ void ExprPar::adjust()
         	if ( basalTxps[ _i ] > ExprPar::max_basal_Thermo * ( 1.0 - ExprPar::delta ) ) basalTxps[ _i ] /= 2.0;
     	}
     }
+
+    #if ACCESSIBILITY
+    if ( acc_scale < ExprPar::min_acc_scale * ( 1.0 + ExprPar::delta ) ) acc_scale *= 2.0;
+    if ( acc_scale > ExprPar::max_acc_scale * ( 1.0 - ExprPar::delta ) ) acc_scale /= 2.0;
+    if ( acc_base < ExprPar::min_acc_base * ( 1.0 + ExprPar::delta ) ) acc_base *= 2.0;
+    if ( acc_base > ExprPar::max_acc_base * ( 1.0 - ExprPar::delta ) ) acc_base /= 2.0;
+    #endif // ACCESSIBILITY
+
+
 }
 
 void ExprPar::constrain_parameters()
@@ -562,6 +613,14 @@ void ExprPar::constrain_parameters()
         	if ( basalTxps[ _i ] > ExprPar::max_basal_Thermo * ( 1.0 - ExprPar::delta ) ) basalTxps[ _i ] = ExprPar::max_basal_Thermo;
     	}
     }
+
+    #if ACCESSIBILITY
+    //if ( acc_scale < ExprPar::min_acc_scale * ( 1.0 + ExprPar::delta ) ) acc_scale = ExprPar::min_acc_scale;
+    //if ( acc_scale > ExprPar::max_acc_scale * ( 1.0 - ExprPar::delta ) ) acc_scale = ExprPar::max_acc_scale;
+    //if ( acc_base < ExprPar::min_acc_base * ( 1.0 + ExprPar::delta ) ) acc_base = ExprPar::min_acc_base;
+    //if ( acc_base > ExprPar::max_acc_base * ( 1.0 - ExprPar::delta ) ) acc_base = ExprPar::max_acc_base;
+    #endif // ACCESSIBILITY
+
 }
 
 ModelType ExprPar::modelOption = DIRECT;
@@ -569,6 +628,8 @@ SearchType ExprPar::searchOption = CONSTRAINED;
 int ExprPar::estBindingOption = 1;  // 1. estimate binding parameters; 0. not estimate binding parameters
  
 // Parameter limits
+double ExprPar::default_acc_scale = 0.05;
+double ExprPar::default_acc_base = 1;
 double ExprPar::default_weight = 1.0;
 double ExprPar::default_interaction = 1.0;
 double ExprPar::default_effect_Logistic = 0.0;
@@ -576,6 +637,10 @@ double ExprPar::default_effect_Thermo = 1.0;
 double ExprPar::default_repression = 1.0E-2;
 double ExprPar::default_basal_Logistic = -5.0;
 double ExprPar::default_basal_Thermo = 0.01;
+double ExprPar::min_acc_scale = 0.001;
+double ExprPar::min_acc_base = -3;
+double ExprPar::max_acc_scale = 1.0;
+double ExprPar::max_acc_base = 3;
 double ExprPar::min_weight = 0.0001;		
 double ExprPar::max_weight = 5000;//500;		
 double ExprPar::min_interaction = 0.0001;	
@@ -831,7 +896,7 @@ void ExprFunc::compProb_scanning_mode(const vector< double >& factorConcs, vecto
 	double weight_cooperativity = 1;
         for ( int j = max(i - 30,0); j < min(i + 30 , n); j++ ) {
                 if ( siteOverlap( sites[ i ], sites[ j ], motifs ) ) weight_competition += bindingWts[ j ] * factorConcs[sites[ j ].factorIdx];
-		else weight_cooperativity += (compFactorInt( sites[ i ], sites[ j ] )-1) * bindingWts[ j ] * factorConcs[sites[ j ].factorIdx];
+		else weight_cooperativity += (compFactorInt( sites[ i ], sites[ j ] )-1) *  bindingWts[ j ] * factorConcs[sites[ j ].factorIdx];
                 }
 	double weight = bindingWts[ i ] * factorConcs[sites[ i ].factorIdx];
         p_bound[i] = weight * weight_cooperativity / (1.0 + weight * weight_cooperativity + weight_competition);
@@ -861,7 +926,7 @@ double ExprFunc::compPartFuncOff(const vector< double >& factorConcs) const
                 if ( siteOverlap( sites[ i ], sites[ j ], motifs ) ) continue;
                 sum += compFactorInt( sites[ i ], sites[ j ] ) * Z[ j ];	
         }
-        Z[i] = bindingWts[ i ] * factorConcs[sites[ i ].factorIdx] * sum;
+        Z[i] =   bindingWts[ i ] * factorConcs[sites[ i ].factorIdx] * sum;
         Zt[i] = Z[i] + Zt[i - 1];
     }
     return Zt[n];
@@ -1078,7 +1143,7 @@ double ExprFunc::compPartFuncOnDirect(const vector< double >& factorConcs) const
             if ( siteOverlap( sites[ i ], sites[ j ], motifs ) ) continue;
             sum += compFactorInt( sites[ i ], sites[ j ] ) * Z[ j ];	
         }
-        Z[i] = bindingWts[ i ] * factorConcs[sites[ i ].factorIdx] * par.txpEffects[ sites[i].factorIdx ] * sum;
+        Z[i] =  bindingWts[ i ] * factorConcs[sites[ i ].factorIdx] * par.txpEffects[ sites[i].factorIdx ] * sum;
         Zt[i] = Z[i] + Zt[i - 1];
     }
      return Zt[n];
@@ -1400,7 +1465,6 @@ int ExprPredictor::train( const ExprPar& par_init )
         simplex_minimize( par_result, obj_result );
 	//simulated_annealing( par_result, obj_result );
 	cout << endl;
-
 	//save result
         //par_model = par_result; 
 	//save_param();	
@@ -1515,7 +1579,12 @@ int ExprPredictor::predict( const SiteVec& targetSites, int targetSeqLength, vec
     // compute the Boltzman weights of binding for all sites for func
     _bindingWts[0] = 1.0;
     for ( int k = 1; k < n; k++ ) {
-        _bindingWts[k] = targetSites[k].accessibility * par_model.maxBindingWts[ targetSites[k].factorIdx ] * targetSites[k].wtRatio ;	
+	double access_tmp = 1.0;
+	#if ACCESSIBILITY
+	access_tmp = (1.0 / ( 1.0 + exp(par_model.acc_base - par_model.acc_scale * targetSites[k].accessibility ) ) );
+	#endif //ACCESSIBILITY
+        _bindingWts[k] = access_tmp * par_model.maxBindingWts[ targetSites[k].factorIdx ] * targetSites[k].wtRatio ;	
+
     }
     func->set_bindingWts(_bindingWts); 
 	
@@ -1763,6 +1832,10 @@ void ExprPredictor::printPar( const ExprPar& par ) const
     for( int _i = 0; _i < par.basalTxps.size(); _i ++ ){
     	cout << par.basalTxps[ _i ] << "\t"; 
     }
+
+    // print Accessibility parameters
+	cout << par.acc_scale << "\t" << par.acc_base << "\t";
+
     cout << endl;
 }
 
@@ -1818,7 +1891,11 @@ double ExprPredictor::comp_SSE_NormCorr_PGP( const ExprPar& par )
 	// compute the Boltzman weights of binding for all sites for func
         _bindingWts[0] = 1.0;
         for ( int k = 1; k < n; k++ ) {
-            _bindingWts[k] = seqSites[i][k].accessibility * par.maxBindingWts[ seqSites[i][k].factorIdx ] * seqSites[i][k].wtRatio ;	
+		double access_tmp = 1.0;
+		#if ACCESSIBILITY
+		access_tmp = (1.0 / ( 1.0 + exp(par_model.acc_base - par_model.acc_scale * seqSites[i][k].accessibility ) ) );
+		#endif //ACCESSIBILITY
+		_bindingWts[k] = access_tmp * par_model.maxBindingWts[ seqSites[i][k].factorIdx ] * seqSites[i][k].wtRatio ;	
         }
 	func->set_bindingWts(_bindingWts); 
 
@@ -1886,7 +1963,11 @@ double ExprPredictor::compAvgCorr( const ExprPar& par )
 	// compute the Boltzman weights of binding for all sites for func
         _bindingWts[0] = 1.0;
         for ( int k = 1; k < n; k++ ) {
-            _bindingWts[k] = seqSites[i][k].accessibility * par.maxBindingWts[ seqSites[i][k].factorIdx ] * seqSites[i][k].wtRatio ;	
+		double access_tmp = 1.0;
+		#if ACCESSIBILITY
+		access_tmp = (1.0 / ( 1.0 + exp(par_model.acc_base - par_model.acc_scale * seqSites[i][k].accessibility ) ) );
+		#endif //ACCESSIBILITY
+		_bindingWts[k] = access_tmp * par_model.maxBindingWts[ seqSites[i][k].factorIdx ] * seqSites[i][k].wtRatio ;
         }
 	func->set_bindingWts(_bindingWts); 
 
@@ -1898,12 +1979,12 @@ double ExprPredictor::compAvgCorr( const ExprPar& par )
 			if( i == indices_of_crm_in_gene[ _i ] ){
 				gene_crm_fout << i << "\t" << j << "\t";
             			//predicted = func->predictExpr_scanning_mode( seqLengths[ i ], concs, i, gene_crm_fout );
-            			predicted = func->predictExpr_scanning_mode( seqLengths[ i ], concs, i );
+            			predicted = func->predictExpr( seqLengths[ i ], concs, i );
 				break;
 			}
 		}	
 		if ( predicted < 0 ){
-            		predicted = func->predictExpr_scanning_mode( seqLengths[ i ], concs, i );
+            		predicted = func->predictExpr( seqLengths[ i ], concs, i );
 		}
 		
             
@@ -1958,7 +2039,11 @@ double ExprPredictor::compAvgCrossCorr( const ExprPar& par )
 	// compute the Boltzman weights of binding for all sites for func
         _bindingWts[0] = 1.0;
         for ( int k = 1; k < n; k++ ) {
-            _bindingWts[k] = seqSites[i][k].accessibility * par.maxBindingWts[ seqSites[i][k].factorIdx ] * seqSites[i][k].wtRatio ;	
+ 		double access_tmp = 1.0;
+		#if ACCESSIBILITY
+		access_tmp = (1.0 / ( 1.0 + exp(par_model.acc_base - par_model.acc_scale * seqSites[i][k].accessibility ) ) );
+		#endif //ACCESSIBILITY
+		_bindingWts[k] = access_tmp * par_model.maxBindingWts[ seqSites[i][k].factorIdx ] * seqSites[i][k].wtRatio ;
         }
 	func->set_bindingWts(_bindingWts); 
 
@@ -1975,7 +2060,7 @@ double ExprPredictor::compAvgCrossCorr( const ExprPar& par )
 		//	}
 		//}	
 		//if ( predictedExprs[j] < 0 ){
-            		predictedExprs[j] = func->predictExpr_scanning_mode( seqLengths[ i ], concs[j], i );
+            		predictedExprs[j] = func->predictExpr( seqLengths[ i ], concs[j], i );
 		//}
 
             // observed expression for the i-th sequence at the j-th condition

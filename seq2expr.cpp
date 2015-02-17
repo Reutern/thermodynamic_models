@@ -340,6 +340,10 @@ int main( int argc, char* argv[] )
 		else{
 			indicator_bool.push_back( true );
 		}
+		#if ACCESSIBILITY
+		indicator_bool.push_back( true ); 	// acc_scale
+		indicator_bool.push_back( true );	// acc_base
+		#endif //ACCESSIBILITY
 	}
 
     // print the parameters for running the analysis

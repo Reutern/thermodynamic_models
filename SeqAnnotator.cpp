@@ -199,7 +199,6 @@ int readSequences( const string& file, const string& accfile, vector< Sequence >
                 if ( start == string::npos || last == string::npos ) continue;
                         
                 // append the sequence
-		int ac_counter = 10;
 		double ac = 1.0;
 
 
@@ -207,14 +206,13 @@ int readSequences( const string& file, const string& accfile, vector< Sequence >
                     int nt = symbolToInt( line[ i ] );	// could be a NNN or gap
 			//cout << ac_counter << " " <<ac <<endl;
 		    // accessibility information gets read out every 10th step
-		    if(ac_counter == 10){
-			ac_counter = 0; 
-		        ac = std::stod (line_acc);	// read in according accessibility
-                        std::size_t pos = line_acc.find("\t");      // position of next gap in line_acc
-  		        line_acc = line_acc.substr(pos+1);   	// Truncate line_acc for next read-out
-		    }
-		    ac_counter +=1;
 
+		    ac = std::stod (line_acc);	// read in according accessibility
+                    std::size_t pos = line_acc.find("\t");      // position of next gap in line_acc
+		    if(i == last-10){}
+		    else{
+  		    	line_acc = line_acc.substr(pos+1);   	// Truncate line_acc for next read-out
+		    }
                     if ( nt >= 0 && nt < ALPHABET_SIZE ) {
                         seq.push_back( nt, ac ); 	// seq.push_back( nt, ac );
                     } else {
@@ -608,7 +606,7 @@ int SeqAnnotator::annot( const Sequence& seq, SiteVec& sites ) const
             		Sequence elem( seq, i, l, 1 );
 			access = elem.get_accessibility();
             		energy = motifs[ k ].energy( elem );
-			if ( energy <= access * energyThrFactors[ k ] * motifs[ k ].getMaxLLR() ) {		// accessibility is incorporated in the decision if something is a bninding site
+			if ( energy <=  energyThrFactors[ k ] * motifs[ k ].getMaxLLR() ) {		// accessibility is incorporated in the decision if something is a bninding site
 				//cout << "Energy Diff for motif: " << k << " = " << energy << "\t";
 				//cout << elem << Site( i, 1, k,  energy ) << endl;	            
 		    		sites.push_back( Site( i, 1, k, energy, access ) );
@@ -618,7 +616,7 @@ int SeqAnnotator::annot( const Sequence& seq, SiteVec& sites ) const
             		Sequence rcElem( seq, i, l, 0 );
             		energy = motifs[ k ].energy( rcElem );
 			access = rcElem.get_accessibility();
-			if ( energy <= access * energyThrFactors[ k ] * motifs[k].getMaxLLR() ) {		// accessibility is incorporated in the decision if something is a bninding site
+			if ( energy <= energyThrFactors[ k ] * motifs[k].getMaxLLR() ) {		// accessibility is incorporated in the decision if something is a bninding site
 				//cout << "Energy Diff for motif: " << k << " = " << energy << "\t";
 		 	    	//cout << rcElem << Site( i, 0, k,  energy ) << endl;			
                 		sites.push_back( Site( i, 0, k, energy, access ) );
