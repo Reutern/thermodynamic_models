@@ -192,8 +192,8 @@ ExprPar::ExprPar( const vector< double >& pars, const IntMatrix& coopMat, const 
             double effect = searchOption == CONSTRAINED ? inverse_infty_transform( pars[counter++], min_effect_Logistic, max_effect_Logistic ) : pars[counter++];
             txpEffects.push_back( effect );
         } else if ( modelOption == DIRECT ) {
-            //double effect = searchOption == CONSTRAINED ? exp( inverse_infty_transform( pars[counter++], log( min_effect_Thermo ), log( max_effect_Thermo ) ) ) : exp( pars[counter++] );
-            double effect = searchOption == CONSTRAINED ? inverse_infty_transform( pars[counter++],  min_effect_Thermo ,  max_effect_Thermo  ) :  pars[counter++] ;
+            double effect = searchOption == CONSTRAINED ? exp( inverse_infty_transform( pars[counter++], log( min_effect_Thermo ), log( max_effect_Thermo ) ) ) : exp( pars[counter++] );
+            //double effect = searchOption == CONSTRAINED ? inverse_infty_transform( pars[counter++],  min_effect_Thermo ,  max_effect_Thermo  ) :  pars[counter++] ;
             txpEffects.push_back( effect ); 
         } else {
             if ( actIndicators[i] ) {
@@ -245,8 +245,8 @@ ExprPar::ExprPar( const vector< double >& pars, const IntMatrix& coopMat, const 
 
     #if ACCESSIBILITY
     // Write the accessibility parameter
-    acc_scale = searchOption == CONSTRAINED ? inverse_infty_transform( pars[counter++], min_acc_scale, max_acc_scale ) : pars[counter++]; 
-    acc_base = searchOption == CONSTRAINED ? inverse_infty_transform( pars[counter++], min_acc_base, max_acc_base ) : pars[counter++]; 
+    acc_scale = searchOption == CONSTRAINED ? exp( inverse_infty_transform( pars[counter++], log( min_acc_scale ), log( max_acc_scale ) ) ) : exp( pars[counter++] );
+    acc_base = searchOption == CONSTRAINED ?  exp( inverse_infty_transform( pars[counter++], log( min_acc_base  ), log( max_acc_base  ) ) ) : exp( pars[counter++] );
     #endif // ACCESSIBILITY
 
 }
@@ -283,8 +283,8 @@ void ExprPar::getFreePars( vector< double >& pars, const IntMatrix& coopMat, con
             double effect = searchOption == CONSTRAINED ? infty_transform( txpEffects[i], min_effect_Logistic, max_effect_Logistic ) : txpEffects[i];
             pars.push_back( effect );
         } else if ( modelOption == DIRECT ) {
-            //double effect = searchOption == CONSTRAINED ? infty_transform( log( txpEffects[i] ), log( min_effect_Thermo ), log( max_effect_Thermo ) ) : log( txpEffects[i] );
-	    double effect = searchOption == CONSTRAINED ? infty_transform( txpEffects[i] , min_effect_Thermo , max_effect_Thermo  ) :  txpEffects[i] ;
+            double effect = searchOption == CONSTRAINED ? infty_transform( log( txpEffects[i] ), log( min_effect_Thermo ), log( max_effect_Thermo ) ) : log( txpEffects[i] );
+	    //double effect = searchOption == CONSTRAINED ? infty_transform( txpEffects[i] , min_effect_Thermo , max_effect_Thermo  ) :  txpEffects[i] ;
             pars.push_back( effect );
         } else {
             if ( actIndicators[i] ) {
@@ -317,10 +317,10 @@ void ExprPar::getFreePars( vector< double >& pars, const IntMatrix& coopMat, con
     
     #if ACCESSIBILITY
     // Write the accessibility parameter
-    double scale = searchOption == CONSTRAINED ? infty_transform( acc_scale, min_acc_scale, max_acc_scale ) : acc_scale;
+    double scale = searchOption == CONSTRAINED ?  infty_transform( log( acc_scale ), log( min_acc_scale ), log( max_acc_scale ) ) : log( acc_scale );
     pars.push_back( scale );
 
-    double base = searchOption == CONSTRAINED ? infty_transform( acc_base, min_acc_base, max_acc_base ) : acc_base;
+    double base = searchOption == CONSTRAINED ? infty_transform( log( acc_base ), log( min_acc_base ), log( max_acc_base ) ) : log( acc_base );
     pars.push_back( base );
   
     #endif // ACCESSIBILITY
@@ -615,10 +615,10 @@ void ExprPar::constrain_parameters()
     }
 
     #if ACCESSIBILITY
-    //if ( acc_scale < ExprPar::min_acc_scale * ( 1.0 + ExprPar::delta ) ) acc_scale = ExprPar::min_acc_scale;
-    //if ( acc_scale > ExprPar::max_acc_scale * ( 1.0 - ExprPar::delta ) ) acc_scale = ExprPar::max_acc_scale;
-    //if ( acc_base < ExprPar::min_acc_base * ( 1.0 + ExprPar::delta ) ) acc_base = ExprPar::min_acc_base;
-    //if ( acc_base > ExprPar::max_acc_base * ( 1.0 - ExprPar::delta ) ) acc_base = ExprPar::max_acc_base;
+    if ( acc_scale < ExprPar::min_acc_scale * ( 1.0 + ExprPar::delta ) ) acc_scale = ExprPar::min_acc_scale;
+    if ( acc_scale > ExprPar::max_acc_scale * ( 1.0 - ExprPar::delta ) ) acc_scale = ExprPar::max_acc_scale;
+    if ( acc_base < ExprPar::min_acc_base * ( 1.0 + ExprPar::delta ) ) acc_base = ExprPar::min_acc_base;
+    if ( acc_base > ExprPar::max_acc_base * ( 1.0 - ExprPar::delta ) ) acc_base = ExprPar::max_acc_base;
     #endif // ACCESSIBILITY
 
 }
@@ -638,7 +638,7 @@ double ExprPar::default_repression = 1.0E-2;
 double ExprPar::default_basal_Logistic = -5.0;
 double ExprPar::default_basal_Thermo = 0.01;
 double ExprPar::min_acc_scale = 0.001;
-double ExprPar::min_acc_base = -3;
+double ExprPar::min_acc_base = 0.001;
 double ExprPar::max_acc_scale = 1.0;
 double ExprPar::max_acc_base = 3;
 double ExprPar::min_weight = 0.0001;		

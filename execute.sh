@@ -18,7 +18,7 @@ echo " "
 -m $INPUT_PATH/factors_fa_full.wtmx \
 -acc $INPUT_PATH/nuc_pos_raw.acc \
 -c $INPUT_PATH/coop.txt \
--p param.save \
+-p param_between.save \
 -f $INPUT_PATH/factor_expr_full.tab \
 -oc $OUTPUT_PATH/occ_pre_nuc_test.txt \
 -fo $OUTPUT_PATH/obs_pre_nuc_test.txt \
