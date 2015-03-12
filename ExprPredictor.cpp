@@ -1590,7 +1590,7 @@ int ExprPredictor::predict( const SiteVec& targetSites, int targetSeqLength, vec
 	
     for ( int j = 0; j < nConds(); j++ ) {
         vector< double > concs = factorExprData.getCol( j );
-        double predicted = func->predictExpr( targetSeqLength, concs, seq_num );	//_scanning_mode
+        double predicted = func->predictExpr( targetSeqLength, concs, seq_num );	
         targetExprs[j] = predicted ;
     }
     
@@ -1913,7 +1913,7 @@ double ExprPredictor::comp_SSE_NormCorr_PGP( const ExprPar& par )
 
         double beta = 1.0;
         squaredErr +=  least_square( predictedExprs, observedExprs, beta );
-	correlation  +=  norm_corr( predictedExprs, observedExprs ); 
+	correlation  +=  corr( predictedExprs, observedExprs ); 
         pgp_score += pgp( predictedExprs, observedExprs, beta );
     }	
 
@@ -2171,13 +2171,13 @@ int ExprPredictor::simplex_minimize( ExprPar& par_result, double& obj_result )
         // print the current parameter and function values
 	#if FILE_OUTPUT
 	if(iter % 1000 == 0){
-    		printf( "\r %zu \t SSE = %8.5f \t Norm_Corr = %8.5f \t PGP = %8.5f", iter, obj_sse, obj_norm_corr, obj_pgp);
+    		printf( "\r %zu \t SSE = %8.5f \t Corr = %8.5f \t PGP = %8.5f", iter, obj_sse, obj_norm_corr, obj_pgp);
 		fflush(stdout);
 	}	
 	#else
 	#ifdef SHORT_OUTPUT
 	if(iter % SHORT_OUTPUT == 0){
-   		printf( "\r %zu \t SSE = %8.5f \t Norm_Corr = %8.5f \t PGP = %8.5f", iter, obj_sse, obj_norm_corr, obj_pgp);
+   		printf( "\r %zu \t SSE = %8.5f \t Corr = %8.5f \t PGP = %8.5f", iter, obj_sse, obj_norm_corr, obj_pgp);
 		fflush(stdout);
 	}	
 	#else

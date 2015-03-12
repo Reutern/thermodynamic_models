@@ -42,24 +42,8 @@ int main( int argc, char* argv[] )
     double factorIntSigma = 25.0;   // sigma parameter for the Gaussian interaction function
     int repressionDistThr = 50;
     int maxContact = 1;
-	vector<double> eTF (16);
+	vector<double> eTF (19,0.6);
 
-	eTF[0] = 0.6 ;
-	eTF[1] = 0.6 ;
-	eTF[2] = 0.6 ;
-	eTF[3] = 0.6 ;
-	eTF[4] = 0.6 ;
-	eTF[5] = 0.6 ;
-	eTF[6] = 0.6 ;
-	eTF[7] = 0.6 ;
-	eTF[8] = 0.6 ;
-	eTF[9] = 0.6 ;
-	eTF[10] = 0.6 ;
-	eTF[11] = 0.6 ;
-	eTF[12] = 0.6 ;
-	eTF[13] = 0.6 ;
-	eTF[14] = 0.6 ;
-	eTF[15] = 0.6 ;
 
 	string free_fix_indicator_filename;
 	ExprPredictor::one_qbtm_per_crm = ONE_QBTM;
@@ -375,8 +359,8 @@ int main( int argc, char* argv[] )
     double average_number = 0;
     for(int seqs_idx = 0; seqs_idx < nSeqs; seqs_idx++){
 	average_number += seqSites[seqs_idx].size()/nSeqs;
-	int sites_count[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-        double weight_count[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+	vector<int> sites_count (nFactors,0);
+	vector<double> weight_count (nFactors,0);
 	for( int idx = 1; idx < seqSites[seqs_idx].size() ; idx++ ){
 			sites_count[seqSites[seqs_idx][idx].factorIdx]++;
 			weight_count[seqSites[seqs_idx][idx].factorIdx] = weight_count[seqSites[seqs_idx][idx].factorIdx] + seqSites[seqs_idx][idx].wtRatio;
