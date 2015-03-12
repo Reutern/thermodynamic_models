@@ -1893,9 +1893,9 @@ double ExprPredictor::comp_SSE_NormCorr_PGP( const ExprPar& par )
         for ( int k = 1; k < n; k++ ) {
 		double access_tmp = 1.0;
 		#if ACCESSIBILITY
-		access_tmp = (1.0 / ( 1.0 + exp(par_model.acc_base - par_model.acc_scale * seqSites[i][k].accessibility ) ) );
+		access_tmp = (1.0 / ( 1.0 + exp(par.acc_base - par.acc_scale * seqSites[i][k].accessibility ) ) );
 		#endif //ACCESSIBILITY
-		_bindingWts[k] = access_tmp * par_model.maxBindingWts[ seqSites[i][k].factorIdx ] * seqSites[i][k].wtRatio ;	
+		_bindingWts[k] = access_tmp * par.maxBindingWts[ seqSites[i][k].factorIdx ] * seqSites[i][k].wtRatio ;	
         }
 	func->set_bindingWts(_bindingWts); 
 

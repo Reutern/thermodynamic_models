@@ -17,6 +17,7 @@ echo " "
 -e $INPUT_PATH/expr_extended.tab  \
 -m $INPUT_PATH/factors_fa_full.wtmx \
 -c $INPUT_PATH/coop.txt \
+-p param.save \
 -f $INPUT_PATH/factor_expr_full.tab \
 -oc $OUTPUT_PATH/occ_pre_test.txt \
 -fo $OUTPUT_PATH/obs_pre_test.txt \
