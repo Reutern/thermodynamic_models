@@ -162,7 +162,7 @@ int readSequences( const string& file, const string& accfile, vector< Sequence >
     if ( format != FASTA ) { return RET_ERROR; }
     seqs.clear();
     names.clear();
-     
+
     // 	open the files
     ifstream fin( file.c_str() );
     if ( !fin ) { cerr << "Cannot open" << file << endl; exit( 1 ); }
@@ -176,7 +176,8 @@ int readSequences( const string& file, const string& accfile, vector< Sequence >
     
     // read sequences: FASTA format
     if ( format == FASTA ) {
-        while ( getline( fin, line ) ) {
+		bool rlin = getline( fin, line );
+        while ( rlin ) {
 	    
 	    getline( facc, line_acc );
 
@@ -192,36 +193,44 @@ int readSequences( const string& file, const string& accfile, vector< Sequence >
                 string name; 
                 ss >> name;
                 names.push_back( name );
+				rlin = getline( fin, line );
             } else { 
-                // check if the line contains content
-                int start = line.find_first_not_of( " \t\r" );
-                int last = line.find_last_not_of( " \t\r" );
-                if ( start == string::npos || last == string::npos ) continue;
-                        
-                // append the sequence
+				string line_tmp;
+			    do{
+            		if ( line[ 0 ] == '>' ) { break; }
+					line_tmp += line;
+					rlin = getline( fin, line );
+                 } while( rlin ); 
+
+		         // check if the line contains content
+		         int start = line_tmp.find_first_not_of( " \t\r" );
+		         int last = line_tmp.find_last_not_of( " \t\r" );
+		         if ( start == string::npos || last == string::npos ) continue;  
+
+                 // append the sequence
 		double ac = 1.0;
 
 
-                for ( int i = start; i <= last; i++ ) {
-                    int nt = symbolToInt( line[ i ] );	// could be a NNN or gap
-			//cout << ac_counter << " " <<ac <<endl;
-		    // accessibility information gets read out every 10th step
+        for ( int i = start; i < last; i++ ) {
+                int nt = symbolToInt( line_tmp[ i ] );	// could be a NNN or gap
 
-		    ac = std::stod (line_acc);	// read in according accessibility
-                    std::size_t pos = line_acc.find("\t");      // position of next gap in line_acc
-		    if(i == last-10){}
-		    else{
-  		    	line_acc = line_acc.substr(pos+1);   	// Truncate line_acc for next read-out
-		    }
-                    if ( nt >= 0 && nt < ALPHABET_SIZE ) {
-                        seq.push_back( nt, ac ); 	// seq.push_back( nt, ac );
-                    } else {
-                        //cerr << "Illegal symbol: " << nt << " in " << file << endl;
-                        return RET_ERROR;	
-                    } 
-                }
-            }			
-        }
+				//cout << ac_counter << " " <<ac <<endl;
+		    	// accessibility information gets read out every 10th step
+		        getline( facc, line_acc );
+			    ac = std::stod (line_acc);	// read in according accessibility
+ 	            std::size_t pos = line_acc.find("\t");      // position of next gap in line_acc
+		    	line_acc = line_acc.substr(pos+1);   	// Truncate line_acc for next read-out
+			    ac = std::stod (line_acc);	// read in according accessibility
+
+    	        if ( nt >= 0 && nt < ALPHABET_SIZE ) {
+                	seq.push_back( nt, ac ); 	
+      	        } else {
+         	    	//cerr << "Illegal symbol: " << nt << " in " << file << endl;
+         	        return RET_ERROR;	
+         	     } 
+         	   }
+        	}			
+    	}
             
         // add the last sequence
         if( seq.size() ) seqs.push_back( seq );
@@ -604,7 +613,7 @@ int SeqAnnotator::annot( const Sequence& seq, SiteVec& sites ) const
             
             		// positive strand
             		Sequence elem( seq, i, l, 1 );
-			access = elem.get_accessibility();
+					access = elem.get_accessibility();
             		energy = motifs[ k ].energy( elem );
 			if ( energy <=  energyThrFactors[ k ] * motifs[ k ].getMaxLLR() ) {		// accessibility is incorporated in the decision if something is a bninding site
 				//cout << "Energy Diff for motif: " << k << " = " << energy << "\t";
@@ -616,7 +625,7 @@ int SeqAnnotator::annot( const Sequence& seq, SiteVec& sites ) const
             		Sequence rcElem( seq, i, l, 0 );
             		energy = motifs[ k ].energy( rcElem );
 			access = rcElem.get_accessibility();
-			if ( energy <= energyThrFactors[ k ] * motifs[k].getMaxLLR() ) {		// accessibility is incorporated in the decision if something is a bninding site
+			if ( energy <= energyThrFactors[ k ] * motifs[k].getMaxLLR() ) {		// accessibility is incorporated in the decision if something is a binding site
 				//cout << "Energy Diff for motif: " << k << " = " << energy << "\t";
 		 	    	//cout << rcElem << Site( i, 0, k,  energy ) << endl;			
                 		sites.push_back( Site( i, 0, k, energy, access ) );

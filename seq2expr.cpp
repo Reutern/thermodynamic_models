@@ -36,9 +36,9 @@ int main( int argc, char* argv[] )
     long time_start = time(NULL);
   
     // command line processing
-    string seqFile, test_seqFile, accFile, annFile, exprFile, test_exprFile, motifFile, factorExprFile, coopFile, factorInfoFile, repressionFile, parFile, print_parFile, axis_wtFile;
+    string seqFile, test_seqFile, accFile, test_accFile, annFile, exprFile, test_exprFile, motifFile, factorExprFile, coopFile, factorInfoFile, repressionFile, parFile, print_parFile, axis_wtFile;
     string outFile, occFile;     // output files
-    int coopDistThr = 50;
+    int coopDistThr = 100;
     double factorIntSigma = 25.0;   // sigma parameter for the Gaussian interaction function
     int repressionDistThr = 50;
     int maxContact = 1;
@@ -60,6 +60,8 @@ int main( int argc, char* argv[] )
             annFile = argv[ ++i ];      
         else if ( !strcmp( "-acc", argv[ i ] ) )
             accFile = argv[ ++i ];      
+        else if ( !strcmp( "-tacc", argv[ i ] ) )
+            test_accFile = argv[ ++i ];      
         else if ( !strcmp( "-e", argv[ i ] ) )
             exprFile = argv[ ++i ];            
         else if ( !strcmp( "-te", argv[ i ] ) )
@@ -138,6 +140,7 @@ int main( int argc, char* argv[] )
     // read the sequences
     vector< Sequence > seqs;
     vector< string > seqNames;
+
     #if ACCESSIBILITY
     rval = readSequences( seqFile, accFile, seqs, seqNames );
     #else
@@ -210,7 +213,6 @@ int main( int argc, char* argv[] )
             seqLengths[i] = seqs[i].size();
         }
     }
-
 
     // read the cooperativity matrix 
     int num_of_coop_pairs = 0;
@@ -313,7 +315,7 @@ int main( int argc, char* argv[] )
 	}
 	else{
 		//for binding weights, coop pairs and transcriptional effects
-		for( int index = 0; index < nFactors + num_of_coop_pairs + nFactors; index++ ){
+		for( int index = 0; index < nFactors + num_of_coop_pairs + nFactors + 2; index++ ){
 			indicator_bool.push_back( true );
 		}
 		if( ExprPredictor::one_qbtm_per_crm ){
@@ -379,10 +381,15 @@ int main( int argc, char* argv[] )
     ofstream site_energies;
     site_energies.open ("../data/site_energies.txt");
     for(int seqs_idx = 0; seqs_idx < nSeqs; seqs_idx++){
-	site_energies << seqNames[seqs_idx] << "\t" << seqSites[seqs_idx].size()-1 << "\t" << seqLengths[seqs_idx] << endl;
+	site_energies << seqNames[seqs_idx] << "\t" << seqSites[seqs_idx].size()-1 << "\t" << seqLengths[seqs_idx] << "\t strand"<< endl;
         for(int sites_idx = 1; sites_idx < seqSites[seqs_idx].size(); sites_idx++){
-		int idx = seqSites[seqs_idx][sites_idx].factorIdx;
-		site_energies << seqSites[seqs_idx][sites_idx].start + static_cast<int> (motifs[ idx ].length()/2) << "\t" << idx << "\t" << seqSites[seqs_idx][sites_idx].wtRatio << endl;
+		int idx = seqSites[seqs_idx][sites_idx].factorIdx;	
+		#if ACCESSIBILITY
+		double weight_tmp = (1-seqSites[seqs_idx][sites_idx].accessibility )* seqSites[seqs_idx][sites_idx].wtRatio;
+		#else
+		double weight_tmp = seqSites[seqs_idx][sites_idx].wtRatio;
+		#endif // ACCESSIBILITY
+		site_energies << seqSites[seqs_idx][sites_idx].start + static_cast<int> (motifs[ idx ].length()/2) << "\t" << idx << "\t" << weight_tmp << "\t" << seqSites[seqs_idx][sites_idx].strand << endl;
 	}
     }
 
@@ -493,7 +500,11 @@ int main( int argc, char* argv[] )
     // read the sequences
     vector< Sequence > test_seqs;
     vector< string > test_seqNames;
+    #if ACCESSIBILITY
+    rval = readSequences( test_seqFile, test_accFile, test_seqs, test_seqNames );
+    #else
     rval = readSequences( test_seqFile, test_seqs, test_seqNames );
+    #endif // ACCESSIBILITY
     assert( rval != RET_ERROR );
     int test_nSeqs = test_seqs.size();
 
@@ -585,7 +596,7 @@ int main( int argc, char* argv[] )
 
         double beta = 1.0;
         squaredErr +=  least_square( targetExprs, observedExprs, beta );
-	correlation  +=  norm_corr( targetExprs, observedExprs ); 
+	correlation  +=  corr( targetExprs, observedExprs ); 
     }	
 
     double obj_norm_corr = correlation / test_nSeqs;

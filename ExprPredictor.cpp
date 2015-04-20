@@ -628,7 +628,7 @@ SearchType ExprPar::searchOption = CONSTRAINED;
 int ExprPar::estBindingOption = 1;  // 1. estimate binding parameters; 0. not estimate binding parameters
  
 // Parameter limits
-double ExprPar::default_acc_scale = 0.05;
+double ExprPar::default_acc_scale = 1.0;
 double ExprPar::default_acc_base = 1;
 double ExprPar::default_weight = 1.0;
 double ExprPar::default_interaction = 1.0;
@@ -639,11 +639,11 @@ double ExprPar::default_basal_Logistic = -5.0;
 double ExprPar::default_basal_Thermo = 0.01;
 double ExprPar::min_acc_scale = 0.001;
 double ExprPar::min_acc_base = 0.001;
-double ExprPar::max_acc_scale = 1.0;
+double ExprPar::max_acc_scale = 10.0;
 double ExprPar::max_acc_base = 3;
 double ExprPar::min_weight = 0.0001;		
 double ExprPar::max_weight = 5000;//500;		
-double ExprPar::min_interaction = 0.0001;	
+double ExprPar::min_interaction = 0.001;	
 double ExprPar::max_interaction = 500;
 double ExprPar::min_effect_Logistic = -5;	
 double ExprPar::max_effect_Logistic = 5;
@@ -910,7 +910,7 @@ ModelType ExprFunc::modelOption = DIRECT;
 double ExprFunc::compPartFuncOff(const vector< double >& factorConcs) const
 {
     if ( modelOption == CHRMOD_UNLIMITED || modelOption == CHRMOD_LIMITED ) return compPartFuncOffChrMod( factorConcs ); 
-        
+
     int n = sites.size() - 1;
 
     // initialization
@@ -921,14 +921,14 @@ double ExprFunc::compPartFuncOff(const vector< double >& factorConcs) const
 
     // recurrence 
     for ( int i = 1; i <= n; i++ ) {
-	double sum = Zt[boundaries[i]];
+	double sum = Zt[boundaries[i]]; 
         for ( int j = boundaries[i] + 1; j < i; j++ ) {
                 if ( siteOverlap( sites[ i ], sites[ j ], motifs ) ) continue;
                 sum += compFactorInt( sites[ i ], sites[ j ] ) * Z[ j ];	
         }
         Z[i] =   bindingWts[ i ] * factorConcs[sites[ i ].factorIdx] * sum;
         Zt[i] = Z[i] + Zt[i - 1];
-    }
+    }       
     return Zt[n];
 }
 
@@ -1118,7 +1118,7 @@ double ExprFunc::compPartFuncOffChrMod(const vector< double >& factorConcs) cons
 }
 
 double ExprFunc::compPartFuncOn(const vector< double >& factorConcs) const
-{
+{	
     if ( modelOption == DIRECT ) return compPartFuncOnDirect(factorConcs);
     if ( modelOption == QUENCHING ) return compPartFuncOnQuenching(factorConcs);
     if ( modelOption == CHRMOD_UNLIMITED) return compPartFuncOnChrMod_Unlimited(factorConcs); 
@@ -1332,14 +1332,14 @@ double ExprFunc::compFactorInt( const Site& a, const Site& b ) const
 {
 
 // 	assert( !siteOverlap( a, b, motifs ) );
-    if(a.factorIdx != b.factorIdx)	return 1.0;	// Only TF of the same type interact 	
+    //if(a.factorIdx != b.factorIdx)	return 1.0;	// Only TF of the same type interact 	
     double maxInt = par.factorIntMat( a.factorIdx, b.factorIdx );
     unsigned dist = abs( a.start - b.start );
     assert( dist >= 0 );
 
     //assert(  modelOption == DIRECT  );	// For now only Direct model implemented
     #if FactorIntFunc
-    double spacingTerm = ( dist < coopDistThr ? maxInt *  (1 - float(dist/coopDistThr) ) + 1.0: 1.0 ); // Range 1.0 <-> (maxint + 1.0)
+    double spacingTerm = ( dist < coopDistThr ? maxInt : 1.0 ); // Range 1.0 <-> (maxint + 1.0)
     #else 
     double spacingTerm = ( dist < coopDistThr ? maxInt : 1.0 );
     #endif // FactorIntFunc
@@ -1581,7 +1581,7 @@ int ExprPredictor::predict( const SiteVec& targetSites, int targetSeqLength, vec
     for ( int k = 1; k < n; k++ ) {
 	double access_tmp = 1.0;
 	#if ACCESSIBILITY
-	access_tmp = (1.0 / ( 1.0 + exp(par_model.acc_base - par_model.acc_scale * targetSites[k].accessibility ) ) );
+	access_tmp = exp( - par_model.acc_scale * ( 1 - targetSites[k].accessibility) );
 	#endif //ACCESSIBILITY
         _bindingWts[k] = access_tmp * par_model.maxBindingWts[ targetSites[k].factorIdx ] * targetSites[k].wtRatio ;	
 
@@ -1653,7 +1653,7 @@ double ExprPredictor::exprSimCrossCorr( const vector< double >& x, const vector<
 int ExprPredictor::maxShift = 5; 
 double ExprPredictor::shiftPenalty = 0.8; 
 
-int ExprPredictor::nAlternations = 3;
+int ExprPredictor::nAlternations = 6;
 int ExprPredictor::nRandStarts = 5;
 double ExprPredictor::min_delta_f_SSE = 1.0E-8;
 double ExprPredictor::min_delta_f_Corr = 1.0E-8;
@@ -1893,7 +1893,7 @@ double ExprPredictor::comp_SSE_NormCorr_PGP( const ExprPar& par )
         for ( int k = 1; k < n; k++ ) {
 		double access_tmp = 1.0;
 		#if ACCESSIBILITY
-		access_tmp = (1.0 / ( 1.0 + exp(par.acc_base - par.acc_scale * seqSites[i][k].accessibility ) ) );
+		access_tmp = exp(  - par.acc_scale * (1- seqSites[i][k].accessibility) ) ;
 		#endif //ACCESSIBILITY
 		_bindingWts[k] = access_tmp * par.maxBindingWts[ seqSites[i][k].factorIdx ] * seqSites[i][k].wtRatio ;	
         }
@@ -1965,13 +1965,13 @@ double ExprPredictor::compAvgCorr( const ExprPar& par )
         for ( int k = 1; k < n; k++ ) {
 		double access_tmp = 1.0;
 		#if ACCESSIBILITY
-		access_tmp = (1.0 / ( 1.0 + exp(par_model.acc_base - par_model.acc_scale * seqSites[i][k].accessibility ) ) );
+		access_tmp = exp(  - par_model.acc_scale * (1- seqSites[i][k].accessibility) ) ;
 		#endif //ACCESSIBILITY
 		_bindingWts[k] = access_tmp * par_model.maxBindingWts[ seqSites[i][k].factorIdx ] * seqSites[i][k].wtRatio ;
         }
 	func->set_bindingWts(_bindingWts); 
 
-        #pragma omp parallel for schedule(dynamic)
+       // #pragma omp parallel for schedule(dynamic)
         for ( int j = 0; j < nConds(); j++ ) {
 		double predicted = -1;
             	vector< double > concs = factorExprData.getCol( j );
@@ -2041,13 +2041,13 @@ double ExprPredictor::compAvgCrossCorr( const ExprPar& par )
         for ( int k = 1; k < n; k++ ) {
  		double access_tmp = 1.0;
 		#if ACCESSIBILITY
-		access_tmp = (1.0 / ( 1.0 + exp(par_model.acc_base - par_model.acc_scale * seqSites[i][k].accessibility ) ) );
+		access_tmp =  exp( - par_model.acc_scale * ( 1 - seqSites[i][k].accessibility ) ) ;
 		#endif //ACCESSIBILITY
 		_bindingWts[k] = access_tmp * par_model.maxBindingWts[ seqSites[i][k].factorIdx ] * seqSites[i][k].wtRatio ;
         }
 	func->set_bindingWts(_bindingWts); 
 
-        #pragma omp parallel for schedule(dynamic)
+       // #pragma omp parallel for schedule(dynamic)
         for (int j = 0; j < nConds(); j++ ) {
 
 			
