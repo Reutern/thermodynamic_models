@@ -215,13 +215,11 @@ int readSequences( const string& file, const string& accfile, vector< Sequence >
                 int nt = symbolToInt( line_tmp[ i ] );	// could be a NNN or gap
 
 				//cout << ac_counter << " " <<ac <<endl;
-		    	// accessibility information gets read out every 10th step
 		        getline( facc, line_acc );
 			    ac = std::stod (line_acc);	// read in according accessibility
  	            std::size_t pos = line_acc.find("\t");      // position of next gap in line_acc
 		    	line_acc = line_acc.substr(pos+1);   	// Truncate line_acc for next read-out
 			    ac = std::stod (line_acc);	// read in according accessibility
-
     	        if ( nt >= 0 && nt < ALPHABET_SIZE ) {
                 	seq.push_back( nt, ac ); 	
       	        } else {

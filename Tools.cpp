@@ -842,6 +842,8 @@ double corr( const vector< double >& x, const vector< double >& y )
     double x_var = sum_x / n;
     double y_var = sum_y / n; 
     
+	if (x_var == 0 || y_var == 0){ return 0; }	// In case of a flat profile
+	
     // covariance and correlation
     double sum = 0;
     for ( int s = 1; s <= n ; s++ ) {
@@ -849,7 +851,7 @@ double corr( const vector< double >& x, const vector< double >& y )
     }
     double cov_xy = sum / n;
     double corr_xy = cov_xy / sqrt( x_var * y_var );
-    
+
     return corr_xy;
 }
 

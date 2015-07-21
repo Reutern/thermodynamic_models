@@ -46,6 +46,8 @@ ObjType getObjOption( const string& objOptionStr )
     if ( toupperStr( objOptionStr ) == "SSE_scale" ) return SSE_SCALE;
     if ( toupperStr( objOptionStr ) == "SSE_V" ) return SSE_V;
     if ( toupperStr( objOptionStr ) == "CORR" ) return CORR;
+    if ( toupperStr( objOptionStr ) == "CORR_L1" ) return CORR_L1;
+    if ( toupperStr( objOptionStr ) == "CORR_L2" ) return CORR_L2;
     if ( toupperStr( objOptionStr ) == "CROSS_CORR" ) return CROSS_CORR;
     if ( toupperStr( objOptionStr ) == "NORM_CORR" ) return NORM_CORR;
     if ( toupperStr( objOptionStr ) == "NORM_CORR_V" ) return NORM_CORR_V;
@@ -61,6 +63,8 @@ string getObjOptionStr( ObjType objOption )
     if ( objOption == SSE_SCALE ) return "SSE_scale";
     if ( objOption == SSE_V ) return "SSE_V";
     if ( objOption == CORR ) return "Corr";
+    if ( objOption == CORR_L1 ) return "Corr_L1";
+    if ( objOption == CORR_L2 ) return "Corr_L2";
     if ( objOption == CROSS_CORR ) return "Cross_Corr";
     if ( objOption == NORM_CORR ) return "Norm_Corr";
     if ( objOption == NORM_CORR_V ) return "Norm_Corr_V";
@@ -249,6 +253,63 @@ ExprPar::ExprPar( const vector< double >& pars, const IntMatrix& coopMat, const 
     acc_base = searchOption == CONSTRAINED ?  exp( inverse_infty_transform( pars[counter++], log( min_acc_base  ), log( max_acc_base  ) ) ) : exp( pars[counter++] );
     #endif // ACCESSIBILITY
 
+}
+
+double ExprPar::parameter_L2_norm() const
+{
+	double L2_norm = 0;
+
+    for ( int i = 0; i < nFactors(); i++ ) {
+
+		L2_norm += pow( maxBindingWts[ i ] / max_weight,2 )/nFactors();
+		if(txpEffects[i] >= 1)
+			L2_norm +=   pow( (txpEffects[i] -1) / ( max_effect_Thermo -1 ),2 )/nFactors();
+		else
+			L2_norm +=   pow( min_effect_Thermo / txpEffects[i],2 )/nFactors();
+
+	}
+
+	double L2_norm_coop = 0;
+	int Nparameter = 0;
+    for ( int i = 0; i < nFactors(); i++ ) {
+        for ( int j = 0; j <= i; j++ ) {
+			Nparameter++;
+			L2_norm_coop += pow( factorIntMat( i, j ) / max_interaction,2 );
+        }	
+	}
+
+	L2_norm_coop/= Nparameter;
+
+	return L2_norm + L2_norm_coop ;
+}
+
+double ExprPar::parameter_L1_norm() const
+{
+	double L1_norm = 0;
+
+    for ( int i = 0; i < nFactors(); i++ ) {
+
+		L1_norm +=  maxBindingWts[ i ] / max_weight /nFactors() ;
+		if(txpEffects[i] >= 1)
+			L1_norm +=  (txpEffects[i] -1) / ( max_effect_Thermo -1 ) /nFactors();
+		else
+			L1_norm +=  min_effect_Thermo / txpEffects[i] /nFactors();
+
+	}
+
+	double L1_norm_coop = 0;
+	int Nparameter = 0;
+
+    for ( int i = 0; i < nFactors(); i++ ) {
+        for ( int j = 0; j <= i; j++ ) {
+			Nparameter++;
+			L1_norm_coop +=  factorIntMat( i, j ) / max_interaction ;
+        }	
+	}
+
+	L1_norm_coop /= Nparameter;
+
+	return L1_norm + L1_norm_coop ;
 }
 
 void ExprPar::getFreePars( vector< double >& pars, const IntMatrix& coopMat, const vector< bool >& actIndicators, const vector< bool >& repIndicators ) const
@@ -628,8 +689,8 @@ SearchType ExprPar::searchOption = CONSTRAINED;
 int ExprPar::estBindingOption = 1;  // 1. estimate binding parameters; 0. not estimate binding parameters
  
 // Parameter limits
-double ExprPar::default_acc_scale = 1.0;
-double ExprPar::default_acc_base = 1;
+double ExprPar::default_acc_scale = 1;
+double ExprPar::default_acc_base = 0.01;
 double ExprPar::default_weight = 1.0;
 double ExprPar::default_interaction = 1.0;
 double ExprPar::default_effect_Logistic = 0.0;
@@ -639,7 +700,7 @@ double ExprPar::default_basal_Logistic = -5.0;
 double ExprPar::default_basal_Thermo = 0.01;
 double ExprPar::min_acc_scale = 0.001;
 double ExprPar::min_acc_base = 0.001;
-double ExprPar::max_acc_scale = 10.0;
+double ExprPar::max_acc_scale = 100.0;
 double ExprPar::max_acc_base = 3;
 double ExprPar::min_weight = 0.0001;		
 double ExprPar::max_weight = 5000;//500;		
@@ -648,14 +709,14 @@ double ExprPar::max_interaction = 500;
 double ExprPar::min_effect_Logistic = -5;	
 double ExprPar::max_effect_Logistic = 5;
 // double ExprPar::min_effect_Direct = 0.01;
-double ExprPar::min_effect_Thermo = 0.0001;	
-double ExprPar::max_effect_Thermo = 1000;
+double ExprPar::min_effect_Thermo = 0.001;	
+double ExprPar::max_effect_Thermo = 5000;
 double ExprPar::min_repression = 1.0E-3;
 double ExprPar::max_repression = 500; 
 double ExprPar::min_basal_Logistic = -9.0;	
 double ExprPar::max_basal_Logistic = -1.0;
 double ExprPar::min_basal_Thermo = 1.0E-5;	
-double ExprPar::max_basal_Thermo = 1.0;
+double ExprPar::max_basal_Thermo = 1;
 double ExprPar::delta = 0.0001;
 
 
@@ -769,6 +830,7 @@ double ExprFunc::predictExpr( int length, const vector< double >& factorConcs, i
     Z_off = compPartFuncOff(factorConcs);
     Z_on = compPartFuncOn(factorConcs);
     #endif //TOSCA
+
 
 
     // Test if partition functions are in the range of double and set output accordingly
@@ -1141,7 +1203,10 @@ double ExprFunc::compPartFuncOnDirect(const vector< double >& factorConcs) const
         double sum = Zt[boundaries[i]];
         for ( int j = boundaries[i] + 1; j < i; j++ ) {
             if ( siteOverlap( sites[ i ], sites[ j ], motifs ) ) continue;
-            sum += compFactorInt( sites[ i ], sites[ j ] ) * Z[ j ];	
+			//if ( sites[i].factorIdx == 3 and sites[j].factorIdx == 0){
+            //	sum += compFactorInt( sites[ i ], sites[ j ] ) / par.txpEffects[ sites[i].factorIdx ] * Z[ j ];}	//	Hb has no effect, when bcd is present, but still gives cooperativity
+			//else{
+            	sum += compFactorInt( sites[ i ], sites[ j ] ) * Z[ j ];
         }
         Z[i] =  bindingWts[ i ] * factorConcs[sites[ i ].factorIdx] * par.txpEffects[ sites[i].factorIdx ] * sum;
         Zt[i] = Z[i] + Zt[i - 1];
@@ -1339,7 +1404,8 @@ double ExprFunc::compFactorInt( const Site& a, const Site& b ) const
 
     //assert(  modelOption == DIRECT  );	// For now only Direct model implemented
     #if FactorIntFunc
-    double spacingTerm = ( dist < coopDistThr ? maxInt : 1.0 ); // Range 1.0 <-> (maxint + 1.0)
+	double d = float(dist)/float(coopDistThr);
+    double spacingTerm = ( dist < coopDistThr ? maxInt * (1 - d ) + 1: 1.0 ); // Range 1.0 <-> (maxint + 1.0) (1 - d )
     #else 
     double spacingTerm = ( dist < coopDistThr ? maxInt : 1.0 );
     #endif // FactorIntFunc
@@ -1419,7 +1485,7 @@ ExprPredictor::ExprPredictor( const vector< SiteVec >& _seqSites, const vector< 
 
 double ExprPredictor::objFunc( const ExprPar& par ) 
 {
-    if ( objOption == SSE ||  objOption == NORM_CORR || objOption == PGP) return comp_SSE_NormCorr_PGP( par );	
+    if ( objOption == SSE ||  objOption == NORM_CORR || objOption == PGP || objOption == CORR_L1 || objOption == CORR_L2) return comp_SSE_NormCorr_PGP( par );	
     if ( objOption == CORR ) return -compAvgCorr( par );
     if ( objOption == CROSS_CORR ) return -compAvgCrossCorr( par ); 
 }
@@ -1440,7 +1506,7 @@ int ExprPredictor::train( const ExprPar& par_init )
 
    if ( nAlternations > 0 && ExprPar::searchOption == CONSTRAINED ) par_model.adjust();
 */
-    obj_model = objFunc( par_model ); 
+    obj_model = objFunc( par_model );
 /*    
     cout << "*** Diagnostic printing AFTER adjust() ***" << endl;
     cout << "Parameters: " << endl;
@@ -1521,7 +1587,6 @@ int ExprPredictor::train( const ExprPar& par_init, const gsl_rng* rng )
     cout << "Final training:\tParameters = "; printPar( par_model ); 
     cout << "\tObjective = " << setprecision( 5 ) << obj_model << endl; 
     
-
 	gene_crm_fout.close();
 
     return 0;
@@ -1548,8 +1613,10 @@ int ExprPredictor::train()
 int ExprPredictor::predict( const SiteVec& targetSites, int targetSeqLength, vector< double >& targetExprs, int seq_num ) const
 {
 
+
     targetExprs.clear();
     targetExprs.resize( nConds() );
+
     // create site representation of the target sequence
 //     SiteVec targetSites;
 //     SeqAnnotator ann( motifs, energyThrs );	
@@ -1558,6 +1625,7 @@ int ExprPredictor::predict( const SiteVec& targetSites, int targetSeqLength, vec
     // predict the expression
 
     ExprFunc* func = createExprFunc( par_model );
+
     func->set_sites(targetSites);
     int n = targetSites.size();
     vector< double > _bindingWts (n,0.0);
@@ -1581,7 +1649,7 @@ int ExprPredictor::predict( const SiteVec& targetSites, int targetSeqLength, vec
     for ( int k = 1; k < n; k++ ) {
 	double access_tmp = 1.0;
 	#if ACCESSIBILITY
-	access_tmp = exp( - par_model.acc_scale * ( 1 - targetSites[k].accessibility) );
+	access_tmp = exp( par_model.acc_scale * ( 1 - targetSites[k].accessibility) );
 	#endif //ACCESSIBILITY
         _bindingWts[k] = access_tmp * par_model.maxBindingWts[ targetSites[k].factorIdx ] * targetSites[k].wtRatio ;	
 
@@ -1841,6 +1909,7 @@ void ExprPredictor::printPar( const ExprPar& par ) const
 
 ExprFunc* ExprPredictor::createExprFunc( const ExprPar& par ) const
 {
+
     return new ExprFunc( motifs, actIndicators, maxContact, repIndicators, repressionMat, repressionDistThr, coopDistThr, par, seqs );
 }
 
@@ -1868,9 +1937,7 @@ double ExprPredictor::comp_SSE_NormCorr_PGP( const ExprPar& par )
         vector< double > observedExprs (nConds(), 1);
         vector < vector < double > > concs (nConds(), vector <double> (factorExprData.nRows(), 0) );
         
-
-	
-        // Initiate the sites for func
+    // Initiate the sites for func
 	func->set_sites(seqSites[ i ]);
 
 	int n = seqSites[i].size();
@@ -1893,7 +1960,7 @@ double ExprPredictor::comp_SSE_NormCorr_PGP( const ExprPar& par )
         for ( int k = 1; k < n; k++ ) {
 		double access_tmp = 1.0;
 		#if ACCESSIBILITY
-		access_tmp = exp(  - par.acc_scale * (1- seqSites[i][k].accessibility) ) ;
+		access_tmp = exp( par.acc_scale * (1- seqSites[i][k].accessibility) ) ;
 		#endif //ACCESSIBILITY
 		_bindingWts[k] = access_tmp * par.maxBindingWts[ seqSites[i][k].factorIdx ] * seqSites[i][k].wtRatio ;	
         }
@@ -1913,7 +1980,7 @@ double ExprPredictor::comp_SSE_NormCorr_PGP( const ExprPar& par )
 
         double beta = 1.0;
         squaredErr +=  least_square( predictedExprs, observedExprs, beta );
-	correlation  +=  corr( predictedExprs, observedExprs ); 
+	    correlation  +=  corr( predictedExprs, observedExprs ); 
         pgp_score += pgp( predictedExprs, observedExprs, beta );
     }	
 
@@ -1928,8 +1995,69 @@ double ExprPredictor::comp_SSE_NormCorr_PGP( const ExprPar& par )
     obj_pgp = pgp_score / nSeqs();
     if (objOption == SSE)	return obj_sse;
     if (objOption == NORM_CORR)	return -obj_norm_corr;
+	if (objOption == CORR_L1)	return -obj_norm_corr + 0.1 * par.parameter_L1_norm();
+    if (objOption == CORR_L2)	return -obj_norm_corr + 0.1 * par.parameter_L2_norm();
     if (objOption == PGP)	return -obj_pgp;
     return 0;
+}
+
+double ExprPredictor::comp_impact( const ExprPar& par, int tf ) 
+{
+
+	// get effective parameter
+	ExprPar par_eff = par;
+	par_eff.txpEffects[tf] = max(par.txpEffects[tf] , 1 / par.txpEffects[tf]);
+
+    // create the expression function
+    ExprFunc* func = createExprFunc( par_eff );
+
+	double impact = 0;	
+
+    for ( int i = 0; i < nSeqs(); i++ ) {
+
+		vector < double >concs (nFactors(), 0.0) ;
+		   
+		// Ignore all other TF
+		concs[tf] = 1.0;
+
+		// Initiate the sites for func
+		func->set_sites(seqSites[ i ]);
+
+		int n = seqSites[i].size();
+		vector< double > _bindingWts (n,0.0);
+		vector< int > _boundaries (n,0);
+	
+		// Determin the boundaries for func
+		_boundaries[0] = 0;
+		int range = max(coopDistThr, repressionDistThr );
+		    for ( int k = 1; k < n; k++ ) {
+			int l;	       	 
+			for ( l=0; l < k; l++ ) {
+				if ( ( seqSites[i][k].start - seqSites[i][l].start ) <= range ) {break;} 
+			}
+			    _boundaries[k] = l;
+		}	
+		func->set_boundaries(_boundaries);
+		// compute the Boltzman weights of binding for all sites for func
+		_bindingWts[0] = 1.0;
+		for ( int k = 1; k < n; k++ ) {
+			double access_tmp = 1.0;
+			#if ACCESSIBILITY
+			access_tmp = exp( par.acc_scale * (1- seqSites[i][k].accessibility) ) ;
+			#endif //ACCESSIBILITY
+			_bindingWts[k] = access_tmp * par.maxBindingWts[ seqSites[i][k].factorIdx ] * seqSites[i][k].wtRatio ;	
+		}
+		func->set_bindingWts(_bindingWts); 
+
+   		double PartFuncOff = func->compPartFuncOff( concs );
+   		double PartFuncOn = func->compPartFuncOn( concs );
+
+		impact += PartFuncOn / PartFuncOff / nSeqs(); 
+    }	
+
+    delete func;
+
+    return log10( impact );
 }
 
 
@@ -1965,7 +2093,7 @@ double ExprPredictor::compAvgCorr( const ExprPar& par )
         for ( int k = 1; k < n; k++ ) {
 		double access_tmp = 1.0;
 		#if ACCESSIBILITY
-		access_tmp = exp(  - par_model.acc_scale * (1- seqSites[i][k].accessibility) ) ;
+		access_tmp = exp( par_model.acc_scale * (1- seqSites[i][k].accessibility) ) ;
 		#endif //ACCESSIBILITY
 		_bindingWts[k] = access_tmp * par_model.maxBindingWts[ seqSites[i][k].factorIdx ] * seqSites[i][k].wtRatio ;
         }
@@ -2041,7 +2169,7 @@ double ExprPredictor::compAvgCrossCorr( const ExprPar& par )
         for ( int k = 1; k < n; k++ ) {
  		double access_tmp = 1.0;
 		#if ACCESSIBILITY
-		access_tmp =  exp( - par_model.acc_scale * ( 1 - seqSites[i][k].accessibility ) ) ;
+		access_tmp =  exp(  par_model.acc_scale * ( 1 - seqSites[i][k].accessibility ) ) ;
 		#endif //ACCESSIBILITY
 		_bindingWts[k] = access_tmp * par_model.maxBindingWts[ seqSites[i][k].factorIdx ] * seqSites[i][k].wtRatio ;
         }

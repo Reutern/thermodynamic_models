@@ -38,11 +38,11 @@ int main( int argc, char* argv[] )
     // command line processing
     string seqFile, test_seqFile, accFile, test_accFile, annFile, exprFile, test_exprFile, motifFile, factorExprFile, coopFile, factorInfoFile, repressionFile, parFile, print_parFile, axis_wtFile;
     string outFile, occFile;     // output files
-    int coopDistThr = 100;
+    int coopDistThr = 50;
     double factorIntSigma = 25.0;   // sigma parameter for the Gaussian interaction function
     int repressionDistThr = 50;
     int maxContact = 1;
-	vector<double> eTF (19,0.6);
+	vector<double> eTF (16,0.6);
 
 
 	string free_fix_indicator_filename;
@@ -315,7 +315,7 @@ int main( int argc, char* argv[] )
 	}
 	else{
 		//for binding weights, coop pairs and transcriptional effects
-		for( int index = 0; index < nFactors + num_of_coop_pairs + nFactors + 2; index++ ){
+		for( int index = 0; index < nFactors + num_of_coop_pairs + nFactors ; index++ ){
 			indicator_bool.push_back( true );
 		}
 		if( ExprPredictor::one_qbtm_per_crm ){
@@ -328,7 +328,7 @@ int main( int argc, char* argv[] )
 		}
 		#if ACCESSIBILITY
 		indicator_bool.push_back( true ); 	// acc_scale
-		indicator_bool.push_back( true );	// acc_base
+		indicator_bool.push_back( false );	// acc_base
 		#endif //ACCESSIBILITY
 	}
 
@@ -365,10 +365,15 @@ int main( int argc, char* argv[] )
 	vector<double> weight_count (nFactors,0);
 	for( int idx = 1; idx < seqSites[seqs_idx].size() ; idx++ ){
 			sites_count[seqSites[seqs_idx][idx].factorIdx]++;
-			weight_count[seqSites[seqs_idx][idx].factorIdx] = weight_count[seqSites[seqs_idx][idx].factorIdx] + seqSites[seqs_idx][idx].wtRatio;
+			#if ACCESSIBILITY
+			double weight_tmp = (1-seqSites[seqs_idx][idx].accessibility )* seqSites[seqs_idx][idx].wtRatio;
+			#else
+			double weight_tmp = seqSites[seqs_idx][idx].wtRatio;
+			#endif // ACCESSIBILITY
+			weight_count[seqSites[seqs_idx][idx].factorIdx] = weight_count[seqSites[seqs_idx][idx].factorIdx] + weight_tmp;
 		}
         for( int l = 0; l < nFactors; l++){
-	        cout <<  round(100*  weight_count[l]) / 100.0  << " \t "; }
+	        cout << round(100*weight_count[l])/100.0  << " \t "; }
 	cout << seqSites[seqs_idx].size() - 1 << " \t " << seqNames[seqs_idx] << " \t " << seqLengths[seqs_idx] <<  endl;}
     cout << endl; 
     cout << average_number << endl;
@@ -460,7 +465,11 @@ int main( int argc, char* argv[] )
 	}
 	// effect * binding energy * total weight
 	double impact = max(par.txpEffects[tf] , 1/par.txpEffects[tf]) * par.maxBindingWts[tf] * totalweight;
-	cout << motifNames[tf] << "\t" << impact << endl;
+	double log_impact = log10( abs( impact ) ); 
+
+	double impact_new = predictor->comp_impact(par,tf);
+
+	cout << motifNames[tf] << "\t" << log_impact << "\t" << impact_new << endl;
 
     }
 
@@ -542,49 +551,53 @@ int main( int argc, char* argv[] )
     }
 
 
+	vector <bool> indicator_bool_modified = indicator_bool;
+
     // Additional parameter training for the qbtm of the test enhancers
     if(ExprPredictor::one_qbtm_per_crm){
-	// Create indicator vector
-	vector <bool> indicator_bool_modified;
-        vector <double> basalTxps_modified;
-	basalTxps_modified.clear();
-	indicator_bool_modified.clear();
-	for( int index = 0; index < nFactors + num_of_coop_pairs + nFactors; index++ ){
-		indicator_bool_modified.push_back( false );		// TF parameters are fixed
-	}
-	for( int index = 0; index < test_nSeqs; index++ ){
-		indicator_bool_modified.push_back( true );		// qbtm get trained again
-		basalTxps_modified.push_back( 0.1 );
-	}
+		// Create indicator vector
+		vector <double> basalTxps_modified;
+		basalTxps_modified.clear();
+		indicator_bool_modified.clear();
+		for( int index = 0; index < nFactors + num_of_coop_pairs + nFactors; index++ ){
+			indicator_bool_modified.push_back( false );		// TF parameters are fixed
+		}
+		for( int index = 0; index < test_nSeqs; index++ ){
+			indicator_bool_modified.push_back( true );		// qbtm get trained again
+			basalTxps_modified.push_back( 0.1 );
+		}
+		#if ACCESSIBILITY
+		indicator_bool_modified.push_back( false ); 	// acc_scale
+		indicator_bool_modified.push_back( false );	// acc_base
+		#endif //ACCESSIBILITY
 
-	// New predictor 
-	delete predictor;
-        ExprPredictor* predictor = new ExprPredictor( test_seqSites, test_seqLengths, test_exprData, motifs, factorExprData, coopMat, actIndicators, maxContact, repIndicators, repressionMat, repressionDistThr, coopDistThr, indicator_bool_modified, motifNames, test_seqNames, axis_start, axis_end, axis_wts, test_seqs );
-        // random number generator
-	gsl_rng* rng;
-	gsl_rng_env_setup();
-	const gsl_rng_type * T = gsl_rng_default;	// create rng type
-	rng = gsl_rng_alloc( T );
-	gsl_rng_set( rng, time( 0 ) );		// set the seed equal to simulTime(0)
-
-        ExprPredictor::nAlternations = 0;
-
-	// Modify parameters
-	par.basalTxps = basalTxps_modified;
-
-        // train qbtm
-	cout << "Cross validation training:" << endl;
-        predictor->train( par, rng );
-        gsl_rng_free( rng );
-
+		// Modify parameters
+		par.basalTxps = basalTxps_modified;
     }
+		// New predictor 
+		ExprPredictor* predictor_CV = new ExprPredictor( test_seqSites, test_seqLengths, test_exprData, motifs, factorExprData, coopMat, actIndicators, maxContact, repIndicators, repressionMat, repressionDistThr, coopDistThr, indicator_bool_modified, motifNames, test_seqNames, axis_start, axis_end, axis_wts, test_seqs );
+        // random number generator
+//		gsl_rng* rng;
+//		gsl_rng_env_setup();
+//		const gsl_rng_type * T = gsl_rng_default;	// create rng type
+		rng = gsl_rng_alloc( T );
+		gsl_rng_set( rng, time( 0 ) );		// set the seed equal to simulTime(0)
 
+
+    if(ExprPredictor::one_qbtm_per_crm){
+        // train qbtm
+        ExprPredictor::nAlternations = 1;
+		cout << "Cross validation training:" << endl;
+        predictor_CV->train( par, rng );
+        gsl_rng_free( rng );
+    }
     double squaredErr = 0;
     double correlation = 0;
     for ( int i = 0; i < test_nSeqs; i++ ) {
         vector< double > targetExprs;
         //cout << i << endl;
-        predictor->predict( test_seqSites[i], test_seqLengths[i], targetExprs, i );
+
+        predictor_CV->predict( test_seqSites[i], test_seqLengths[i], targetExprs, i );
         vector< double > observedExprs = test_exprData.getRow( i );
 
         // print the results
@@ -603,7 +616,7 @@ int main( int argc, char* argv[] )
     double obj_sse = sqrt( squaredErr / ( test_nSeqs * nConds ) ); 
  
     cout << "Performance on test set: SSE = " << obj_sse << "\t" << "Norm_Corr = " << obj_norm_corr << endl;
-
+	delete predictor_CV;
     #else
     for ( int i = 0; i < nSeqs; i++ ) {
         vector< double > targetExprs;

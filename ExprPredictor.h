@@ -27,6 +27,8 @@ enum ObjType {
     SSE_SCALE,    // sum of squared error with optimal scaling
     SSE_V,    // sum of squared error with variable variance
     CORR,   // Pearson correlation
+    CORR_L1,   // Pearson correlation with L1 parameter penalty
+    CORR_L2,   // Pearson correlation with L2 parameter penalty
     CROSS_CORR,  // cross correlation (maximum in a range of shifts)
     NORM_CORR,	// normalised correlation
     NORM_CORR_V,// normalised correlation with variable variance
@@ -127,12 +129,16 @@ public:
     ExprPar( const vector< double >& pars, const IntMatrix& coopMat, const vector< bool >& actIndicators, const vector< bool >& repIndicators, int _nSeqs );	// construct from a "flat" vector of free parameters (assuming they are in the correct/uniform scale)
     void copy( const ExprPar& other ) { maxBindingWts = other.maxBindingWts; factorIntMat = other.factorIntMat; txpEffects = other.txpEffects; repEffects = other.repEffects; basalTxps = other.basalTxps; nSeqs = basalTxps.size(); acc_scale = other.acc_scale; acc_base = other.acc_base; }
     ExprPar( const ExprPar& other ) { copy( other ); }
-	
+
     // assignment
     ExprPar& operator=( const ExprPar& other ) { copy( other ); return *this; }	
 	
     // access methods
     int nFactors() const { return maxBindingWts.size(); }
+
+	// parameter norm
+	double parameter_L2_norm() const;
+	double parameter_L1_norm() const;
 	
     // get the free parameters (in the correct/uniform scale)
     void getFreePars( vector< double >& pars, const IntMatrix& coopMat, const vector< bool >& actIndicators, const vector< bool >& repIndicators ) const; 
@@ -228,7 +234,7 @@ public:
     void set_boundaries( vector< int > _boundaries) {boundaries = _boundaries;}
     void set_bindingWts( vector< double > _bindingWts) {bindingWts = _bindingWts;}
 
-private:
+
     // TF binding motifs
     const vector< Motif >& motifs; 	
 
@@ -284,7 +290,7 @@ private:
     double compPartFuncOnChrMod_Limited( const vector< double >& factorConcs) const;    
 
 
-    
+   private: 
     // compute the TF-TF interaction between two occupied sites
     double compFactorInt( const Site& a, const Site& b ) const;
     double compFactorInt( int t_1, int t_2, int _dist  ) const;
@@ -337,6 +343,9 @@ public:
             
     // predict expression values of a sequence (across the same conditions)
     int predict( const SiteVec& targetSites, int targetSeqLength, vector< double >& targetExprs, int seq_num ) const; 
+
+
+    double comp_impact( const ExprPar& par, int tf );		// The impact of the parameter
 
     // test the model, perfOption = 0: RMSE
 // 	double test( const vector< Sequence  >& testSeqs, const Matrix& testExprData, Matrix& predictions ) const;    
@@ -417,7 +426,6 @@ private:
     double comp_SSE_NormCorr_PGP( const ExprPar& par );		// major objective functions for comparison of predicted and observed expressions
     double compAvgCorr( const ExprPar& par );     	// the average Pearson correlation
     double compAvgCrossCorr( const ExprPar& par );    	// the average cross correlation -based similarity
-
 
     // minimize the objective function, using the current model parameters as initial values
     int simplex_minimize( ExprPar& par_result, double& obj_result );	// simplex	
