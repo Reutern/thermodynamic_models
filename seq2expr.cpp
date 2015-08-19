@@ -38,11 +38,11 @@ int main( int argc, char* argv[] )
     // command line processing
     string seqFile, test_seqFile, accFile, test_accFile, annFile, exprFile, test_exprFile, motifFile, factorExprFile, coopFile, factorInfoFile, repressionFile, parFile, print_parFile, axis_wtFile;
     string outFile, occFile;     // output files
-    int coopDistThr = 50;
+    int coopDistThr = 150;
     double factorIntSigma = 25.0;   // sigma parameter for the Gaussian interaction function
-    int repressionDistThr = 50;
+    int repressionDistThr = 0;
     int maxContact = 1;
-	vector<double> eTF (16,0.6);
+	vector<double> eTF (16,1);
 
 
 	string free_fix_indicator_filename;

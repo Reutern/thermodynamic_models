@@ -688,7 +688,7 @@ ModelType ExprPar::modelOption = DIRECT;
 SearchType ExprPar::searchOption = CONSTRAINED;
 int ExprPar::estBindingOption = 1;  // 1. estimate binding parameters; 0. not estimate binding parameters
  
-// Parameter limits
+// training parameter limits / range
 double ExprPar::default_acc_scale = 1;
 double ExprPar::default_acc_base = 0.01;
 double ExprPar::default_weight = 1.0;
@@ -702,21 +702,21 @@ double ExprPar::min_acc_scale = 0.001;
 double ExprPar::min_acc_base = 0.001;
 double ExprPar::max_acc_scale = 100.0;
 double ExprPar::max_acc_base = 3;
-double ExprPar::min_weight = 0.0001;		
-double ExprPar::max_weight = 5000;//500;		
+double ExprPar::min_weight = 0.001;		
+double ExprPar::max_weight = 500;//500;		
 double ExprPar::min_interaction = 0.001;	
 double ExprPar::max_interaction = 500;
 double ExprPar::min_effect_Logistic = -5;	
 double ExprPar::max_effect_Logistic = 5;
 // double ExprPar::min_effect_Direct = 0.01;
-double ExprPar::min_effect_Thermo = 0.001;	
-double ExprPar::max_effect_Thermo = 5000;
+double ExprPar::min_effect_Thermo = 0.01;	
+double ExprPar::max_effect_Thermo = 500;
 double ExprPar::min_repression = 1.0E-3;
 double ExprPar::max_repression = 500; 
 double ExprPar::min_basal_Logistic = -9.0;	
 double ExprPar::max_basal_Logistic = -1.0;
 double ExprPar::min_basal_Thermo = 1.0E-5;	
-double ExprPar::max_basal_Thermo = 1;
+double ExprPar::max_basal_Thermo = 0.05;
 double ExprPar::delta = 0.0001;
 
 
@@ -1405,7 +1405,7 @@ double ExprFunc::compFactorInt( const Site& a, const Site& b ) const
     //assert(  modelOption == DIRECT  );	// For now only Direct model implemented
     #if FactorIntFunc
 	double d = float(dist)/float(coopDistThr);
-    double spacingTerm = ( dist < coopDistThr ? maxInt * (1 - d ) + 1: 1.0 ); // Range 1.0 <-> (maxint + 1.0) (1 - d )
+    double spacingTerm = ( dist < coopDistThr ? maxInt * (1 - d ) + 1 : 1.0 ); // Range 1.0 <-> (maxint + 1.0) (1 - d )
     #else 
     double spacingTerm = ( dist < coopDistThr ? maxInt : 1.0 );
     #endif // FactorIntFunc

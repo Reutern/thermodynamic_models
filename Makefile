@@ -10,7 +10,7 @@ LIB_DIRS = -L$(GSL_DIR)/lib
 LIBS = -lgsl -lgslcblas -lm
 LFLAGS = -O3 $(LIB_DIRS) $(LIBS)
 
-BIN = seq2expr 
+BIN = seq2expr
 
 all: $(BIN)
 
