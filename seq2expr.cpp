@@ -42,7 +42,7 @@ int main( int argc, char* argv[] )
     double factorIntSigma = 25.0;   // sigma parameter for the Gaussian interaction function
     int repressionDistThr = 0;
     int maxContact = 1;
-	vector<double> eTF (16,1);
+	vector<double> eTF (20,0.6);
 
 
 	string free_fix_indicator_filename;
@@ -353,31 +353,41 @@ int main( int argc, char* argv[] )
     cout << "Pseudo count = " << PSEUDO_COUNT << endl;
     cout << endl;
     #if PRINT_STATISTICS
+    ofstream weights_file;
+    weights_file.open ("../data/weights_stark.txt");
     cout << "Statistics: " << endl; 
     cout << "Factors "<< nFactors << "\t " << "Sequences " << nSeqs <<  endl;
+	//weights_file << "ID \t";
     for(int motif_idx = 0; motif_idx < nFactors; motif_idx++){
-    cout << motifNames[ motif_idx ] << " \t ";}
+   		weights_file << motifNames[ motif_idx ] << " \t ";}
+	weights_file << "\n";
     cout << "Sum\t Name\t Length" << endl;
     double average_number = 0;
     for(int seqs_idx = 0; seqs_idx < nSeqs; seqs_idx++){
-	average_number += seqSites[seqs_idx].size()/nSeqs;
-	vector<int> sites_count (nFactors,0);
-	vector<double> weight_count (nFactors,0);
-	for( int idx = 1; idx < seqSites[seqs_idx].size() ; idx++ ){
-			sites_count[seqSites[seqs_idx][idx].factorIdx]++;
-			#if ACCESSIBILITY
-			double weight_tmp = (1-seqSites[seqs_idx][idx].accessibility )* seqSites[seqs_idx][idx].wtRatio;
-			#else
-			double weight_tmp = seqSites[seqs_idx][idx].wtRatio;
-			#endif // ACCESSIBILITY
-			weight_count[seqSites[seqs_idx][idx].factorIdx] = weight_count[seqSites[seqs_idx][idx].factorIdx] + weight_tmp;
-		}
-        for( int l = 0; l < nFactors; l++){
-	        cout << round(100*weight_count[l])/100.0  << " \t "; }
-	cout << seqSites[seqs_idx].size() - 1 << " \t " << seqNames[seqs_idx] << " \t " << seqLengths[seqs_idx] <<  endl;}
-    cout << endl; 
-    cout << average_number << endl;
+		weights_file << seqNames[seqs_idx] << " \t ";
+		average_number += seqSites[seqs_idx].size()/nSeqs;
+		//vector<int> sites_count (nFactors,0);
+		vector<double> weight_count (nFactors,0);
+		for( int idx = 1; idx < seqSites[seqs_idx].size() ; idx++ ){
+				//	sites_count[seqSites[seqs_idx][idx].factorIdx]++;
+				#if ACCESSIBILITY
+				double weight_tmp = (1-seqSites[seqs_idx][idx].accessibility )* seqSites[seqs_idx][idx].wtRatio;
+				#else
+				double weight_tmp = seqSites[seqs_idx][idx].wtRatio;
+				#endif // ACCESSIBILITY
+				weight_count[seqSites[seqs_idx][idx].factorIdx] = weight_count[seqSites[seqs_idx][idx].factorIdx] + weight_tmp;
+			}
+		for( int l = 0; l < nFactors; l++){
+			cout << weight_count[l]  << " \t "; }
 	
+		cout << seqSites[seqs_idx].size() - 1 << " \t " << seqNames[seqs_idx] << " \t " << seqLengths[seqs_idx] <<  endl;}
+
+
+
+   // cout << endl; 
+    cout << average_number << endl;
+	//cout << "Weights saved" << endl;
+	//weights_file.close();
     #endif // PRINT_STATISTICS
 
 

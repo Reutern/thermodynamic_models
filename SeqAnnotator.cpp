@@ -183,7 +183,7 @@ int readSequences( const string& file, const string& accfile, vector< Sequence >
 
             // add the sequence and start a new sequence if the line starts with >
             //cout << line << endl;
-            if ( line[ 0 ] == '>' ) { 	
+            if ( line[ 0 ] == '>' ) { cout << line << endl;	
                 if ( seq.size() ) {
                     seqs.push_back( seq );
                     seq.clear();	
@@ -220,16 +220,16 @@ int readSequences( const string& file, const string& accfile, vector< Sequence >
  	            std::size_t pos = line_acc.find("\t");      // position of next gap in line_acc
 		    	line_acc = line_acc.substr(pos+1);   	// Truncate line_acc for next read-out
 			    ac = std::stod (line_acc);	// read in according accessibility
-    	        if ( nt >= 0 && nt < ALPHABET_SIZE ) {
+    	        if ( nt >= 0 && nt < ALPHABET_SIZE ) {   
                 	seq.push_back( nt, ac ); 	
-      	        } else {
+      	        } 
+				else {          
          	    	//cerr << "Illegal symbol: " << nt << " in " << file << endl;
          	        return RET_ERROR;	
-         	     } 
-         	   }
+      	     	}           
+         	   } 
         	}			
     	}
-            
         // add the last sequence
         if( seq.size() ) seqs.push_back( seq );
                         

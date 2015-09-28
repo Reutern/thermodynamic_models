@@ -855,6 +855,31 @@ double corr( const vector< double >& x, const vector< double >& y )
     return corr_xy;
 }
 
+double corr_vertical( const vector< vector< double > >& x, const vector< vector< double > >& y )
+{
+    if ( x.size() != y.size() ) return RET_ERROR; 
+    if ( x.size() == 0 ) return RET_ERROR;
+
+	int Nseqs = x.size();
+	int Ncond = x[0].size();
+	double corr_xy = 0;
+
+    for ( int cond_idx = 0; cond_idx < Ncond; cond_idx++ ) {
+	    vector< double > x_tmp( Nseqs, 0.0 );
+    	vector< double > y_tmp( Nseqs, 0.0 );
+		
+		for( int seq_idx = 0; seq_idx < Nseqs; seq_idx++ ) {			
+			x_tmp[seq_idx] = x[ seq_idx ][ cond_idx ];
+  			y_tmp[seq_idx] = y[ seq_idx ][ cond_idx ];
+		}
+	corr_xy += corr( x_tmp, y_tmp );	
+
+	}
+
+    return corr_xy / Ncond;
+}
+
+
 int cross_corr( const vector< double >& x, const vector< double >& y, const vector< int >& lag, vector< double >& cov, vector< double >& corr )
 {
     if ( x.size() != y.size() ) return RET_ERROR; 

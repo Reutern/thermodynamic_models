@@ -298,6 +298,9 @@ double std_dev( const vector< double >& x );
 // Pearson correlation of v1 and v2, they must have equal sizes
 double corr( const vector< double >& x, const vector< double >& y );
 
+// vertical Pearson correlation
+double corr_vertical( const vector< vector< double > >& x, const vector< vector< double > >& y );
+
 // Cross correlation of two time series (vectors): x and y. The vector t stores the values of the time lag to be evaluted. 
 int cross_corr( const vector< double >& x, const vector< double >& y, const vector< int >& lag, vector< double >& cov, vector< double >& corr );
 

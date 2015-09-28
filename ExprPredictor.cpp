@@ -702,7 +702,7 @@ double ExprPar::min_acc_scale = 0.001;
 double ExprPar::min_acc_base = 0.001;
 double ExprPar::max_acc_scale = 100.0;
 double ExprPar::max_acc_base = 3;
-double ExprPar::min_weight = 0.001;		
+double ExprPar::min_weight = 0.00001;		
 double ExprPar::max_weight = 500;//500;		
 double ExprPar::min_interaction = 0.001;	
 double ExprPar::max_interaction = 500;
@@ -1649,7 +1649,7 @@ int ExprPredictor::predict( const SiteVec& targetSites, int targetSeqLength, vec
     for ( int k = 1; k < n; k++ ) {
 	double access_tmp = 1.0;
 	#if ACCESSIBILITY
-	access_tmp = exp( par_model.acc_scale * ( 1 - targetSites[k].accessibility) );
+	access_tmp = exp(  - par_model.acc_scale * ( 1 - targetSites[k].accessibility) );
 	#endif //ACCESSIBILITY
         _bindingWts[k] = access_tmp * par_model.maxBindingWts[ targetSites[k].factorIdx ] * targetSites[k].wtRatio ;	
 
@@ -1931,6 +1931,9 @@ double ExprPredictor::comp_SSE_NormCorr_PGP( const ExprPar& par )
     gettimeofday(&start, 0);
     #endif // TIMER
 
+    vector < vector < double > > expression_predicted (nSeqs(), vector <double> ( nConds(), 0) );
+    vector < vector < double > > expression_observed  (nSeqs(), vector <double> ( nConds(), 0) );
+
     for ( int i = 0; i < nSeqs(); i++ ) {
 
         vector< double > predictedExprs (nConds(), -1);
@@ -1960,7 +1963,7 @@ double ExprPredictor::comp_SSE_NormCorr_PGP( const ExprPar& par )
         for ( int k = 1; k < n; k++ ) {
 		double access_tmp = 1.0;
 		#if ACCESSIBILITY
-		access_tmp = exp( par.acc_scale * (1- seqSites[i][k].accessibility) ) ;
+		access_tmp = exp( - par.acc_scale * (1- seqSites[i][k].accessibility) ) ;
 		#endif //ACCESSIBILITY
 		_bindingWts[k] = access_tmp * par.maxBindingWts[ seqSites[i][k].factorIdx ] * seqSites[i][k].wtRatio ;	
         }
@@ -1970,18 +1973,20 @@ double ExprPredictor::comp_SSE_NormCorr_PGP( const ExprPar& par )
        #pragma omp parallel for schedule(dynamic)
         for (int j = 0; j < nConds(); j++ ) {		
          	concs[j] = factorExprData.getCol( j );
-      		predictedExprs[j] = func->predictExpr( seqLengths[ i ], concs[j], i );	//_scanning_mode
-                // observed expression for the i-th sequence at the j-th condition
-                observedExprs[j] = exprData( i, j );
-	        //weight += observedExprs[j];				// The weight of an enhancer is proportional to its expression width
-        }
+			double expression_predicted_tmp = func->predictExpr( seqLengths[ i ], concs[j], i );	//_scanning_mode
+      		predictedExprs[j] = expression_predicted_tmp;
+			expression_predicted[i][j] = expression_predicted_tmp;            
 
-	//weight = ( 100 - weight ) / 100.0;			// Transformation of the weight from 0 - 100 to 1 - 0
+			// observed expression for the i-th sequence at the j-th condition
+            observedExprs[j] = exprData( i, j );
+			expression_observed[i][j] = observedExprs[j];            
+        }
 
         double beta = 1.0;
         squaredErr +=  least_square( predictedExprs, observedExprs, beta );
 	    correlation  +=  corr( predictedExprs, observedExprs ); 
         pgp_score += pgp( predictedExprs, observedExprs, beta );
+
     }	
 
     #if TIMER 
@@ -1989,14 +1994,16 @@ double ExprPredictor::comp_SSE_NormCorr_PGP( const ExprPar& par )
     cout << "Time " << (end.tv_sec-start.tv_sec)+1e-6*(end.tv_usec-start.tv_usec) << endl;
     #endif // TIMER
 
+	//double correlation_vertical = corr_vertical( expression_predicted ,expression_observed );
+
     delete func;
     obj_norm_corr = correlation / nSeqs();
     obj_sse = sqrt( squaredErr / ( nSeqs() * nConds() ) ); 
     obj_pgp = pgp_score / nSeqs();
     if (objOption == SSE)	return obj_sse;
     if (objOption == NORM_CORR)	return -obj_norm_corr;
-	if (objOption == CORR_L1)	return -obj_norm_corr + 0.1 * par.parameter_L1_norm();
-    if (objOption == CORR_L2)	return -obj_norm_corr + 0.1 * par.parameter_L2_norm();
+	if (objOption == CORR_L1)	return -obj_norm_corr + 0.3 * par.parameter_L1_norm();
+    if (objOption == CORR_L2)	return -obj_norm_corr + 0.3 * par.parameter_L2_norm();
     if (objOption == PGP)	return -obj_pgp;
     return 0;
 }
@@ -2043,7 +2050,7 @@ double ExprPredictor::comp_impact( const ExprPar& par, int tf )
 		for ( int k = 1; k < n; k++ ) {
 			double access_tmp = 1.0;
 			#if ACCESSIBILITY
-			access_tmp = exp( par.acc_scale * (1- seqSites[i][k].accessibility) ) ;
+			access_tmp = exp( - par.acc_scale * (1- seqSites[i][k].accessibility) ) ;
 			#endif //ACCESSIBILITY
 			_bindingWts[k] = access_tmp * par.maxBindingWts[ seqSites[i][k].factorIdx ] * seqSites[i][k].wtRatio ;	
 		}
@@ -2093,7 +2100,7 @@ double ExprPredictor::compAvgCorr( const ExprPar& par )
         for ( int k = 1; k < n; k++ ) {
 		double access_tmp = 1.0;
 		#if ACCESSIBILITY
-		access_tmp = exp( par_model.acc_scale * (1- seqSites[i][k].accessibility) ) ;
+		access_tmp = exp( -par_model.acc_scale * (1- seqSites[i][k].accessibility) ) ;
 		#endif //ACCESSIBILITY
 		_bindingWts[k] = access_tmp * par_model.maxBindingWts[ seqSites[i][k].factorIdx ] * seqSites[i][k].wtRatio ;
         }
@@ -2169,7 +2176,7 @@ double ExprPredictor::compAvgCrossCorr( const ExprPar& par )
         for ( int k = 1; k < n; k++ ) {
  		double access_tmp = 1.0;
 		#if ACCESSIBILITY
-		access_tmp =  exp(  par_model.acc_scale * ( 1 - seqSites[i][k].accessibility ) ) ;
+		access_tmp =  exp( - par_model.acc_scale * ( 1 - seqSites[i][k].accessibility ) ) ;
 		#endif //ACCESSIBILITY
 		_bindingWts[k] = access_tmp * par_model.maxBindingWts[ seqSites[i][k].factorIdx ] * seqSites[i][k].wtRatio ;
         }
