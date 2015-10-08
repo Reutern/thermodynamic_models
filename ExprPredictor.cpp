@@ -133,12 +133,11 @@ ExprPar::ExprPar( int _nFactors, int _nSeqs ) : factorIntMat()
 	}
 	else{
 		double basalTxp_val = modelOption == LOGISTIC ? ExprPar::default_basal_Logistic : ExprPar::default_basal_Thermo; 
-    		basalTxps.push_back( basalTxp_val ); 
+    	basalTxps.push_back( basalTxp_val ); 
 	}
 
     acc_scale = ExprPar::default_acc_scale;
     acc_base = ExprPar::default_acc_base;
-
 }
 	
 ExprPar::ExprPar( const vector< double >& _maxBindingWts, const Matrix& _factorIntMat, const vector< double >& _txpEffects, const vector< double >& _repEffects, const vector < double >& _basalTxps, int _nSeqs, double _acc_scale, double _acc_base ) : maxBindingWts( _maxBindingWts ), factorIntMat( _factorIntMat ), txpEffects( _txpEffects ), repEffects( _repEffects ), basalTxps( _basalTxps ), nSeqs( _nSeqs  ), acc_scale(_acc_scale), acc_base(_acc_base)
@@ -155,11 +154,9 @@ ExprPar::ExprPar( const vector< double >& _maxBindingWts, const Matrix& _factorI
 
 ExprPar::ExprPar( const vector< double >& pars, const IntMatrix& coopMat, const vector< bool >& actIndicators, const vector< bool >& repIndicators, int _nSeqs ) : factorIntMat()
 {	
-
     int _nFactors = actIndicators.size();
     assert( coopMat.isSquare() && coopMat.nRows() == _nFactors );
     assert( repIndicators.size() == _nFactors );
-//     assert( pars.size() == ( _nFactors * ( _nFactors + 1 ) / 2 + 2 * _nFactors + 2 ); 
     int counter = 0;
 	
     // set maxBindingWts 
@@ -191,13 +188,11 @@ ExprPar::ExprPar( const vector< double >& pars, const IntMatrix& coopMat, const 
 
     // set the transcriptional effects
     for ( int i = 0; i < _nFactors; i++ ) {
-//         double defaultEffect = modelOption == LOGISTIC ? ExprPar::default_effect_Logistic : ExprPar::default_effect_Thermo; 
         if ( modelOption == LOGISTIC ) {
             double effect = searchOption == CONSTRAINED ? inverse_infty_transform( pars[counter++], min_effect_Logistic, max_effect_Logistic ) : pars[counter++];
             txpEffects.push_back( effect );
         } else if ( modelOption == DIRECT ) {
             double effect = searchOption == CONSTRAINED ? exp( inverse_infty_transform( pars[counter++], log( min_effect_Thermo ), log( max_effect_Thermo ) ) ) : exp( pars[counter++] );
-            //double effect = searchOption == CONSTRAINED ? inverse_infty_transform( pars[counter++],  min_effect_Thermo ,  max_effect_Thermo  ) :  pars[counter++] ;
             txpEffects.push_back( effect ); 
         } else {
             if ( actIndicators[i] ) {
@@ -225,26 +220,24 @@ ExprPar::ExprPar( const vector< double >& pars, const IntMatrix& coopMat, const 
     
     // set the basal transcription
     if( one_qbtm_per_crm ){	
-	nSeqs = _nSeqs;
-	for( int i = 0; i < nSeqs; i++ ){
+		nSeqs = _nSeqs;
+		for( int i = 0; i < nSeqs; i++ ){
+			if ( modelOption == LOGISTIC ) {
+		   		double basal = searchOption == CONSTRAINED ? inverse_infty_transform( pars[counter++], min_basal_Logistic, max_basal_Logistic ) : pars[counter++];
+		   		basalTxps.push_back( basal );
+			} else {
+		   		double basal = searchOption == CONSTRAINED ? exp( inverse_infty_transform( pars[counter++], log( min_basal_Thermo ), log( max_basal_Thermo ) ) ) : exp( pars[counter++] );
+		   		basalTxps.push_back( basal );
+			}
+		}
+	} else {
 		if ( modelOption == LOGISTIC ) {
-        		double basal = searchOption == CONSTRAINED ? inverse_infty_transform( pars[counter++], min_basal_Logistic, max_basal_Logistic ) : pars[counter++];
-        		basalTxps.push_back( basal );
-    		} else {
-        		double basal = searchOption == CONSTRAINED ? exp( inverse_infty_transform( pars[counter++], log( min_basal_Thermo ), log( max_basal_Thermo ) ) ) : exp( pars[counter++] );
-        		basalTxps.push_back( basal );
-    		}
-	}
-	}
-	else{
-	
-		if ( modelOption == LOGISTIC ) {
-        		double basal = searchOption == CONSTRAINED ? inverse_infty_transform( pars[counter++], min_basal_Logistic, max_basal_Logistic ) : pars[counter++];
-        		basalTxps.push_back( basal );
-    		} else {
-        		double basal = searchOption == CONSTRAINED ? exp( inverse_infty_transform( pars[counter++], log( min_basal_Thermo ), log( max_basal_Thermo ) ) ) : exp( pars[counter++] );
-        		basalTxps.push_back( basal );
-    		}
+        	double basal = searchOption == CONSTRAINED ? inverse_infty_transform( pars[counter++], min_basal_Logistic, max_basal_Logistic ) : pars[counter++];
+        	basalTxps.push_back( basal );
+    	} else {
+        	double basal = searchOption == CONSTRAINED ? exp( inverse_infty_transform( pars[counter++], log( min_basal_Thermo ), log( max_basal_Thermo ) ) ) : exp( pars[counter++] );
+        	basalTxps.push_back( basal );
+    	}
 	}
 
     #if ACCESSIBILITY
@@ -252,7 +245,6 @@ ExprPar::ExprPar( const vector< double >& pars, const IntMatrix& coopMat, const 
     acc_scale = searchOption == CONSTRAINED ? exp( inverse_infty_transform( pars[counter++], log( min_acc_scale ), log( max_acc_scale ) ) ) : exp( pars[counter++] );
     acc_base = searchOption == CONSTRAINED ?  exp( inverse_infty_transform( pars[counter++], log( min_acc_base  ), log( max_acc_base  ) ) ) : exp( pars[counter++] );
     #endif // ACCESSIBILITY
-
 }
 
 double ExprPar::parameter_L2_norm() const
@@ -266,7 +258,6 @@ double ExprPar::parameter_L2_norm() const
 			L2_norm +=   pow( (txpEffects[i] -1) / ( max_effect_Thermo -1 ),2 )/nFactors();
 		else
 			L2_norm +=   pow( min_effect_Thermo / txpEffects[i],2 )/nFactors();
-
 	}
 
 	double L2_norm_coop = 0;
@@ -689,6 +680,8 @@ SearchType ExprPar::searchOption = CONSTRAINED;
 int ExprPar::estBindingOption = 1;  // 1. estimate binding parameters; 0. not estimate binding parameters
  
 // training parameter limits / range
+
+// Parameter limits	medium
 double ExprPar::default_acc_scale = 1;
 double ExprPar::default_acc_base = 0.01;
 double ExprPar::default_weight = 1.0;
@@ -702,23 +695,22 @@ double ExprPar::min_acc_scale = 0.001;
 double ExprPar::min_acc_base = 0.001;
 double ExprPar::max_acc_scale = 100.0;
 double ExprPar::max_acc_base = 3;
-double ExprPar::min_weight = 0.00001;		
-double ExprPar::max_weight = 500;//500;		
+double ExprPar::min_weight = 0.0001;		
+double ExprPar::max_weight = 1000;//500;		
 double ExprPar::min_interaction = 0.001;	
 double ExprPar::max_interaction = 500;
 double ExprPar::min_effect_Logistic = -5;	
 double ExprPar::max_effect_Logistic = 5;
 // double ExprPar::min_effect_Direct = 0.01;
-double ExprPar::min_effect_Thermo = 0.01;	
-double ExprPar::max_effect_Thermo = 500;
+double ExprPar::min_effect_Thermo = 0.001;	
+double ExprPar::max_effect_Thermo = 1000;
 double ExprPar::min_repression = 1.0E-3;
 double ExprPar::max_repression = 500; 
 double ExprPar::min_basal_Logistic = -9.0;	
 double ExprPar::max_basal_Logistic = -1.0;
-double ExprPar::min_basal_Thermo = 1.0E-5;	
-double ExprPar::max_basal_Thermo = 0.05;
+double ExprPar::min_basal_Thermo = 1.0E-6;	
+double ExprPar::max_basal_Thermo = 0.1;
 double ExprPar::delta = 0.0001;
-
 
 bool ExprPar::one_qbtm_per_crm = ONE_QBTM;
 bool ExprFunc::one_qbtm_per_crm = ONE_QBTM;
@@ -1721,7 +1713,7 @@ double ExprPredictor::exprSimCrossCorr( const vector< double >& x, const vector<
 int ExprPredictor::maxShift = 5; 
 double ExprPredictor::shiftPenalty = 0.8; 
 
-int ExprPredictor::nAlternations = 6;
+int ExprPredictor::nAlternations = 0;
 int ExprPredictor::nRandStarts = 5;
 double ExprPredictor::min_delta_f_SSE = 1.0E-8;
 double ExprPredictor::min_delta_f_Corr = 1.0E-8;
@@ -1920,7 +1912,7 @@ int indices_of_crm_in_gene[] = {
 
 double ExprPredictor::comp_SSE_NormCorr_PGP( const ExprPar& par ) 
 {
-    // create the expression function
+    // create the expression function		
     ExprFunc* func = createExprFunc( par );
     // error of each sequence
     double squaredErr = 0;
@@ -1946,7 +1938,7 @@ double ExprPredictor::comp_SSE_NormCorr_PGP( const ExprPar& par )
 	int n = seqSites[i].size();
 	vector< double > _bindingWts (n,0.0);
 	vector< int > _boundaries (n,0);
-	
+
 	// Determin the boundaries for func
 	_boundaries[0] = 0;
 	int range = max(coopDistThr, repressionDistThr );
@@ -2002,8 +1994,8 @@ double ExprPredictor::comp_SSE_NormCorr_PGP( const ExprPar& par )
     obj_pgp = pgp_score / nSeqs();
     if (objOption == SSE)	return obj_sse;
     if (objOption == NORM_CORR)	return -obj_norm_corr;
-	if (objOption == CORR_L1)	return -obj_norm_corr + 0.3 * par.parameter_L1_norm();
-    if (objOption == CORR_L2)	return -obj_norm_corr + 0.3 * par.parameter_L2_norm();
+	if (objOption == CORR_L1)	return -obj_norm_corr + 0.1 * par.parameter_L1_norm();
+    if (objOption == CORR_L2)	return -obj_norm_corr + 0.1 * par.parameter_L2_norm();
     if (objOption == PGP)	return -obj_pgp;
     return 0;
 }
@@ -2011,60 +2003,15 @@ double ExprPredictor::comp_SSE_NormCorr_PGP( const ExprPar& par )
 double ExprPredictor::comp_impact( const ExprPar& par, int tf ) 
 {
 
-	// get effective parameter
-	ExprPar par_eff = par;
-	par_eff.txpEffects[tf] = max(par.txpEffects[tf] , 1 / par.txpEffects[tf]);
+	// Calculate the objecttive function with the factor tf basicly deleted
+	ExprPar par_deleted = par;
+	par_deleted.maxBindingWts[tf] = ExprPar::min_weight;
+	par_deleted.txpEffects[tf] = 1.0;
+	double obj_deleted = objFunc(par_deleted);
+	double impact = obj_model - obj_deleted;			
 
-    // create the expression function
-    ExprFunc* func = createExprFunc( par_eff );
-
-	double impact = 0;	
-
-    for ( int i = 0; i < nSeqs(); i++ ) {
-
-		vector < double >concs (nFactors(), 0.0) ;
-		   
-		// Ignore all other TF
-		concs[tf] = 1.0;
-
-		// Initiate the sites for func
-		func->set_sites(seqSites[ i ]);
-
-		int n = seqSites[i].size();
-		vector< double > _bindingWts (n,0.0);
-		vector< int > _boundaries (n,0);
-	
-		// Determin the boundaries for func
-		_boundaries[0] = 0;
-		int range = max(coopDistThr, repressionDistThr );
-		    for ( int k = 1; k < n; k++ ) {
-			int l;	       	 
-			for ( l=0; l < k; l++ ) {
-				if ( ( seqSites[i][k].start - seqSites[i][l].start ) <= range ) {break;} 
-			}
-			    _boundaries[k] = l;
-		}	
-		func->set_boundaries(_boundaries);
-		// compute the Boltzman weights of binding for all sites for func
-		_bindingWts[0] = 1.0;
-		for ( int k = 1; k < n; k++ ) {
-			double access_tmp = 1.0;
-			#if ACCESSIBILITY
-			access_tmp = exp( - par.acc_scale * (1- seqSites[i][k].accessibility) ) ;
-			#endif //ACCESSIBILITY
-			_bindingWts[k] = access_tmp * par.maxBindingWts[ seqSites[i][k].factorIdx ] * seqSites[i][k].wtRatio ;	
-		}
-		func->set_bindingWts(_bindingWts); 
-
-   		double PartFuncOff = func->compPartFuncOff( concs );
-   		double PartFuncOn = func->compPartFuncOn( concs );
-
-		impact += PartFuncOn / PartFuncOff / nSeqs(); 
-    }	
-
-    delete func;
-
-    return log10( impact );
+	if (objOption == SSE)	return impact;	// SSE gets minimised
+	else	return -impact;	// All other objective functions get maximised
 }
 
 
