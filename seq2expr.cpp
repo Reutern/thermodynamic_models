@@ -435,8 +435,9 @@ int main( int argc, char* argv[] )
 	double log_impact = log10( abs( impact ) ); 
 
 	double impact_new = predictor->comp_impact(par,tf);
+	double impact_coop = predictor->comp_impact_coop(par,tf, tf);
 
-	cout << motifNames[tf] << "\t" << log_impact << "\t" << impact_new << endl;
+	cout << motifNames[tf] << "\t" << log_impact << "\t" << impact_new << "\t" << impact_coop << endl;
     }
 
     #if CALCULATE_OCCUPANCY

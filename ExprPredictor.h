@@ -346,6 +346,7 @@ public:
 
 
     double comp_impact( const ExprPar& par, int tf );		// The impact of the parameter
+    double comp_impact_coop( const ExprPar& par, int tf1, int tf2 );		// The impact of the cooperativity parameter
 
     // test the model, perfOption = 0: RMSE
 // 	double test( const vector< Sequence  >& testSeqs, const Matrix& testExprData, Matrix& predictions ) const;    

@@ -681,7 +681,7 @@ int ExprPar::estBindingOption = 1;  // 1. estimate binding parameters; 0. not es
  
 // training parameter limits / range
 
-// Parameter limits	medium
+double ExprPar::delta = 0.0001;
 double ExprPar::default_acc_scale = 1;
 double ExprPar::default_acc_base = 0.01;
 double ExprPar::default_weight = 1.0;
@@ -695,22 +695,48 @@ double ExprPar::min_acc_scale = 0.001;
 double ExprPar::min_acc_base = 0.001;
 double ExprPar::max_acc_scale = 100.0;
 double ExprPar::max_acc_base = 3;
-double ExprPar::min_weight = 0.0001;		
-double ExprPar::max_weight = 1000;//500;		
-double ExprPar::min_interaction = 0.001;	
-double ExprPar::max_interaction = 500;
+double ExprPar::min_basal_Logistic = -9.0;	
+double ExprPar::max_basal_Logistic = -1.0;
+// double ExprPar::min_effect_Direct = 0.01;
 double ExprPar::min_effect_Logistic = -5;	
 double ExprPar::max_effect_Logistic = 5;
-// double ExprPar::min_effect_Direct = 0.01;
+
+#if PARAMETER_SPACE == small
+double ExprPar::min_weight = 0.001;		
+double ExprPar::max_weight = 500;	
+double ExprPar::min_interaction = 0.001;	
+double ExprPar::max_interaction = 500;
+double ExprPar::min_effect_Thermo = 0.01;	
+double ExprPar::max_effect_Thermo = 500;
+double ExprPar::min_repression = 1.0E-3;
+double ExprPar::max_repression = 500; 
+double ExprPar::min_basal_Thermo = 1.0E-5;	
+double ExprPar::max_basal_Thermo = 0.05;
+
+#elif PARAMETER_SPACE == medium
+double ExprPar::min_weight = 0.0001;		
+double ExprPar::max_weight = 1000;		
+double ExprPar::min_interaction = 0.001;	
+double ExprPar::max_interaction = 500;
 double ExprPar::min_effect_Thermo = 0.001;	
 double ExprPar::max_effect_Thermo = 1000;
 double ExprPar::min_repression = 1.0E-3;
 double ExprPar::max_repression = 500; 
-double ExprPar::min_basal_Logistic = -9.0;	
-double ExprPar::max_basal_Logistic = -1.0;
 double ExprPar::min_basal_Thermo = 1.0E-6;	
 double ExprPar::max_basal_Thermo = 0.1;
-double ExprPar::delta = 0.0001;
+
+#elif PARAMETER_SPACE == large
+double ExprPar::min_weight = 0.00001;		
+double ExprPar::max_weight = 5000;		
+double ExprPar::min_interaction = 0.001;	
+double ExprPar::max_interaction = 500;
+double ExprPar::min_effect_Thermo = 0.0001;	
+double ExprPar::max_effect_Thermo = 5000;
+double ExprPar::min_repression = 1.0E-3;
+double ExprPar::max_repression = 500; 
+double ExprPar::min_basal_Thermo = 1.0E-7;	
+double ExprPar::max_basal_Thermo = 1;
+#endif // PARAMETER_SPACE
 
 bool ExprPar::one_qbtm_per_crm = ONE_QBTM;
 bool ExprFunc::one_qbtm_per_crm = ONE_QBTM;
@@ -2014,6 +2040,18 @@ double ExprPredictor::comp_impact( const ExprPar& par, int tf )
 	else	return -impact;	// All other objective functions get maximised
 }
 
+double ExprPredictor::comp_impact_coop( const ExprPar& par, int tf1, int tf2 ) 
+{
+
+	// Calculate the objecttive function with the factor tf basicly deleted
+	ExprPar par_deleted = par;
+	par_deleted.factorIntMat( tf1, tf2 ) = 0;
+	double obj_deleted = objFunc(par_deleted);
+	double impact = obj_model - obj_deleted;			
+
+	if (objOption == SSE)	return impact;	// SSE gets minimised
+	else	return -impact;	// All other objective functions get maximised
+}
 
 double ExprPredictor::compAvgCorr( const ExprPar& par ) 
 {
