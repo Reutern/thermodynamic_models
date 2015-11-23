@@ -141,9 +141,10 @@ ExprPar::ExprPar( int _nFactors, int _nSeqs ) : factorIntMat()
 	}
 
     acc_scale = ExprPar::default_acc_scale;
+    par_penalty = ExprPar::default_par_penalty;
 }
 	
-ExprPar::ExprPar( const vector< double >& _maxBindingWts, const Matrix& _factorIntMat, const vector< double >& _txpEffects, const vector< double >& _repEffects, const vector < double >& _basalTxps, int _nSeqs, double _acc_scale ) : maxBindingWts( _maxBindingWts ), factorIntMat( _factorIntMat ), txpEffects( _txpEffects ), repEffects( _repEffects ), basalTxps( _basalTxps ), nSeqs( _nSeqs  ), acc_scale(_acc_scale)
+ExprPar::ExprPar( const vector< double >& _maxBindingWts, const Matrix& _factorIntMat, const vector< double >& _txpEffects, const vector< double >& _repEffects, const vector < double >& _basalTxps, int _nSeqs, double _acc_scale, double _par_penalty ) : maxBindingWts( _maxBindingWts ), factorIntMat( _factorIntMat ), txpEffects( _txpEffects ), repEffects( _repEffects ), basalTxps( _basalTxps ), nSeqs( _nSeqs  ), acc_scale(_acc_scale), par_penalty(_par_penalty)
 {
     if ( !factorIntMat.isEmpty() ) assert( factorIntMat.nRows() == maxBindingWts.size() && factorIntMat.isSquare() ); 	
     assert( txpEffects.size() == maxBindingWts.size() && repEffects.size() == maxBindingWts.size() );
@@ -247,6 +248,8 @@ ExprPar::ExprPar( const vector< double >& pars, const IntMatrix& coopMat, const 
     // Write the accessibility parameter
     acc_scale = searchOption == CONSTRAINED ? exp( inverse_infty_transform( pars[counter++], log( min_acc_scale ), log( max_acc_scale ) ) ) : exp( pars[counter++] );
     #endif // ACCESSIBILITY
+
+    par_penalty = ExprPar::default_par_penalty;
 }
 
 double ExprPar::parameter_L2_norm() const
@@ -673,6 +676,7 @@ int ExprPar::estBindingOption = 1;  // 1. estimate binding parameters; 0. not es
 
 double ExprPar::delta = 0.0001;
 double ExprPar::default_acc_scale = 1;
+double ExprPar::default_par_penalty = 0.1;
 double ExprPar::default_weight = 1.0;
 double ExprPar::default_interaction = 1.0;
 double ExprPar::default_effect_Logistic = 0.0;
@@ -1562,9 +1566,9 @@ double ExprPredictor::objFunc( const ExprPar& par )
     obj_pgp = pgp_score / nSeqs();
 	double penalty = 0;
 	if (PenaltyOption == L1) 
-		penalty = 0.1 * par.parameter_L1_norm();
+		penalty = par.par_penalty * par.parameter_L1_norm();
 	if (PenaltyOption == L2) 
-		penalty = 0.1 * par.parameter_L2_norm();
+		penalty = par.par_penalty * par.parameter_L2_norm();
 
     if (objOption == SSE)	return obj_sse + penalty;
     else if (objOption == CORR)	return -obj_corr + penalty;
