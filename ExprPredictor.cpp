@@ -141,10 +141,9 @@ ExprPar::ExprPar( int _nFactors, int _nSeqs ) : factorIntMat()
 	}
 
     acc_scale = ExprPar::default_acc_scale;
-    acc_base = ExprPar::default_acc_base;
 }
 	
-ExprPar::ExprPar( const vector< double >& _maxBindingWts, const Matrix& _factorIntMat, const vector< double >& _txpEffects, const vector< double >& _repEffects, const vector < double >& _basalTxps, int _nSeqs, double _acc_scale, double _acc_base ) : maxBindingWts( _maxBindingWts ), factorIntMat( _factorIntMat ), txpEffects( _txpEffects ), repEffects( _repEffects ), basalTxps( _basalTxps ), nSeqs( _nSeqs  ), acc_scale(_acc_scale), acc_base(_acc_base)
+ExprPar::ExprPar( const vector< double >& _maxBindingWts, const Matrix& _factorIntMat, const vector< double >& _txpEffects, const vector< double >& _repEffects, const vector < double >& _basalTxps, int _nSeqs, double _acc_scale ) : maxBindingWts( _maxBindingWts ), factorIntMat( _factorIntMat ), txpEffects( _txpEffects ), repEffects( _repEffects ), basalTxps( _basalTxps ), nSeqs( _nSeqs  ), acc_scale(_acc_scale)
 {
     if ( !factorIntMat.isEmpty() ) assert( factorIntMat.nRows() == maxBindingWts.size() && factorIntMat.isSquare() ); 	
     assert( txpEffects.size() == maxBindingWts.size() && repEffects.size() == maxBindingWts.size() );
@@ -247,7 +246,6 @@ ExprPar::ExprPar( const vector< double >& pars, const IntMatrix& coopMat, const 
     #if ACCESSIBILITY
     // Write the accessibility parameter
     acc_scale = searchOption == CONSTRAINED ? exp( inverse_infty_transform( pars[counter++], log( min_acc_scale ), log( max_acc_scale ) ) ) : exp( pars[counter++] );
-    acc_base = searchOption == CONSTRAINED ?  exp( inverse_infty_transform( pars[counter++], log( min_acc_base  ), log( max_acc_base  ) ) ) : exp( pars[counter++] );
     #endif // ACCESSIBILITY
 }
 
@@ -375,10 +373,6 @@ void ExprPar::getFreePars( vector< double >& pars, const IntMatrix& coopMat, con
     // Write the accessibility parameter
     double scale = searchOption == CONSTRAINED ?  infty_transform( log( acc_scale ), log( min_acc_scale ), log( max_acc_scale ) ) : log( acc_scale );
     pars.push_back( scale );
-
-    double base = searchOption == CONSTRAINED ? infty_transform( log( acc_base ), log( min_acc_base ), log( max_acc_base ) ) : log( acc_base );
-    pars.push_back( base );
-  
     #endif // ACCESSIBILITY
 
 }
@@ -400,7 +394,7 @@ void ExprPar::print( ostream& os, const vector< string >& motifNames, const vect
     }
 
     #if ACCESSIBILITY
-    os << "Accessibility = " << acc_scale << "\t " << acc_base << endl;
+    os << "Accessibility = " << acc_scale << endl;
     #endif // ACCESSIBILITY
 
     // print the basal transcription
@@ -443,11 +437,9 @@ int ExprPar::load( const string& file )
     string symbol, eqSign, value;
 
     #if ACCESSIBILITY
-    string value1, value2;
-    fin >> symbol >> eqSign >> value1 >> value2;
+    fin >> symbol >> eqSign >> value;
     if (symbol != "Accessibility" || eqSign != "=") return RET_ERROR;
-    acc_scale = atof( value1.c_str() );
-    acc_base = atof( value2.c_str() );
+    acc_scale = atof( value.c_str() );
     #endif // ACCESSIBILITY
 
     // read the basal transcription
@@ -505,11 +497,9 @@ int ExprPar::load( const string& file, const vector <string>& seqNames )
     string symbol, eqSign, value;
 
     #if ACCESSIBILITY
-    string value1, value2;
-    fin >> symbol >> eqSign >> value1 >> value2;
+    fin >> symbol >> eqSign >> value;
     if (symbol != "Accessibility" || eqSign != "=") return RET_ERROR;
-    acc_scale = atof( value1.c_str() );
-    acc_base = atof( value2.c_str() );
+    acc_scale = atof( value.c_str() );
     #endif // ACCESSIBILITY
 
     // read the basal transcription
@@ -609,8 +599,6 @@ void ExprPar::adjust()
     #if ACCESSIBILITY
     if ( acc_scale < ExprPar::min_acc_scale * ( 1.0 + ExprPar::delta ) ) acc_scale *= 2.0;
     if ( acc_scale > ExprPar::max_acc_scale * ( 1.0 - ExprPar::delta ) ) acc_scale /= 2.0;
-    if ( acc_base < ExprPar::min_acc_base * ( 1.0 + ExprPar::delta ) ) acc_base *= 2.0;
-    if ( acc_base > ExprPar::max_acc_base * ( 1.0 - ExprPar::delta ) ) acc_base /= 2.0;
     #endif // ACCESSIBILITY
 
 
@@ -673,8 +661,6 @@ void ExprPar::constrain_parameters()
     #if ACCESSIBILITY
     if ( acc_scale < ExprPar::min_acc_scale * ( 1.0 + ExprPar::delta ) ) acc_scale = ExprPar::min_acc_scale;
     if ( acc_scale > ExprPar::max_acc_scale * ( 1.0 - ExprPar::delta ) ) acc_scale = ExprPar::max_acc_scale;
-    if ( acc_base < ExprPar::min_acc_base * ( 1.0 + ExprPar::delta ) ) acc_base = ExprPar::min_acc_base;
-    if ( acc_base > ExprPar::max_acc_base * ( 1.0 - ExprPar::delta ) ) acc_base = ExprPar::max_acc_base;
     #endif // ACCESSIBILITY
 
 }
@@ -687,7 +673,6 @@ int ExprPar::estBindingOption = 1;  // 1. estimate binding parameters; 0. not es
 
 double ExprPar::delta = 0.0001;
 double ExprPar::default_acc_scale = 1;
-double ExprPar::default_acc_base = 0.01;
 double ExprPar::default_weight = 1.0;
 double ExprPar::default_interaction = 1.0;
 double ExprPar::default_effect_Logistic = 0.0;
@@ -696,9 +681,7 @@ double ExprPar::default_repression = 1.0E-2;
 double ExprPar::default_basal_Logistic = -5.0;
 double ExprPar::default_basal_Thermo = 0.01;
 double ExprPar::min_acc_scale = 0.001;
-double ExprPar::min_acc_base = 0.001;
 double ExprPar::max_acc_scale = 100.0;
-double ExprPar::max_acc_base = 3;
 double ExprPar::min_basal_Logistic = -9.0;	
 double ExprPar::max_basal_Logistic = -1.0;
 // double ExprPar::min_effect_Direct = 0.01;
@@ -1960,7 +1943,7 @@ void ExprPredictor::printPar( const ExprPar& par ) const
     }
 
     // print Accessibility parameters
-	cout << par.acc_scale << "\t" << par.acc_base << "\t";
+	cout << par.acc_scale << "\t";
 
     cout << endl;
 }

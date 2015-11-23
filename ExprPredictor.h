@@ -126,9 +126,9 @@ public:
     // constructors 
     ExprPar() : factorIntMat() {}
     ExprPar( int _nFactors, int _nSeqs );		// default values of parameters
-    ExprPar( const vector< double >& _maxBindingWts, const Matrix& _factorIntMat, const vector< double >& _txpEffects, const vector< double >& _repEffects, const vector < double >&  _basalTxps, int _nSeqs, double acc_scale, double acc_base );
+    ExprPar( const vector< double >& _maxBindingWts, const Matrix& _factorIntMat, const vector< double >& _txpEffects, const vector< double >& _repEffects, const vector < double >&  _basalTxps, int _nSeqs, double acc_scale );
     ExprPar( const vector< double >& pars, const IntMatrix& coopMat, const vector< bool >& actIndicators, const vector< bool >& repIndicators, int _nSeqs );	// construct from a "flat" vector of free parameters (assuming they are in the correct/uniform scale)
-    void copy( const ExprPar& other ) { maxBindingWts = other.maxBindingWts; factorIntMat = other.factorIntMat; txpEffects = other.txpEffects; repEffects = other.repEffects; basalTxps = other.basalTxps; nSeqs = basalTxps.size(); acc_scale = other.acc_scale; acc_base = other.acc_base; }
+    void copy( const ExprPar& other ) { maxBindingWts = other.maxBindingWts; factorIntMat = other.factorIntMat; txpEffects = other.txpEffects; repEffects = other.repEffects; basalTxps = other.basalTxps; nSeqs = basalTxps.size(); acc_scale = other.acc_scale; }
     ExprPar( const ExprPar& other ) { copy( other ); }
 
     // assignment
@@ -165,7 +165,6 @@ public:
     vector < double > basalTxps;        // basal transcription: q_p for Direct and Quenching model, exp(alpha_0) for Logistic model (so that the same default value can be used)
 //     double expRatio; 		// constant factor of measurement to prediction 
     double acc_scale;
-    double acc_base;
 
 	int nSeqs;
 
@@ -175,7 +174,6 @@ public:
     static bool one_qbtm_per_crm;
     
     static double default_acc_scale;	// default accessibility scaling parameter
-    static double default_acc_base;	// default accessibility base parameter
     static double default_weight;	// default binding weight
     static double default_interaction;		// default factor interaction
     static double default_effect_Logistic;   // default transcriptional effect under Logistic model
@@ -184,9 +182,7 @@ public:
     static double default_basal_Logistic;       // default basal transcription under Logistic model
     static double default_basal_Thermo;         // default basal transcriptional under thermo. models
     static double min_acc_scale;	// min accessibility scaling parameter
-    static double min_acc_base;	// min accessibility base parameter
     static double max_acc_scale;	// max accessibility scaling parameter
-    static double max_acc_base;	// max accessibility base parameter
     static double min_weight;		// min. binding weight
     static double max_weight;		// max. binding weight
     static double min_interaction;	    // min. interaction

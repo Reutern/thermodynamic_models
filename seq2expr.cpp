@@ -303,7 +303,6 @@ int main( int argc, char* argv[] )
 		}
 		#if ACCESSIBILITY
 		indicator_bool.push_back( true ); 	// acc_scale
-		indicator_bool.push_back( false );	// acc_base
 		#endif //ACCESSIBILITY
 	}
 
@@ -525,7 +524,6 @@ int main( int argc, char* argv[] )
 		}
 		#if ACCESSIBILITY
 		indicator_bool_modified.push_back( false ); 	// acc_scale
-		indicator_bool_modified.push_back( false );	// acc_base
 		#endif //ACCESSIBILITY
 
 		// Modify parameters
