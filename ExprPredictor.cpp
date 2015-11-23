@@ -705,7 +705,7 @@ double ExprPar::max_effect_Logistic = 5;
 double ExprPar::min_weight = 0.001;		
 double ExprPar::max_weight = 500;	
 double ExprPar::min_interaction = 0.001;	
-double ExprPar::max_interaction = 500;
+double ExprPar::max_interaction = 5000;
 double ExprPar::min_effect_Thermo = 0.01;	
 double ExprPar::max_effect_Thermo = 500;
 double ExprPar::min_repression = 1.0E-3;
@@ -1739,7 +1739,7 @@ double ExprPredictor::exprSimCrossCorr( const vector< double >& x, const vector<
 int ExprPredictor::maxShift = 5; 
 double ExprPredictor::shiftPenalty = 0.8; 
 
-int ExprPredictor::nAlternations = 0;
+int ExprPredictor::nAlternations = 4;
 int ExprPredictor::nRandStarts = 5;
 double ExprPredictor::min_delta_f_SSE = 1.0E-8;
 double ExprPredictor::min_delta_f_Corr = 1.0E-8;

@@ -177,13 +177,11 @@ int readSequences( const string& file, const string& accfile, vector< Sequence >
     // read sequences: FASTA format
     if ( format == FASTA ) {
 		bool rlin = getline( fin, line );
-        while ( rlin ) {
-	    
-	    getline( facc, line_acc );
 
-            // add the sequence and start a new sequence if the line starts with >
+        while ( rlin ) {
+	        // add the sequence and start a new sequence if the line starts with >
             //cout << line << endl;
-            if ( line[ 0 ] == '>' ) { cout << line << endl;	
+            if ( line[ 0 ] == '>' ) { 
                 if ( seq.size() ) {
                     seqs.push_back( seq );
                     seq.clear();	
@@ -210,11 +208,9 @@ int readSequences( const string& file, const string& accfile, vector< Sequence >
                  // append the sequence
 		double ac = 1.0;
 
-
+	    getline( facc, line_acc );
         for ( int i = start; i < last; i++ ) {
                 int nt = symbolToInt( line_tmp[ i ] );	// could be a NNN or gap
-
-				//cout << ac_counter << " " <<ac <<endl;
 		        getline( facc, line_acc );
 			    ac = std::stod (line_acc);	// read in according accessibility
  	            std::size_t pos = line_acc.find("\t");      // position of next gap in line_acc

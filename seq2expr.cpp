@@ -103,7 +103,7 @@ int main( int argc, char* argv[] )
     ExprPredictor::min_delta_f_SSE = 1.0E-10;
     ExprPredictor::min_delta_f_Corr = 1.0E-10;
     ExprPredictor::min_delta_f_CrossCorr = 1.0E-10;
-    ExprPredictor::nSimplexIters = 0000;
+    ExprPredictor::nSimplexIters = 20000;
     ExprPredictor::nGradientIters = 200;
 
     int rval;
@@ -129,7 +129,7 @@ int main( int argc, char* argv[] )
     rval = readMatrix( exprFile, labels, condNames, data );
     assert( rval != RET_ERROR );
     for ( int i = 0; i < nSeqs; i++ ){
-    	if( labels[ i ] != seqNames[ i ] ) cout << labels[i] << seqNames[i] << endl;
+    	if( labels[ i ] != seqNames[ i ] ) cout << labels[i] << seqNames[i] <<  endl;
     }
     Matrix exprData( data ); 
     int nConds = exprData.nCols();
@@ -194,17 +194,23 @@ int main( int argc, char* argv[] )
             exit( 1 );
         }  
         while (fcoop >> factor1 >> factor2) {
-            assert( factorIdxMap.count(factor1) && factorIdxMap.count(factor2) );
-            int idx1 = factorIdxMap[factor1];
-            int idx2 = factorIdxMap[factor2];
-            if(coopMat(idx1, idx2) == false && coopMat(idx2, idx1) == false ){
-	    		coopMat(idx1, idx2) = true;
-	    		coopMat(idx2, idx1) = true;
-	    		num_of_coop_pairs ++;
+			if(factor1 == "all"){
+				IntMatrix fullMat( nFactors, nFactors, true );
+				coopMat = fullMat;
+				num_of_coop_pairs = (nFactors + 1) * nFactors / 2;
+			}
+			else{
+		        assert( factorIdxMap.count(factor1) && factorIdxMap.count(factor2) );
+		        int idx1 = factorIdxMap[factor1];
+		        int idx2 = factorIdxMap[factor2];
+		        if(coopMat(idx1, idx2) == false && coopMat(idx2, idx1) == false ){
+					coopMat(idx1, idx2) = true;
+					coopMat(idx2, idx1) = true;
+					num_of_coop_pairs ++;
+				}
 	    	}
         }        
     } 
-
     // read the roles of factors
     vector< bool > actIndicators(nFactors, false);
     vector< bool > repIndicators(nFactors, false);
