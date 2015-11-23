@@ -102,7 +102,7 @@ int main( int argc, char* argv[] )
     ExprPredictor::nRandStarts = 0;
     ExprPredictor::min_delta_f_SSE = 1.0E-10;
     ExprPredictor::min_delta_f_Corr = 1.0E-10;
-    ExprPredictor::min_delta_f_CrossCorr = 1.0E-10;
+    ExprPredictor::min_delta_f_PGP = 1.0E-10;
     ExprPredictor::nSimplexIters = 20000;
     ExprPredictor::nGradientIters = 200;
 
@@ -317,6 +317,7 @@ int main( int argc, char* argv[] )
         cout << "Repression_Distance_Threshold = " << repressionDistThr << endl;
     }
     cout << "Objective_Function = " << getObjOptionStr( ExprPredictor::objOption ) << endl;
+    cout << "Penalty_Function = " << getPenaltyOptionStr( ExprPredictor::PenaltyOption ) << endl;
     if ( !coopFile.empty() ) {
         cout << "Interaction_Model = " << getIntOptionStr( intOption ) << endl;
         cout << "Interaction_Distance_Threshold = " << coopDistThr << endl;
@@ -562,10 +563,10 @@ int main( int argc, char* argv[] )
 	correlation  +=  corr( targetExprs, observedExprs ); 
     }	
 
-    double obj_norm_corr = correlation / test_nSeqs;
+    double obj_corr = correlation / test_nSeqs;
     double obj_sse = sqrt( squaredErr / ( test_nSeqs * nConds ) ); 
  
-    cout << "Performance on test set: SSE = " << obj_sse << "\t" << "Norm_Corr = " << obj_norm_corr << endl;
+    cout << "Performance on test set: SSE = " << obj_sse << "\t" << "Corr = " << obj_corr << endl;
 	delete predictor_CV;
     #else
     for ( int i = 0; i < nSeqs; i++ ) {
@@ -590,14 +591,8 @@ int main( int argc, char* argv[] )
         cout << seqNames[i] << "\t" << beta << "\t"; 
         if ( ExprPredictor::objOption == SSE ) 
             cout << error << endl;       
-	else if ( ExprPredictor::objOption == SSE_V ) 
-            cout << least_square_variance( targetExprs, observedExprs, beta, 1.0 ) << endl;
         else if ( ExprPredictor::objOption == CORR ) 
             cout << corr( targetExprs, observedExprs ) << endl;
-        else if ( ExprPredictor::objOption == CROSS_CORR )
-            cout << ExprPredictor::exprSimCrossCorr( observedExprs, targetExprs ) << endl; 
-        else if ( ExprPredictor::objOption == NORM_CORR )
-            cout << norm_corr( observedExprs, targetExprs ) << endl; 
 	#endif // SHORT_OUTPUT
     }
     #endif // CROSS_VALIDATION

@@ -24,19 +24,20 @@ string getIntOptionStr( FactorIntType intOption );
 
 enum ObjType {
     SSE,    // sum of squared error
-    SSE_SCALE,    // sum of squared error with optimal scaling
-    SSE_V,    // sum of squared error with variable variance
     CORR,   // Pearson correlation
-    CORR_L1,   // Pearson correlation with L1 parameter penalty
-    CORR_L2,   // Pearson correlation with L2 parameter penalty
-    CROSS_CORR,  // cross correlation (maximum in a range of shifts)
-    NORM_CORR,	// normalised correlation
-    NORM_CORR_V,// normalised correlation with variable variance
     PGP         // PGP score
+};
+
+enum PenaltyType {
+    NONE,   // no parameter penalty
+    L1,    // L1 norm 
+    L2,    // L2 norm
 };
 
 ObjType getObjOption( const string& objOptionStr );
 string getObjOptionStr( ObjType objOption );
+PenaltyType getPenaltyOption( const string& PenaltyOptionStr );
+string getPenaltyOptionStr( PenaltyType PenaltyOption );
 
 enum SearchType {
     UNCONSTRAINED,  // unconstrained search
@@ -166,7 +167,6 @@ public:
     double acc_scale;
     double acc_base;
 
-
 	int nSeqs;
 
     static ModelType modelOption;     // model option
@@ -174,7 +174,6 @@ public:
     static int estBindingOption;    // whether to estimate binding parameters
     static bool one_qbtm_per_crm;
     
-
     static double default_acc_scale;	// default accessibility scaling parameter
     static double default_acc_base;	// default accessibility base parameter
     static double default_weight;	// default binding weight
@@ -230,10 +229,9 @@ public:
     static bool one_qbtm_per_crm;
 
     // Access functions to privat variables
-    void set_sites( SiteVec _sites) {sites = _sites;}
+    void set_sites(SiteVec _sites); 
     void set_boundaries( vector< int > _boundaries) {boundaries = _boundaries;}
     void set_bindingWts( vector< double > _bindingWts) {bindingWts = _bindingWts;}
-
 
     // TF binding motifs
     const vector< Motif >& motifs; 	
@@ -261,7 +259,6 @@ public:
 		
     // compute the partition function when the basal transcriptional machinery (BTM) is not bound
     double compPartFuncOff( const vector< double >& factorConcs) const;
-
 
     void compProb_scanning_mode( const vector< double >& factorConcs, vector< double >& p_bound);
 
@@ -344,7 +341,6 @@ public:
     // predict expression values of a sequence (across the same conditions)
     int predict( const SiteVec& targetSites, int targetSeqLength, vector< double >& targetExprs, int seq_num ) const; 
 
-
     double comp_impact( const ExprPar& par, int tf );		// The impact of the parameter
     double comp_impact_coop( const ExprPar& par, int tf1, int tf2 );		// The impact of the cooperativity parameter
 
@@ -356,6 +352,7 @@ public:
     static ModelType modelOption;     // model option
     static int estBindingOption;    // whether estimate binding parameters
     static ObjType objOption;       // option of the objective function
+    static PenaltyType PenaltyOption;       // option of the objective function
 
     // the similarity between two expression patterns, using cross-correlation
     static double exprSimCrossCorr( const vector< double >& x, const vector< double >& y ); 
@@ -367,8 +364,6 @@ public:
     static int nRandStarts;     // number of random starts
     static double min_delta_f_SSE;      // the minimum change of the objective function under SSE
     static double min_delta_f_Corr;     // the minimum change of the objective function under correlation
-    static double min_delta_f_CrossCorr;    // the minimum change of the objective function under cross correlation
-    static double min_delta_f_NormCorr;    // the minimum change of the objective function under normalised correlation
     static double min_delta_f_PGP;            // the minimum change of the objective function under PGP
     static int nSimplexIters;       // maximum number of iterations for Simplex optimizer
     static int nGradientIters;      // maximum number of iterations for Gradient optimizer
@@ -394,7 +389,6 @@ private:
     const vector < int >& axis_end;
     const vector < double >& axis_wts;
 
-
     // control parameters 
     static IntMatrix coopMat;       // cooperativity matrix: C(f,f') = 1 if f and f' bind cooperatively    
     const vector< bool >& actIndicators;   // 1 if the TF is in the activator set
@@ -408,7 +402,7 @@ private:
     ExprPar par_model;
     double obj_model;	
     double obj_pgp;
-    double obj_norm_corr;	
+    double obj_corr;	
     double obj_sse;	
 
     // the sequence
@@ -424,9 +418,8 @@ private:
     ExprFunc* createExprFunc( const ExprPar& par ) const;
     
     // objective functions
-    double comp_SSE_NormCorr_PGP( const ExprPar& par );		// major objective functions for comparison of predicted and observed expressions
-    double compAvgCorr( const ExprPar& par );     	// the average Pearson correlation
-    double compAvgCrossCorr( const ExprPar& par );    	// the average cross correlation -based similarity
+    double compAvgCorr( const ExprPar& par );     	// the average Pearson correlation		Outdated !!
+    double compAvgCrossCorr( const ExprPar& par );    	// the average cross correlation -based similarity		Outdated !!
 
     // minimize the objective function, using the current model parameters as initial values
     int simplex_minimize( ExprPar& par_result, double& obj_result );	// simplex	
