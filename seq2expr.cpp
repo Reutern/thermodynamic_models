@@ -12,12 +12,13 @@ int main( int argc, char* argv[] )
     long time_start = time(NULL);
   
     // command line processing
-    string seqFile, test_seqFile, accFile, test_accFile, annFile, exprFile, test_exprFile, motifFile, factorExprFile, coopFile, factorInfoFile, repressionFile, parFile, print_parFile, axis_wtFile;
+    string seqFile, test_seqFile, accFile, test_accFile, annFile, exprFile, test_exprFile, motifFile, factorExprFile, coopFile, factorInfoFile, repressionFile, parFile, print_parFile;
     string outFile, occFile;     // output files
     int coopDistThr = 150;
     double factorIntSigma = 25.0;   // sigma parameter for the Gaussian interaction function
     int repressionDistThr = 0;
     int maxContact = 1;
+	double hyperparameter = 0.1;
 	vector<double> eTF (20,0.6);
 
 
@@ -65,8 +66,6 @@ int main( int argc, char* argv[] )
             parFile = argv[++i]; 
         else if ( !strcmp( "-pp", argv[i] ) )
             print_parFile = argv[++i]; 
-	    else if ( !strcmp( "-wt", argv[ i ]) )
-		    axis_wtFile = argv[ ++ i ];
         else if ( !strcmp( "-ct", argv[i] ) )
             coopDistThr = atof( argv[++i] ); 
         else if ( !strcmp( "-sigma", argv[i] ) )
@@ -77,6 +76,8 @@ int main( int argc, char* argv[] )
             ExprPredictor::nAlternations = atoi( argv[++i] );    
         else if ( !strcmp( "-ff", argv[i] ) )
             free_fix_indicator_filename = argv[++i];    
+        else if ( !strcmp( "-hy", argv[i] ) )
+            hyperparameter = atof( argv[++i] );    
         else if ( !strcmp( "-oq", argv[i] ) ){
            	ExprPredictor::one_qbtm_per_crm = ONE_QBTM;    
 			ExprPar::one_qbtm_per_crm = ONE_QBTM;
@@ -88,7 +89,7 @@ int main( int argc, char* argv[] )
     if (seqFile.empty() || exprFile.empty() || motifFile.empty() || factorExprFile.empty() || outFile.empty() || 
 	   ( ( ExprPredictor::modelOption == QUENCHING || ExprPredictor::modelOption == CHRMOD_UNLIMITED || ExprPredictor::modelOption == CHRMOD_LIMITED ) 
 	   &&  factorInfoFile.empty() ) || ( ExprPredictor::modelOption == QUENCHING && repressionFile.empty() ) ) {
-    	cerr << "Usage: " << argv[ 0 ] << " -s seqFile -ts test_seqFile -e exprFile -te test_exprFile -m motifFile -f factorExprFile -fo outFile [-a annFile -o modelOption -c coopFile -i	factorInfoFile -r repressionFile -oo objOption -mc maxContact -p parFile -pp print_parFile -rt repressionDistThr -na nAlternations -ct coopDistThr -sigma factorIntSigma]" << endl;
+    	cerr << "Usage: " << argv[ 0 ] << " -s seqFile -ts test_seqFile -e exprFile -te test_exprFile -m motifFile -f factorExprFile -fo outFile [-a annFile -o modelOption -c coopFile -i	factorInfoFile -r repressionFile -oo objOption -mc maxContact -p parFile -pp print_parFile -rt repressionDistThr -na nAlternations -ct coopDistThr -hy hyperparameter -sigma factorIntSigma]" << endl;
         cerr << "modelOption: Logistic, Direct, Quenching, ChrMod_Unlimited, ChrMod_Limited" << endl;
         exit( 1 );
     }           
@@ -98,6 +99,7 @@ int main( int argc, char* argv[] )
     FactorIntType intOption = BINARY;     // type of interaction function
     ExprPar::searchOption = CONSTRAINED;      // search option: unconstrained; constrained. 
     ExprPar::estBindingOption = 1;
+	ExprPar::default_par_penalty = hyperparameter;
 
     ExprPredictor::nRandStarts = 0;
     ExprPredictor::min_delta_f_SSE = 1.0E-10;
@@ -112,6 +114,7 @@ int main( int argc, char* argv[] )
     string factor1, factor2;    // buffer for reading factor pairs
 
     // read the sequences
+	cout << "Read sequence" << endl;
     vector< Sequence > seqs;
     vector< string > seqNames;
 
@@ -125,6 +128,7 @@ int main( int argc, char* argv[] )
     int nSeqs = seqs.size();
 
     // read the expression data
+	cout << "Read expression" << endl;
     vector< string > condNames;  
     rval = readMatrix( exprFile, labels, condNames, data );
     assert( rval != RET_ERROR );
@@ -135,6 +139,7 @@ int main( int argc, char* argv[] )
     int nConds = exprData.nCols();
 
     // read the motifs
+	cout << "Read motifs" << endl;
     vector< Motif > motifs;
     vector< string > motifNames;
     vector< double > background = createNtDistr( gcContent );
@@ -149,6 +154,7 @@ int main( int argc, char* argv[] )
     }
 
     // read the factor expression data
+	cout << "Read TF concentrations" << endl;
     labels.clear();
     data.clear();
     rval = readMatrix( factorExprFile, labels, condNames, data );
@@ -246,37 +252,6 @@ int main( int argc, char* argv[] )
         }        
     }
 
-	// read the axis wt file
-	vector < int > axis_start;
-	vector < int > axis_end;
-	vector < double > axis_wts;
-	axis_start.clear();
-	axis_end.clear();
-	axis_wts.clear();
-
-	if( !axis_wtFile.empty() ){
-		ifstream axis_wtInfo ( axis_wtFile.c_str() );
-		if( !axis_wtInfo ){
-			cerr << "Cannot open the axis weight information file " << axis_wtFile << endl;
-			exit( 1 );
-		}
-		int temp1, temp2; 
-		double temp3;
-		double temp3_sum = 0;
-		while( axis_wtInfo >> temp1 >> temp2 >> temp3 ){
-			axis_start.push_back( temp1 );
-			axis_end.push_back( temp2 );
-			axis_wts.push_back( temp3 );
-			temp3_sum += temp3;
-		}
-		assert( !( temp3_sum > 100 ) && !( temp3_sum < 100 ));
-	}
-	else{
-		axis_start.push_back( 0 );
-		axis_end.push_back( condNames.size() - 1 );
-		axis_wts.push_back( 100 );
-	}
-	
 	vector <bool> indicator_bool;
 	indicator_bool.clear();
 	if( !free_fix_indicator_filename.empty() ){
@@ -316,7 +291,7 @@ int main( int argc, char* argv[] )
         cout << "Repression_Distance_Threshold = " << repressionDistThr << endl;
     }
     cout << "Objective_Function = " << getObjOptionStr( ExprPredictor::objOption ) << endl;
-    cout << "Penalty_Function = " << getPenaltyOptionStr( ExprPredictor::PenaltyOption ) << endl;
+    cout << "Penalty_Function = " << getPenaltyOptionStr( ExprPredictor::PenaltyOption ) << "\tlambda = " << hyperparameter << endl;
     if ( !coopFile.empty() ) {
         cout << "Interaction_Model = " << getIntOptionStr( intOption ) << endl;
         cout << "Interaction_Distance_Threshold = " << coopDistThr << endl;
@@ -390,7 +365,7 @@ int main( int argc, char* argv[] )
     }
 
     // Initialise the predictor class
-    ExprPredictor* predictor = new ExprPredictor( seqSites, seqLengths, exprData, motifs, factorExprData, coopMat, actIndicators, maxContact, repIndicators, repressionMat, repressionDistThr, coopDistThr, indicator_bool, motifNames, seqNames, axis_start, axis_end, axis_wts, seqs );
+    ExprPredictor* predictor = new ExprPredictor( seqSites, seqLengths, exprData, motifs, factorExprData, coopMat, actIndicators, maxContact, repIndicators, repressionMat, repressionDistThr, coopDistThr, indicator_bool, motifNames, seqNames, seqs );
    
     // random number generator
 	gsl_rng* rng;
@@ -530,7 +505,7 @@ int main( int argc, char* argv[] )
 		par.basalTxps = basalTxps_modified;
     }
 	// New predictor 
-	ExprPredictor* predictor_CV = new ExprPredictor( test_seqSites, test_seqLengths, test_exprData, motifs, factorExprData, coopMat, actIndicators, maxContact, repIndicators, repressionMat, repressionDistThr, coopDistThr, indicator_bool_modified, motifNames, test_seqNames, axis_start, axis_end, axis_wts, test_seqs );
+	ExprPredictor* predictor_CV = new ExprPredictor( test_seqSites, test_seqLengths, test_exprData, motifs, factorExprData, coopMat, actIndicators, maxContact, repIndicators, repressionMat, repressionDistThr, coopDistThr, indicator_bool_modified, motifNames, test_seqNames, test_seqs );
     // random number generator
 	rng = gsl_rng_alloc( T );
 	gsl_rng_set( rng, time( 0 ) );		// set the seed equal to simulTime(0)
@@ -558,7 +533,7 @@ int main( int argc, char* argv[] )
 
         double beta = 1.0;
         squaredErr +=  least_square( targetExprs, observedExprs, beta );
-	correlation  +=  corr( targetExprs, observedExprs ); 
+		correlation += corr( targetExprs, observedExprs ); 
     }	
 
     double obj_corr = correlation / test_nSeqs;
@@ -566,7 +541,7 @@ int main( int argc, char* argv[] )
  
     cout << "Performance on test set: SSE = " << obj_sse << "\t" << "Corr = " << obj_corr << endl;
 	delete predictor_CV;
-    #else
+    #else // CROSS_VALIDATION
     for ( int i = 0; i < nSeqs; i++ ) {
         vector< double > targetExprs;
         predictor->predict( seqSites[i], seqLengths[i], targetExprs, i );
@@ -600,7 +575,7 @@ int main( int argc, char* argv[] )
     int dmm = 0;
     int dss = 0;
     long time_end = time(NULL) - time_start; // gives the time elapsed since time_start in seconds
-    dss =time_end % 60; // the remainder is seconds to be displayed
+    dss =time_end % 60; // the remainder in seconds to be displayed
     int minutes= time_end / 60;  // the total minutes in float
     dmm= minutes % 60;  // the remainder are minutes to be displayed
     int dhh = minutes / 60 ; // the total hours in float
