@@ -77,6 +77,7 @@ string getPenaltyOptionStr( PenaltyType PenaltyOption )
 
     return "Invalid";
 }
+
 string getSearchOptionStr( SearchType searchOption )
 {
     if ( searchOption == UNCONSTRAINED ) return "Unconstrained";
@@ -691,7 +692,8 @@ double ExprPar::max_basal_Logistic = -1.0;
 double ExprPar::min_effect_Logistic = -5;	
 double ExprPar::max_effect_Logistic = 5;
 
-#if PARAMETER_SPACE == small
+
+#if	PARAMETER_SPACE == 0	// small
 double ExprPar::min_weight = 0.001;		
 double ExprPar::max_weight = 500;	
 double ExprPar::min_interaction = 0.001;	
@@ -703,11 +705,11 @@ double ExprPar::max_repression = 500;
 double ExprPar::min_basal_Thermo = 1.0E-5;	
 double ExprPar::max_basal_Thermo = 0.05;
 
-#elif PARAMETER_SPACE == medium
+#elif PARAMETER_SPACE == 1	// medium
 double ExprPar::min_weight = 0.0001;		
 double ExprPar::max_weight = 1000;		
 double ExprPar::min_interaction = 0.001;	
-double ExprPar::max_interaction = 500;
+double ExprPar::max_interaction = 5000;
 double ExprPar::min_effect_Thermo = 0.001;	
 double ExprPar::max_effect_Thermo = 1000;
 double ExprPar::min_repression = 1.0E-3;
@@ -715,11 +717,11 @@ double ExprPar::max_repression = 500;
 double ExprPar::min_basal_Thermo = 1.0E-6;	
 double ExprPar::max_basal_Thermo = 0.1;
 
-#elif PARAMETER_SPACE == large
+#elif PARAMETER_SPACE == 2	// large
 double ExprPar::min_weight = 0.00001;		
 double ExprPar::max_weight = 5000;		
 double ExprPar::min_interaction = 0.001;	
-double ExprPar::max_interaction = 500;
+double ExprPar::max_interaction = 5000;
 double ExprPar::min_effect_Thermo = 0.0001;	
 double ExprPar::max_effect_Thermo = 5000;
 double ExprPar::min_repression = 1.0E-3;
@@ -1569,7 +1571,7 @@ double ExprPredictor::objFunc( const ExprPar& par )
 	if (PenaltyOption == L2) 
 		penalty = par.par_penalty * par.parameter_L2_norm();
 
-    if (objOption == SSE)	return obj_sse + penalty;
+    if (objOption == SSE)	return obj_sse - penalty;
     else if (objOption == CORR)	return -obj_corr + penalty;
     else if (objOption == PGP)	return -obj_pgp + penalty;
     return 0;
@@ -1613,7 +1615,7 @@ int ExprPredictor::train( const ExprPar& par_init )
 	cout << "Minimisation step " << i+1 << " of " << nAlternations << endl; 
 	//objOption = SSE;
 	cout << "Simplex minimisation: " << endl; 
-        simplex_minimize( par_result, obj_result );
+    simplex_minimize( par_result, obj_result );
 	//simulated_annealing( par_result, obj_result );
 	cout << endl;
 	//save result
@@ -2074,7 +2076,7 @@ double ExprPredictor::compAvgCrossCorr( const ExprPar& par )
 	
         // Initiate the sites for func
 	func->set_sites(seqSites[ i ]);
-       // #pragma omp parallel for schedule(dynamic)
+       #pragma omp parallel for schedule(dynamic)
         for (int j = 0; j < nConds(); j++ ) {
 
 			
@@ -2296,12 +2298,12 @@ int ExprPredictor::gradient_minimize( ExprPar& par_result, double& obj_result )
 // 	cout << "binding at the initial value of parameters = " << gsl_obj_f( x, (void*)this ) << endl; 
 		
 	// choose the method of optimization and set its parameters
-// 	const gsl_multimin_fdfminimizer_type* T = gsl_multimin_fdfminimizer_conjugate_pr;	
-    const gsl_multimin_fdfminimizer_type* T = gsl_multimin_fdfminimizer_conjugate_fr; // Chose Broyden-Fletcher-Goldfarb-Shanno (BFGS) algorithm 
+ 	const gsl_multimin_fdfminimizer_type* T = gsl_multimin_fdfminimizer_conjugate_pr;	
+//    const gsl_multimin_fdfminimizer_type* T = gsl_multimin_fdfminimizer_conjugate_fr; // Chose Broyden-Fletcher-Goldfarb-Shanno (BFGS) algorithm 
 		
     // create the minimizer
     gsl_multimin_fdfminimizer* s = gsl_multimin_fdfminimizer_alloc( T, my_func.n );
-    double init_step = 0.02, tol = 0.1;
+    double init_step = 2, tol = 0.1;
     gsl_multimin_fdfminimizer_set( s, &my_func, x, init_step, tol );
             
     // iteration
@@ -2337,42 +2339,46 @@ int ExprPredictor::gradient_minimize( ExprPar& par_result, double& obj_result )
 	//Hassan end
         //ExprPar par_curr = ExprPar( gsl2vector( s->x ), coopMat, actIndicators, repIndicators );
         if ( ExprPar::searchOption == CONSTRAINED && !testPar( par_curr ) ) break;
-     
+    
+
         // check for stopping condition
-        double f_curr = s->f;
-        double delta_f = abs( f_curr - f_prev ); 
-        if ( objOption == SSE && delta_f < min_delta_f_SSE ) break;
-        if ( objOption == CORR && delta_f < min_delta_f_Corr ) break;
-        if ( objOption == PGP && delta_f < min_delta_f_PGP ) break;
+//        double f_curr = s->f;
+//        double delta_f = abs( f_curr - f_prev ); 
+//		cout << delta_f << endl;   
+//     	if ( objOption == SSE && delta_f < min_delta_f_SSE ) break;
+//        if ( objOption == CORR && delta_f < min_delta_f_Corr ) break;
+//        if ( objOption == PGP && delta_f < min_delta_f_PGP ) break;
         
         status = gsl_multimin_test_gradient( s->gradient, 5e-4 );
 // 		if ( status == GSL_SUCCESS ) { cout << "converged to minimum at " << iter << endl; }
 
          // print the current parameter and function values
+	#if FILE_OUTPUT
+	if(iter % 1000 == 0){
+    		printf( "\r %zu \t SSE = %8.5f \t Corr = %8.5f \t PGP = %8.5f", iter, obj_sse, obj_corr, obj_pgp);
+		fflush(stdout);
+	}	
+	#else
 	#ifdef SHORT_OUTPUT
 	if(iter % SHORT_OUTPUT == 0){
-        	printf( "\r %zu \t f() = %8.5f", iter, s->f );
+   		printf( "\r %zu \t SSE = %8.5f \t Corr = %8.5f \t PGP = %8.5f", iter, obj_sse, obj_corr, obj_pgp);
 		fflush(stdout);
-	}
+	}	
 	#else
-	cout << "========================================" << endl;
-	cout << "========================================" << endl;
+	cout << "======================================" << endl;
+	cout << "======================================" << endl;
         cout << iter << "\t";
-        //printPar( par_curr );           //Redundant information 
-        printf( "\tf() = %8.5f\n", s->f );
-	cout << "========================================" << endl;
-	/*vector <string> motifNames;
-	motifNames.push_back( "bcd" );
-	motifNames.push_back( "cad" );
-	motifNames.push_back( "gt" );
-	motifNames.push_back( "hb" );
-	motifNames.push_back( "kni" );
-	motifNames.push_back( "Kr" );
-	motifNames.push_back( "nub" );*/
+        printPar( par_curr );
+        printf( "\tf() = %8.5f size = %.3f\n", s->fval, size );
+	cout << "======================================" << endl;
 	par_curr.print( cout, motifNames, seqNames, coopMat);
-	cout << "========================================" << endl;
-	cout << "========================================" << endl << endl;
+	cout << "======================================" << endl;
+	cout << "======================================" << endl << endl;
 	#endif // SHORT_OUTPUT
+	#endif // FILE_OUTPUT
+	// Save parameters
+	if( iter % 1000 == 0 ) save_param();
+
     } while ( status == GSL_CONTINUE && iter < nGradientIters );
 
     // get the results
@@ -2392,7 +2398,7 @@ int ExprPredictor::gradient_minimize( ExprPar& par_result, double& obj_result )
 		}
 	}
 
-        par_result = ExprPar ( pars, coopMat, actIndicators, repIndicators, nSeqs() );
+    par_result = ExprPar ( pars, coopMat, actIndicators, repIndicators, nSeqs() );
 	//Hassan end
     //par_result = ExprPar( gsl2vector( s->x ), coopMat, actIndicators, repIndicators );
     obj_result = s->f;
@@ -2412,7 +2418,7 @@ int ExprPredictor::simulated_annealing( ExprPar& par_result, double& obj_result 
     gsl_rng_env_setup();
     T = gsl_rng_default;
     r = gsl_rng_alloc(T);
-    gsl_siman_params_t siman_params = {100, 10000, 0.1, 0.2, 0.1, 1.1, 2.0e-7};
+    gsl_siman_params_t siman_params = {1, 1, 0.5, 0.2, 0.1, 1.01, 2.0e-3};
 
     vector< double > pars;
     par_model.getFreePars( pars, coopMat, actIndicators, repIndicators ); 
@@ -2437,6 +2443,21 @@ int ExprPredictor::simulated_annealing( ExprPar& par_result, double& obj_result 
     // set the initial values to be searched 
     gsl_vector* x = vector2gsl( pars ); 
     gsl_siman_solve(r, x, (void*)this, gsl_obj_f, siman_stepper,siman_print, NULL, NULL, NULL, sizeof(*x), siman_params);
+
+	free_pars = gsl2vector(x);
+	pars.clear();
+	int free_par_counter = 0;
+	int fix_par_counter = 0;
+	for( int index = 0; index < pars_size; index ++ ){
+		if( indicator_bool[ index ] ){
+			pars.push_back( free_pars[ free_par_counter ++ ]);
+		}
+		else{
+			pars.push_back( fix_pars[ fix_par_counter ++ ]);
+		}
+	}
+
+    par_result = ExprPar ( pars, coopMat, actIndicators, repIndicators, nSeqs() );
 
     // free the minimiser
     gsl_vector_free( x );    

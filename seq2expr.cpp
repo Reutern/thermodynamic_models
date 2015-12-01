@@ -8,13 +8,14 @@
 
 int main( int argc, char* argv[] ) 
 {
+
     // Set the timer
     long time_start = time(NULL);
   
     // command line processing
     string seqFile, test_seqFile, accFile, test_accFile, annFile, exprFile, test_exprFile, motifFile, factorExprFile, coopFile, factorInfoFile, repressionFile, parFile, print_parFile;
     string outFile, occFile;     // output files
-    int coopDistThr = 150;
+    int coopDistThr = 50;
     double factorIntSigma = 25.0;   // sigma parameter for the Gaussian interaction function
     int repressionDistThr = 0;
     int maxContact = 1;
@@ -506,6 +507,7 @@ int main( int argc, char* argv[] )
     }
 	// New predictor 
 	ExprPredictor* predictor_CV = new ExprPredictor( test_seqSites, test_seqLengths, test_exprData, motifs, factorExprData, coopMat, actIndicators, maxContact, repIndicators, repressionMat, repressionDistThr, coopDistThr, indicator_bool_modified, motifNames, test_seqNames, test_seqs );
+	predictor_CV->setPar(par);
     // random number generator
 	rng = gsl_rng_alloc( T );
 	gsl_rng_set( rng, time( 0 ) );		// set the seed equal to simulTime(0)
@@ -513,7 +515,7 @@ int main( int argc, char* argv[] )
 
     if(ExprPredictor::one_qbtm_per_crm){
         // train qbtm
-        ExprPredictor::nAlternations = 1;
+        ExprPredictor::nAlternations = 4;
 		cout << "Cross validation training:" << endl;
         predictor_CV->train( par, rng );
         gsl_rng_free( rng );

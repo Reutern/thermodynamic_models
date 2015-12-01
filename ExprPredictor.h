@@ -28,6 +28,7 @@ enum ObjType {
     PGP         // PGP score
 };
 
+
 enum PenaltyType {
     NONE,   // no parameter penalty
     L1,    // L1 norm 
@@ -327,6 +328,7 @@ public:
         return repressionMat;
     }
     const ExprPar& getPar() { return par_model; }
+    const void setPar(ExprPar& par) { par_model = par; }
     double getObj() const { return obj_model; }
     
     // the objective function to be minimized

@@ -86,7 +86,15 @@ size is given */
   }
 
   while (1) {
-
+    if (1) {
+      /* see if we need to print stuff as we go */
+      /* printf("%5d %12g %5d %3d %3d %3d", n_iter, T, n_evals, */
+      /* 100*n_eless/n_steps, 100*n_accepts/n_steps, */
+      /* 100*n_rejects/n_steps); */
+     // printf ("%5d %7d %12g", n_iter, n_evals, T);
+     // print_position (x);
+     // printf (" %12g %12g\n", E, best_E);
+    }
     n_accepts = 0;
     n_rejects = 0;
     n_eless = 0;
