@@ -1977,6 +1977,21 @@ double ExprPredictor::comp_impact( const ExprPar& par, int tf )
 	else	return -impact;	// All other objective functions get maximised
 }
 
+double ExprPredictor::comp_impact_coop( const ExprPar& par, int tf ) 
+{
+	// Calculate the objecttive function without cooperativity between tf1 and tf2
+	ExprPar par_deleted = par;
+	vector<double > zero_vector (nFactors(),0);
+	par_deleted.factorIntMat.setRow( tf, zero_vector );
+	par_deleted.factorIntMat.setCol( tf, zero_vector );
+	double obj_deleted = objFunc(par_deleted);
+	double impact = obj_model - obj_deleted;			
+
+	if (objOption == SSE)	return impact;	// SSE gets minimised
+	else	return -impact;	// All other objective functions get maximised
+}
+
+
 double ExprPredictor::comp_impact_coop( const ExprPar& par, int tf1, int tf2 ) 
 {
 	// Calculate the objecttive function without cooperativity between tf1 and tf2

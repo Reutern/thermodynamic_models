@@ -15,7 +15,7 @@ int main( int argc, char* argv[] )
     // command line processing
     string seqFile, test_seqFile, accFile, test_accFile, annFile, exprFile, test_exprFile, motifFile, factorExprFile, coopFile, factorInfoFile, repressionFile, parFile, print_parFile;
     string outFile, occFile;     // output files
-    int coopDistThr = 50;
+    int coopDistThr = 150;
     double factorIntSigma = 25.0;   // sigma parameter for the Gaussian interaction function
     int repressionDistThr = 0;
     int maxContact = 1;
@@ -417,7 +417,7 @@ int main( int argc, char* argv[] )
 	double log_impact = log10( abs( impact ) ); 
 
 	double impact_new = predictor->comp_impact(par,tf);
-	double impact_coop = predictor->comp_impact_coop(par,tf, tf);
+	double impact_coop = predictor->comp_impact_coop(par,tf);
 
 	cout << motifNames[tf] << "\t" << log_impact << "\t" << impact_new << "\t" << impact_coop << endl;
     }
@@ -515,7 +515,7 @@ int main( int argc, char* argv[] )
 
     if(ExprPredictor::one_qbtm_per_crm){
         // train qbtm
-        ExprPredictor::nAlternations = 4;
+        ExprPredictor::nAlternations = 1;
 		cout << "Cross validation training:" << endl;
         predictor_CV->train( par, rng );
         gsl_rng_free( rng );

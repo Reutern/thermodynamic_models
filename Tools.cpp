@@ -534,6 +534,7 @@ void IntMatrix::setCol( int col, const vector< int >& v )
         setElement( i, col, v[ i ] );	
 }
 
+
 // IntMatrix: set all rows
 void IntMatrix::setRows( const vector< int >& v )
 {
