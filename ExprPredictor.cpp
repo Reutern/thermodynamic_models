@@ -1769,7 +1769,7 @@ double ExprPredictor::exprSimCrossCorr( const vector< double >& x, const vector<
 int ExprPredictor::maxShift = 5; 
 double ExprPredictor::shiftPenalty = 0.8; 
 
-int ExprPredictor::nAlternations = 4;
+int ExprPredictor::nAlternations = 6;
 int ExprPredictor::nRandStarts = 5;
 double ExprPredictor::min_delta_f_SSE = 1.0E-8;
 double ExprPredictor::min_delta_f_Corr = 1.0E-8;
@@ -1971,7 +1971,7 @@ double ExprPredictor::comp_impact( const ExprPar& par, int tf )
 	par_deleted.maxBindingWts[tf] = ExprPar::min_weight;
 	par_deleted.txpEffects[tf] = 1.0;
 	double obj_deleted = objFunc(par_deleted);
-	double impact = obj_model - obj_deleted;			
+	double impact = (obj_model - obj_deleted) / obj_model;			
 
 	if (objOption == SSE)	return impact;	// SSE gets minimised
 	else	return -impact;	// All other objective functions get maximised
@@ -1985,7 +1985,7 @@ double ExprPredictor::comp_impact_coop( const ExprPar& par, int tf )
 	par_deleted.factorIntMat.setRow( tf, zero_vector );
 	par_deleted.factorIntMat.setCol( tf, zero_vector );
 	double obj_deleted = objFunc(par_deleted);
-	double impact = obj_model - obj_deleted;			
+	double impact = (obj_model - obj_deleted) / obj_model;			
 
 	if (objOption == SSE)	return impact;	// SSE gets minimised
 	else	return -impact;	// All other objective functions get maximised
@@ -1998,7 +1998,7 @@ double ExprPredictor::comp_impact_coop( const ExprPar& par, int tf1, int tf2 )
 	ExprPar par_deleted = par;
 	par_deleted.factorIntMat( tf1, tf2 ) = 0;
 	double obj_deleted = objFunc(par_deleted);
-	double impact = obj_model - obj_deleted;			
+	double impact = (obj_model - obj_deleted) / obj_model;			
 
 	if (objOption == SSE)	return impact;	// SSE gets minimised
 	else	return -impact;	// All other objective functions get maximised

@@ -5,7 +5,6 @@
 #include <math.h> // for fmod
 #include "param.h" 
 
-
 int main( int argc, char* argv[] ) 
 {
 
@@ -416,10 +415,10 @@ int main( int argc, char* argv[] )
 	double impact = max(par.txpEffects[tf] , 1/par.txpEffects[tf]) * par.maxBindingWts[tf] * totalweight;
 	double log_impact = log10( abs( impact ) ); 
 
-	double impact_new = predictor->comp_impact(par,tf);
-	double impact_coop = predictor->comp_impact_coop(par,tf);
-
-	cout << motifNames[tf] << "\t" << log_impact << "\t" << impact_new << "\t" << impact_coop << endl;
+	double impact_new = predictor->comp_impact(par,tf) * 100;
+	double impact_coop = predictor->comp_impact_coop(par,tf) *100;
+	printf ("%s \t %4.2f \t %4.1f %% \t %4.1f %% \n", motifNames[tf].c_str(), log_impact, impact_new, impact_coop);
+	//cout << motifNames[tf] << "\t" << log_impact << "\t" << impact_new << "\t" << impact_coop << endl;
     }
 
     #if CALCULATE_OCCUPANCY
