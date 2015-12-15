@@ -305,9 +305,9 @@ double ExprPar::parameter_L1_norm() const
 	}
 
 	L1_norm_coop /= Nparameter;
-
 	return L1_norm + L1_norm_coop ;
 }
+
 
 void ExprPar::getFreePars( vector< double >& pars, const IntMatrix& coopMat, const vector< bool >& actIndicators, const vector< bool >& repIndicators ) const
 {
@@ -583,7 +583,7 @@ void ExprPar::adjust()
     // adjust the repression effects
     if ( modelOption == CHRMOD_UNLIMITED || modelOption == CHRMOD_LIMITED ) {
         for ( int i = 0; i < nFactors(); i++ ) {
-            if ( repEffects[i] < ExprPar::min_repression * ( 1.0 + ExprPar::delta ) ) repEffects[i] *= 10.0;
+            if ( repEffects[i] < ExprPar::min_repression * ( 1.0 + ExprPar::delta ) ) repEffects[i] *= 2.0;
             if ( repEffects[i] > ExprPar::max_repression * ( 1.0 - ExprPar::delta ) ) repEffects[i] /= 2.0;
         }
     }
@@ -696,7 +696,7 @@ double ExprPar::max_effect_Logistic = 5;
 #if	PARAMETER_SPACE == 0	// small
 double ExprPar::min_weight = 0.001;		
 double ExprPar::max_weight = 500;	
-double ExprPar::min_interaction = 0.001;	
+double ExprPar::min_interaction = 0.0001;	
 double ExprPar::max_interaction = 5000;
 double ExprPar::min_effect_Thermo = 0.01;	
 double ExprPar::max_effect_Thermo = 500;
@@ -708,7 +708,7 @@ double ExprPar::max_basal_Thermo = 0.05;
 #elif PARAMETER_SPACE == 1	// medium
 double ExprPar::min_weight = 0.0001;		
 double ExprPar::max_weight = 1000;		
-double ExprPar::min_interaction = 0.001;	
+double ExprPar::min_interaction = 0.0001;	
 double ExprPar::max_interaction = 5000;
 double ExprPar::min_effect_Thermo = 0.001;	
 double ExprPar::max_effect_Thermo = 1000;
@@ -720,7 +720,7 @@ double ExprPar::max_basal_Thermo = 0.1;
 #elif PARAMETER_SPACE == 2	// large
 double ExprPar::min_weight = 0.00001;		
 double ExprPar::max_weight = 5000;		
-double ExprPar::min_interaction = 0.001;	
+double ExprPar::min_interaction = 0.0001;	
 double ExprPar::max_interaction = 5000;
 double ExprPar::min_effect_Thermo = 0.0001;	
 double ExprPar::max_effect_Thermo = 5000;
@@ -1211,7 +1211,7 @@ double ExprFunc::compPartFuncOffChrMod(const vector< double >& factorConcs) cons
             }
         }
         Z0[i] = bindingWts[i] * factorConcs[sites[ i ].factorIdx] * sum0;
-        if ( repIndicators[ sites[i].factorIdx ] ) Z1[i] = bindingWts[i] * factorConcs[sites[ i ].factorIdx] * par.repEffects[ sites[i].factorIdx ] * sum1; 
+        if ( repIndicators[ sites[i].factorIdx ] ) Z1[i] = bindingWts[i] * factorConcs[sites[i].factorIdx] * par.repEffects[ sites[i].factorIdx ] * sum1; 
         else Z1[i] = 0;
         Zt[i] = Z0[i] + Z1[i] + Zt[i - 1];
     }
@@ -1439,7 +1439,7 @@ double ExprFunc::compFactorInt( const Site& a, const Site& b ) const
 
 // 	assert( !siteOverlap( a, b, motifs ) );
     //if(a.factorIdx != b.factorIdx)	return 1.0;	// Only TF of the same type interact 	
-    double maxInt = par.factorIntMat( a.factorIdx, b.factorIdx );
+    double maxInt = par.factorIntMat(a.factorIdx, b.factorIdx) - repressionMat(a.factorIdx, b.factorIdx);
     unsigned dist = abs( a.start - b.start );
     assert( dist >= 0 );
 
@@ -1565,6 +1565,48 @@ double ExprPredictor::objFunc( const ExprPar& par )
     obj_corr = correlation / nSeqs();
     obj_sse = sqrt( squaredErr / ( nSeqs() * nConds() ) ); 
     obj_pgp = pgp_score / nSeqs();
+	double penalty = 0;
+	if (PenaltyOption == L1) 
+		penalty = par.par_penalty * par.parameter_L1_norm();
+	if (PenaltyOption == L2) 
+		penalty = par.par_penalty * par.parameter_L2_norm();
+
+    if (objOption == SSE)	return obj_sse - penalty;
+    else if (objOption == CORR)	return -obj_corr + penalty;
+    else if (objOption == PGP)	return -obj_pgp + penalty;
+    return 0;
+}
+
+double ExprPredictor::objFunc( const ExprPar& par, int crm ) 
+{
+    ExprFunc* func = createExprFunc( par );
+    double squaredErr = 0;
+    double correlation = 0;
+    double pgp_score = 0;
+
+   	// Initiate the sites for func
+	func->set_sites(seqSites[ crm ]);        
+	vector< double > predictedExprs (nConds(), -1);
+    vector< double > observedExprs (nConds(), 1);
+    vector < vector < double > > concs (nConds(), vector <double> (factorExprData.nRows(), 0) );
+        
+	#pragma omp parallel for schedule(dynamic)
+	for (int j = 0; j < nConds(); j++ ) {		
+		concs[j] = factorExprData.getCol( j );
+		predictedExprs[j] = func->predictExpr( seqLengths[ crm ], concs[j], crm );	
+		observedExprs[j] = exprData( crm, j );									// observed expression for the i-th sequence at the j-th condition
+	}
+
+	double beta = 1.0;
+	squaredErr += least_square( predictedExprs, observedExprs, beta );
+	correlation += corr( predictedExprs, observedExprs ); 
+	pgp_score += pgp( predictedExprs, observedExprs, beta );
+
+    delete func;
+    obj_corr = correlation;
+    obj_sse = sqrt( squaredErr / ( nConds() ) ); 
+    obj_pgp = pgp_score;
+
 	double penalty = 0;
 	if (PenaltyOption == L1) 
 		penalty = par.par_penalty * par.parameter_L1_norm();
@@ -1769,7 +1811,7 @@ double ExprPredictor::exprSimCrossCorr( const vector< double >& x, const vector<
 int ExprPredictor::maxShift = 5; 
 double ExprPredictor::shiftPenalty = 0.8; 
 
-int ExprPredictor::nAlternations = 6;
+int ExprPredictor::nAlternations = 4;
 int ExprPredictor::nRandStarts = 5;
 double ExprPredictor::min_delta_f_SSE = 1.0E-8;
 double ExprPredictor::min_delta_f_Corr = 1.0E-8;
@@ -1968,40 +2010,87 @@ double ExprPredictor::comp_impact( const ExprPar& par, int tf )
 {
 	// Calculate the objecttive function with the factor tf basicly deleted
 	ExprPar par_deleted = par;
+	ExprPar par_full = par;
+	par_full.par_penalty = 0;
+	par_deleted.par_penalty = 0;
 	par_deleted.maxBindingWts[tf] = ExprPar::min_weight;
 	par_deleted.txpEffects[tf] = 1.0;
 	double obj_deleted = objFunc(par_deleted);
-	double impact = (obj_model - obj_deleted) / obj_model;			
+	double obj_full = objFunc(par_full);	
+	double impact = (obj_full - obj_deleted) / obj_full;
 
-	if (objOption == SSE)	return impact;	// SSE gets minimised
-	else	return -impact;	// All other objective functions get maximised
+	if (objOption == SSE)	return	-impact;	// SSE gets minimised
+	else return impact;
 }
 
 double ExprPredictor::comp_impact_coop( const ExprPar& par, int tf ) 
 {
 	// Calculate the objecttive function without cooperativity between tf1 and tf2
 	ExprPar par_deleted = par;
+	ExprPar par_full = par;
+	par_full.par_penalty = 0;
+	par_deleted.par_penalty = 0;
 	vector<double > zero_vector (nFactors(),0);
 	par_deleted.factorIntMat.setRow( tf, zero_vector );
 	par_deleted.factorIntMat.setCol( tf, zero_vector );
 	double obj_deleted = objFunc(par_deleted);
-	double impact = (obj_model - obj_deleted) / obj_model;			
+	double obj_full = objFunc(par_full);	
+	double impact = (obj_full - obj_deleted) / obj_full;	
 
-	if (objOption == SSE)	return impact;	// SSE gets minimised
-	else	return -impact;	// All other objective functions get maximised
+	if (objOption == SSE)	return	-impact;	// SSE gets minimised
+	else return impact;
 }
 
+double ExprPredictor::comp_impact( const ExprPar& par, int tf, int crm ) 
+{
+	// Calculate the objecttive function with the factor tf basicly deleted
+	ExprPar par_deleted = par;
+	ExprPar par_full = par;
+	par_full.par_penalty = 0;
+	par_deleted.par_penalty = 0;
+	par_deleted.maxBindingWts[tf] = ExprPar::min_weight;
+	par_deleted.txpEffects[tf] = 1.0;
+	double obj_deleted = objFunc(par_deleted, crm);
+	double obj_full = objFunc(par_full, crm);	
+	double impact = (obj_full - obj_deleted) / obj_full;			
 
-double ExprPredictor::comp_impact_coop( const ExprPar& par, int tf1, int tf2 ) 
+	if (objOption == SSE)	return	-impact;	// SSE gets minimised
+	else return impact;
+}
+
+double ExprPredictor::comp_impact_coop( const ExprPar& par, int tf, int crm ) 
 {
 	// Calculate the objecttive function without cooperativity between tf1 and tf2
 	ExprPar par_deleted = par;
+	ExprPar par_full = par;
+	par_full.par_penalty = 0;
+	par_deleted.par_penalty = 0;
+	vector<double > zero_vector (nFactors(),0);
+	par_deleted.factorIntMat.setRow( tf, zero_vector );
+	par_deleted.factorIntMat.setCol( tf, zero_vector );
+	double obj_deleted = objFunc(par_deleted, crm);
+	double obj_full = objFunc(par_full, crm);	
+	double impact = (obj_full - obj_deleted) / obj_full;
+
+	if (objOption == SSE)	return	-impact;	// SSE gets minimised
+	else return impact;	
+}
+
+
+double ExprPredictor::comp_impact_coop_pair( const ExprPar& par, int tf1, int tf2 ) 
+{
+	// Calculate the objecttive function without cooperativity between tf1 and tf2
+	ExprPar par_deleted = par;
+	ExprPar par_full = par;
+	par_full.par_penalty = 0;
+	par_deleted.par_penalty = 0;
 	par_deleted.factorIntMat( tf1, tf2 ) = 0;
 	double obj_deleted = objFunc(par_deleted);
-	double impact = (obj_model - obj_deleted) / obj_model;			
+	double obj_full = objFunc(par_full);	
+	double impact = (obj_full - obj_deleted) / obj_full;
 
-	if (objOption == SSE)	return impact;	// SSE gets minimised
-	else	return -impact;	// All other objective functions get maximised
+	if (objOption == SSE)	return	-impact;	// SSE gets minimised
+	else return impact;	
 }
 
 double ExprPredictor::compAvgCorr( const ExprPar& par ) 

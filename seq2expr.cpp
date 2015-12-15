@@ -16,7 +16,7 @@ int main( int argc, char* argv[] )
     string outFile, occFile;     // output files
     int coopDistThr = 150;
     double factorIntSigma = 25.0;   // sigma parameter for the Gaussian interaction function
-    int repressionDistThr = 0;
+    int repressionDistThr = 150;
     int maxContact = 1;
 	double hyperparameter = 0.1;
 	vector<double> eTF (20,0.6);
@@ -34,8 +34,8 @@ int main( int argc, char* argv[] )
             test_seqFile = argv[ ++i ];
         else if ( !strcmp( "-a", argv[ i ] ) )
             annFile = argv[ ++i ];      
-        else if ( !strcmp( "-acc", argv[ i ] ) )
-            accFile = argv[ ++i ];      
+        else if ( !strcmp( "-acc", argv[ i ] ) ){
+            accFile = argv[ ++i ];}
         else if ( !strcmp( "-tacc", argv[ i ] ) )
             test_accFile = argv[ ++i ];      
         else if ( !strcmp( "-e", argv[ i ] ) )
@@ -79,9 +79,9 @@ int main( int argc, char* argv[] )
         else if ( !strcmp( "-hy", argv[i] ) )
             hyperparameter = atof( argv[++i] );    
         else if ( !strcmp( "-oq", argv[i] ) ){
-           	ExprPredictor::one_qbtm_per_crm = ONE_QBTM;    
-			ExprPar::one_qbtm_per_crm = ONE_QBTM;
-			ExprFunc::one_qbtm_per_crm = ONE_QBTM;
+           	ExprPredictor::one_qbtm_per_crm = true;    
+			ExprPar::one_qbtm_per_crm = true;
+			ExprFunc::one_qbtm_per_crm = true;
 		}
         else if ( !strcmp( "-et", argv[i] ) ) {}
            // eTF = atof( argv[ ++i ] );    
@@ -335,9 +335,9 @@ int main( int argc, char* argv[] )
     #if SAVE_ENERGIES
     cout << "Save site energies" << endl;
     ofstream site_energies;
-    site_energies.open ("../data/site_energies.txt");
+    site_energies.open ("../data/sites/site_weights.txt");
     for(int seqs_idx = 0; seqs_idx < nSeqs; seqs_idx++){
-		site_energies << seqNames[seqs_idx] << "\t" << seqSites[seqs_idx].size()-1 << "\t" << seqLengths[seqs_idx] << "\t strand"<< endl;
+		site_energies << seqNames[seqs_idx] << "\t Nsites=" << seqSites[seqs_idx].size()-1 << "\t len=" << seqLengths[seqs_idx] << endl;
         for(int sites_idx = 1; sites_idx < seqSites[seqs_idx].size(); sites_idx++){
 			int idx = seqSites[seqs_idx][sites_idx].factorIdx;	
 			#if ACCESSIBILITY
@@ -345,7 +345,11 @@ int main( int argc, char* argv[] )
 			#else
 			double weight_tmp = seqSites[seqs_idx][sites_idx].wtRatio;
 			#endif // ACCESSIBILITY
-			site_energies << seqSites[seqs_idx][sites_idx].start + static_cast<int> (motifs[idx].length()/2) << "\t" << idx << "\t" << weight_tmp << "\t" << seqSites[seqs_idx][sites_idx].strand << endl;
+			site_energies << seqSites[seqs_idx][sites_idx].start << "\t"
+						  << seqSites[seqs_idx][sites_idx].start + static_cast<int> (motifs[idx].length()) << "\t" 
+						  << seqSites[seqs_idx][sites_idx].strand << "\t"
+						  << motifNames[idx] << "\t" 
+						  << weight_tmp << "\t" << endl;
 		}
     }
     // Write site energies to site_energies.txt	

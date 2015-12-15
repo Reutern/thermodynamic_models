@@ -333,6 +333,7 @@ public:
     
     // the objective function to be minimized
     double objFunc( const ExprPar& par ) ;
+    double objFunc( const ExprPar& par, int crm ) ;
     // training the model
     int train( const ExprPar& par_init ); 	// training with the initial values given
     int train( const ExprPar& par_init, const gsl_rng* rng );   // training with the initial values and allowing random starts
@@ -343,7 +344,9 @@ public:
 
     double comp_impact( const ExprPar& par, int tf );		// The impact of the parameter
     double comp_impact_coop( const ExprPar& par, int tf );		// The impact of all cooperativity parameters with tf involved
-    double comp_impact_coop( const ExprPar& par, int tf1, int tf2 );		// The impact of the cooperativity parameter
+    double comp_impact( const ExprPar& par, int tf, int crm );		// The impact of the parameter on one crm
+    double comp_impact_coop( const ExprPar& par, int tf, int crm );		// The impact of all cooperativity parameters with tf involved on one crm
+    double comp_impact_coop_pair( const ExprPar& par, int tf1, int tf2 );		// The impact of the cooperativity parameter
 
     // test the model, perfOption = 0: RMSE
 // 	double test( const vector< Sequence  >& testSeqs, const Matrix& testExprData, Matrix& predictions ) const;    
