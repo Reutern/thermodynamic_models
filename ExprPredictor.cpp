@@ -32,10 +32,21 @@ string getModelOptionStr( ModelType modelOption )
     return "Invalid";
 }
 
+FactorIntType getIntOption( const string& intOptionStr )
+{
+   if ( toupperStr( intOptionStr ) == "BINARY" ) return BINARY;
+    if ( toupperStr( intOptionStr ) == "LINEAR" ) return LINEAR;
+    if ( toupperStr( intOptionStr ) == "GAUSSIAN" ) return GAUSSIAN;
+
+    cerr << "intOptionStr is not a valid interaction option" << endl; 
+    exit(1);
+}
+
 string getIntOptionStr( FactorIntType intOption )
 {
-    if ( intOption == BINARY ) return "Binary";
-    if ( intOption == GAUSSIAN ) return "Gaussian";
+    if ( intOption == BINARY ) return "BINARY";
+	if ( intOption == LINEAR ) return "LINEAR"; 
+    if ( intOption == GAUSSIAN ) return "GAUSSIAN";
 
     return "Invalid";
 }
@@ -84,32 +95,6 @@ string getSearchOptionStr( SearchType searchOption )
     if ( searchOption == CONSTRAINED ) return "Constrained";
 
     return "Invalid";
-}
-
-double FactorIntFuncBinary::compFactorInt( double normalInt, int dist, bool orientation ) const
-{
-    assert( dist >= 0 );
-	
-    double spacingTerm = ( dist < distThr ? normalInt : 1.0 );
-    double orientationTerm = orientation ? 1.0 : orientationEffect;	
-    return spacingTerm * orientationTerm;	
-}
-
-double FactorIntFuncGaussian::compFactorInt( double normalInt, int dist, bool orientation ) const
-{
-    assert( dist >= 0 );
-
-    double GaussianInt = dist < distThr ? normalInt * exp( - ( dist * dist ) / ( 2.0 * sigma * sigma ) ) : 1.0;
-    return max( 1.0, GaussianInt );    
-}
-
-double FactorIntFuncGeometric::compFactorInt( double normalInt, int dist, bool orientation ) const
-{
-    assert( dist >= 0 );
-	
-    double spacingTerm = max( 1.0, dist <= distThr ? normalInt : normalInt * pow( spacingEffect, dist - distThr ) ); 
-    double orientationTerm = orientation ? 1.0 : orientationEffect;	
-    return spacingTerm * orientationTerm;
 }
 
 ExprPar::ExprPar( int _nFactors, int _nSeqs ) : factorIntMat()
@@ -300,7 +285,11 @@ double ExprPar::parameter_L1_norm() const
     for ( int i = 0; i < nFactors(); i++ ) {
         for ( int j = 0; j <= i; j++ ) {
 			Nparameter++;
-			L1_norm_coop +=  factorIntMat( i, j ) / max_interaction ;
+//			L1_norm_coop +=  factorIntMat( i, j ) / max_interaction;
+			if(factorIntMat( i, j ) >= 1)
+				L1_norm_coop +=  (factorIntMat( i, j ) - 1) / max_interaction;
+			else
+				L1_norm_coop +=  min_interaction / factorIntMat( i, j );
         }	
 	}
 
@@ -479,23 +468,25 @@ int ExprPar::load( const string& file )
     return fin ? RET_ERROR : 0;
 }
 
-int ExprPar::load( const string& file, const vector <string>& seqNames )
+int ExprPar::load( const string& file, const vector <string>& seqNames, const vector <string>& motifNames )
 {
     // open the file
     ifstream fin( file.c_str() );
     if ( !fin ){ cerr << "Cannot open parameter file " << file << endl;	exit( 1 ); } 
 
-    // read the factor information
-    vector< string > motifNames( nFactors() );
-    for ( int i = 0; i < nFactors(); i++ ) {
-        fin >> motifNames[i] >> maxBindingWts[i] >> txpEffects[i]; 
-        if ( modelOption == CHRMOD_UNLIMITED || modelOption == CHRMOD_LIMITED ) fin >> repEffects[i];
-    }
-
     // factor name to index mapping
     map< string, int > factorIdxMap;
     for ( int i = 0; i < nFactors(); i++ ) {
         factorIdxMap[motifNames[i]] = i;
+    }
+
+    // read the factor information
+	string name_tmp;
+    for ( int i = 0; i < nFactors(); i++ ) {
+        fin >> name_tmp;
+        int idx = factorIdxMap[name_tmp];
+		fin >> maxBindingWts[idx] >> txpEffects[idx]; 
+        if ( modelOption == CHRMOD_UNLIMITED || modelOption == CHRMOD_LIMITED ) fin >> repEffects[idx];
     }
 
     string symbol, eqSign, value;
@@ -697,7 +688,7 @@ double ExprPar::max_effect_Logistic = 5;
 double ExprPar::min_weight = 0.001;		
 double ExprPar::max_weight = 500;	
 double ExprPar::min_interaction = 0.0001;	
-double ExprPar::max_interaction = 5000;
+double ExprPar::max_interaction = 500;
 double ExprPar::min_effect_Thermo = 0.01;	
 double ExprPar::max_effect_Thermo = 500;
 double ExprPar::min_repression = 1.0E-3;
@@ -1436,21 +1427,20 @@ double ExprFunc::compPartFuncOnChrMod_Limited(const vector< double >& factorConc
 // The interaction function for direct model
 double ExprFunc::compFactorInt( const Site& a, const Site& b ) const
 {
-
-// 	assert( !siteOverlap( a, b, motifs ) );
-    //if(a.factorIdx != b.factorIdx)	return 1.0;	// Only TF of the same type interact 	
-    double maxInt = par.factorIntMat(a.factorIdx, b.factorIdx) - repressionMat(a.factorIdx, b.factorIdx);
+    double maxInt = par.factorIntMat(a.factorIdx, b.factorIdx);
     unsigned dist = abs( a.start - b.start );
     assert( dist >= 0 );
-
-    //assert(  modelOption == DIRECT  );	// For now only Direct model implemented
-    #if FactorIntFunc
-	double d = float(dist)/float(coopDistThr);
-    double spacingTerm = ( dist < coopDistThr ? maxInt * (1 - d ) + 1 : 1.0 ); // Range 1.0 <-> (maxint + 1.0) (1 - d )
-    #else 
-    double spacingTerm = ( dist < coopDistThr ? maxInt : 1.0 );
-    #endif // FactorIntFunc
-
+	double spacingTerm = 1;
+	if(FactorIntOption == BINARY) 
+	    spacingTerm = ( dist < coopDistThr ? maxInt : 1.0 );
+	else if(FactorIntOption == LINEAR){
+		double d = float(dist)/float(coopDistThr);
+	    spacingTerm = ( dist < coopDistThr ? maxInt * (1 - d) + 1 : 1.0 );
+	}
+	else if(FactorIntOption == GAUSSIAN){
+		double d = float(dist)/float(coopDistThr);
+	    spacingTerm = ( dist < coopDistThr ? maxInt * exp( - 4.5 * ( d * d ) ) + 1: 1.0 );	// Sigma is one third of coopDistThr
+	}
     #if ORIENTATION
     double orientationTerm = ( a.strand == b.strand ) ? 1.0 : orientationEffect;
     return spacingTerm * orientationTerm;
@@ -1460,20 +1450,23 @@ double ExprFunc::compFactorInt( const Site& a, const Site& b ) const
 }
 
 // The interaction function for TOSCA
-double ExprFunc::compFactorInt( int t_1, int t_2, int _dist  ) const
+double ExprFunc::compFactorInt( int t_1, int t_2, int _dist ) const
 {
-
     double maxInt = par.factorIntMat( t_1, t_2 );
     int dist = _dist;
     assert( dist >= 0 );
-
-    //assert(  modelOption == DIRECT  );	// For now only Direct model implemented
-    #if FactorIntFunc
-    double spacingTerm = ( dist < coopDistThr ? maxInt *  (1 - float(dist/coopDistThr) ) : 0.0 );	// Range 0 <-> maxint 
-    #else
-    double spacingTerm = ( dist < coopDistThr ? maxInt : 0.0 );
-    #endif // FactorIntFunc
-
+    assert( dist >= 0 );
+	double spacingTerm = 1;
+	if(FactorIntOption == BINARY) 
+	    spacingTerm = ( dist < coopDistThr ? maxInt + 1: 1.0 );
+	else if(FactorIntOption == LINEAR){
+		double d = float(dist)/float(coopDistThr);
+	    spacingTerm = ( dist < coopDistThr ? maxInt * (1 - d) + 1 : 1.0 );
+	}
+	else if(FactorIntOption == GAUSSIAN){
+		double d = float(dist)/float(coopDistThr);
+	    spacingTerm = ( dist < coopDistThr ? maxInt * exp( - 4.5 * ( d * d ) ) + 1: 1.0 );	// Sigma is one third of coopDistThr
+	}
     #if ORIENTATION
     double orientationTerm = ( a.strand == b.strand ) ? 1.0 : orientationEffect;
     return spacingTerm * orientationTerm;
@@ -1711,7 +1704,6 @@ int ExprPredictor::train( const ExprPar& par_init, const gsl_rng* rng )
 
     // training using the best parameters so far
     if ( nRandStarts ) train( par_best ); 
-    cout << "Final training:\tParameters = "; printPar( par_model ); 
     cout << "\tObjective = " << setprecision( 5 ) << obj_model << endl; 
     
 	gene_crm_fout.close();
@@ -1784,6 +1776,7 @@ ModelType ExprPredictor::modelOption = CHRMOD_LIMITED;
 int ExprPredictor::estBindingOption = 1;    // 1. estimate binding parameters; 0. not estimate binding parameters
 ObjType ExprPredictor::objOption = OBJECTIVE_FUNCTION;
 PenaltyType ExprPredictor::PenaltyOption = PARAMETER_PENALTY;
+FactorIntType ExprFunc::FactorIntOption = FactorIntFunc;
 
 double ExprPredictor::exprSimCrossCorr( const vector< double >& x, const vector< double >& y )
 {
@@ -1811,7 +1804,7 @@ double ExprPredictor::exprSimCrossCorr( const vector< double >& x, const vector<
 int ExprPredictor::maxShift = 5; 
 double ExprPredictor::shiftPenalty = 0.8; 
 
-int ExprPredictor::nAlternations = 4;
+int ExprPredictor::nAlternations = 6;
 int ExprPredictor::nRandStarts = 5;
 double ExprPredictor::min_delta_f_SSE = 1.0E-8;
 double ExprPredictor::min_delta_f_Corr = 1.0E-8;
@@ -2030,9 +2023,25 @@ double ExprPredictor::comp_impact_coop( const ExprPar& par, int tf )
 	ExprPar par_full = par;
 	par_full.par_penalty = 0;
 	par_deleted.par_penalty = 0;
-	vector<double > zero_vector (nFactors(),0);
+	vector<double > zero_vector (nFactors(),ExprPar::min_interaction);
 	par_deleted.factorIntMat.setRow( tf, zero_vector );
 	par_deleted.factorIntMat.setCol( tf, zero_vector );
+	double obj_deleted = objFunc(par_deleted);
+	double obj_full = objFunc(par_full);	
+	double impact = (obj_full - obj_deleted);	
+
+	if (objOption == SSE)	return	-impact;	// SSE gets minimised
+	else return impact;
+}
+
+double ExprPredictor::comp_impact_acc( const ExprPar& par ) 
+{
+	// Calculate the objecttive function without accessibility
+	ExprPar par_deleted = par;
+	ExprPar par_full = par;
+	par_full.par_penalty = 0;
+	par_deleted.par_penalty = 0;
+	par_deleted.acc_scale = ExprPar::min_acc_scale;
 	double obj_deleted = objFunc(par_deleted);
 	double obj_full = objFunc(par_full);	
 	double impact = (obj_full - obj_deleted) / obj_full;	
@@ -2052,7 +2061,7 @@ double ExprPredictor::comp_impact( const ExprPar& par, int tf, int crm )
 	par_deleted.txpEffects[tf] = 1.0;
 	double obj_deleted = objFunc(par_deleted, crm);
 	double obj_full = objFunc(par_full, crm);	
-	double impact = (obj_full - obj_deleted) / obj_full;			
+	double impact = obj_full - obj_deleted;			
 
 	if (objOption == SSE)	return	-impact;	// SSE gets minimised
 	else return impact;
@@ -2065,12 +2074,12 @@ double ExprPredictor::comp_impact_coop( const ExprPar& par, int tf, int crm )
 	ExprPar par_full = par;
 	par_full.par_penalty = 0;
 	par_deleted.par_penalty = 0;
-	vector<double > zero_vector (nFactors(),0);
+	vector<double > zero_vector (nFactors(),ExprPar::min_interaction);
 	par_deleted.factorIntMat.setRow( tf, zero_vector );
 	par_deleted.factorIntMat.setCol( tf, zero_vector );
 	double obj_deleted = objFunc(par_deleted, crm);
 	double obj_full = objFunc(par_full, crm);	
-	double impact = (obj_full - obj_deleted) / obj_full;
+	double impact = obj_full - obj_deleted;
 
 	if (objOption == SSE)	return	-impact;	// SSE gets minimised
 	else return impact;	
@@ -2084,10 +2093,10 @@ double ExprPredictor::comp_impact_coop_pair( const ExprPar& par, int tf1, int tf
 	ExprPar par_full = par;
 	par_full.par_penalty = 0;
 	par_deleted.par_penalty = 0;
-	par_deleted.factorIntMat( tf1, tf2 ) = 0;
+	par_deleted.factorIntMat( tf1, tf2 ) = ExprPar::min_interaction;
 	double obj_deleted = objFunc(par_deleted);
 	double obj_full = objFunc(par_full);	
-	double impact = (obj_full - obj_deleted) / obj_full;
+	double impact = obj_full - obj_deleted;
 
 	if (objOption == SSE)	return	-impact;	// SSE gets minimised
 	else return impact;	

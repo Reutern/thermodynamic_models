@@ -13,7 +13,7 @@ int main( int argc, char* argv[] )
   
     // command line processing
     string seqFile, test_seqFile, accFile, test_accFile, annFile, exprFile, test_exprFile, motifFile, factorExprFile, coopFile, factorInfoFile, repressionFile, parFile, print_parFile;
-    string outFile, occFile;     // output files
+    string outFile, occFile, impactFile;     // output files
     int coopDistThr = 150;
     double factorIntSigma = 25.0;   // sigma parameter for the Gaussian interaction function
     int repressionDistThr = 150;
@@ -75,7 +75,9 @@ int main( int argc, char* argv[] )
         else if ( !strcmp( "-na", argv[i] ) )
             ExprPredictor::nAlternations = atoi( argv[++i] );    
         else if ( !strcmp( "-ff", argv[i] ) )
-            free_fix_indicator_filename = argv[++i];    
+            free_fix_indicator_filename = argv[++i];
+        else if ( !strcmp( "-if", argv[i] ) )
+            impactFile = argv[++i];    
         else if ( !strcmp( "-hy", argv[i] ) )
             hyperparameter = atof( argv[++i] );    
         else if ( !strcmp( "-oq", argv[i] ) ){
@@ -96,7 +98,7 @@ int main( int argc, char* argv[] )
 
     // additional control parameters
     double gcContent = 0.5;
-    FactorIntType intOption = BINARY;     // type of interaction function
+    FactorIntType FactorIntOption = FactorIntFunc;     // type of interaction function
     ExprPar::searchOption = CONSTRAINED;      // search option: unconstrained; constrained. 
     ExprPar::estBindingOption = 1;
 	ExprPar::default_par_penalty = hyperparameter;
@@ -190,6 +192,30 @@ int main( int argc, char* argv[] )
         }
     }
 
+/*
+	//Delete every cic site that is not in 15n distance to a second cic site
+	
+	for ( int seq_idx = 0; seq_idx < nSeqs; seq_idx++ ) {
+		SiteVec sites_tmp = seqSites[seq_idx];
+		for (int site_idx = seqLengths[seq_idx]; site_idx > 0; site_idx--){		
+			if( seqSites[seq_idx][site_idx].factorIdx != 7 ) continue;
+			bool delete_site = true;
+			int position_1 = seqSites[seq_idx][site_idx].start;
+	 		for (int site_idx_2 = 0; site_idx_2 < seqLengths[seq_idx]; site_idx_2++){
+				if( seqSites[seq_idx][site_idx_2].factorIdx != 7 ) continue;	
+				int position_2 = seqSites[seq_idx][site_idx_2].start;	
+				if (abs(position_1 - position_2) == 15) {
+					cout << position_1 << " " << position_2 << endl;
+					delete_site = false;
+					break;
+				}
+			}
+			if (delete_site == true)
+				sites_tmp.erase(sites_tmp.begin() + site_idx);		
+		}
+		seqSites[seq_idx] = sites_tmp;
+	}
+*/
     // read the cooperativity matrix 
     int num_of_coop_pairs = 0;
     IntMatrix coopMat( nFactors, nFactors, false );
@@ -293,9 +319,9 @@ int main( int argc, char* argv[] )
     cout << "Objective_Function = " << getObjOptionStr( ExprPredictor::objOption ) << endl;
     cout << "Penalty_Function = " << getPenaltyOptionStr( ExprPredictor::PenaltyOption ) << "\tlambda = " << hyperparameter << endl;
     if ( !coopFile.empty() ) {
-        cout << "Interaction_Model = " << getIntOptionStr( intOption ) << endl;
+        cout << "Interaction_Model = " << getIntOptionStr( FactorIntOption ) << endl;
         cout << "Interaction_Distance_Threshold = " << coopDistThr << endl;
-        if ( intOption == GAUSSIAN ) cout << "Sigma = " << factorIntSigma << endl;
+        if ( FactorIntOption == GAUSSIAN ) cout << "Sigma = " << factorIntSigma << endl;
     }
     cout << "Search_Option = " << getSearchOptionStr( ExprPar::searchOption ) << endl;
     cout << "Num_Random_Starts = " << ExprPredictor::nRandStarts << endl;
@@ -361,7 +387,7 @@ int main( int argc, char* argv[] )
     // read the initial parameter values
     ExprPar par_init( nFactors, nSeqs );
     if ( !parFile.empty() ) {
-        rval = par_init.load( parFile, seqNames);
+        rval = par_init.load( parFile, seqNames, motifNames);
         if ( rval == RET_ERROR ) {
             cerr << "Cannot read parameters from " << parFile << endl;
             exit( 1 );
@@ -404,26 +430,13 @@ int main( int argc, char* argv[] )
     }
     fout << "Rows\t" << condNames << endl;
 
-    // print the impact
-    cout << "Impact of the TF:" << endl; 
-    for(int tf = 0; tf < nFactors; tf++ ){
+	#if ACCESSIBILITY
+	double impact_acc = predictor->comp_impact_acc(par);
+	cout << "Impact accessibility: " << impact_acc << endl;
+	
+	#endif // ACCESSIBILITY
 
-	double totalweight = 0;
-	for(int seqs_idx = 0; seqs_idx < nSeqs; seqs_idx++){
-		for( int idx = 1; idx <= seqSites[seqs_idx].size(); idx++ ){
-			if(seqSites[seqs_idx][idx].factorIdx != tf)  continue;
-			totalweight += seqSites[seqs_idx][idx].wtRatio;
-		}
-	}
-	// effect * binding energy * total weight
-	double impact = max(par.txpEffects[tf] , 1/par.txpEffects[tf]) * par.maxBindingWts[tf] * totalweight;
-	double log_impact = log10( abs( impact ) ); 
 
-	double impact_new = predictor->comp_impact(par,tf) * 100;
-	double impact_coop = predictor->comp_impact_coop(par,tf) *100;
-	printf ("%s \t %4.2f \t %4.1f %% \t %4.1f %% \n", motifNames[tf].c_str(), log_impact, impact_new, impact_coop);
-	//cout << motifNames[tf] << "\t" << log_impact << "\t" << impact_new << "\t" << impact_coop << endl;
-    }
 
     #if CALCULATE_OCCUPANCY
     ofstream Occout( occFile.c_str() );
@@ -433,14 +446,14 @@ int main( int argc, char* argv[] )
 
     	// Initialise the occupancy predictor
     	OccPredictor* occpred = new OccPredictor( seqSites[seq_idx], motifs, factorExprData, coopMat, coopDistThr, par_init );
-		Occout << seqNames[seq_idx] << "\t" << seqSites[seq_idx].size() - 1 << "\t" << seqLengths[seq_idx] << endl ; 
+		Occout << seqNames[seq_idx] << "\t" << seqSites[seq_idx].size() - 1 << "\t" << seqLengths[seq_idx] << "\t" << "strand" << endl ; 
 
     	for(int site_idx = 1; site_idx < seqSites[seq_idx].size(); site_idx++){
 			double occ_avg = 0;
 			for(int position_idx = 0; position_idx < 100; position_idx++){ 
-				occ_avg += occpred -> predictOcc(site_idx,position_idx) / 100.0 ;
+				occ_avg += occpred -> predictOcc(site_idx, position_idx) / 100.0 ;
 			}
-			Occout << seqSites[seq_idx][site_idx].start << "\t" << seqSites[seq_idx][site_idx].factorIdx <<  "\t" << occ_avg << endl;
+			Occout << seqSites[seq_idx][site_idx].start << "\t" << seqSites[seq_idx][site_idx].factorIdx <<  "\t" << occ_avg <<  "\t" << seqSites[seq_idx][site_idx].strand << endl;
 		}
     	delete occpred;		// clean up the predictor
     }
@@ -545,6 +558,65 @@ int main( int argc, char* argv[] )
     double obj_sse = sqrt( squaredErr / ( test_nSeqs * nConds ) ); 
  
     cout << "Performance on test set: SSE = " << obj_sse << "\t" << "Corr = " << obj_corr << endl;
+
+	#if PRINT_IMPACT
+    cout << "Save impact" << endl;
+    ofstream impact_stream;
+    impact_stream.open (impactFile);
+	impact_stream << "CRM";
+    for(int tf = 0; tf < nFactors; tf++ ){
+		impact_stream << "\t" << motifNames[tf];}
+	impact_stream << endl;
+    for(int seqs_idx = 0; seqs_idx < test_nSeqs; seqs_idx++){
+		impact_stream << test_seqNames[seqs_idx];
+        for(int tf = 0; tf < nFactors; tf++ ){
+			double impact = predictor_CV->comp_impact(par,tf,seqs_idx);
+			impact_stream << "\t" << impact;
+		}
+		impact_stream << endl;
+    }
+
+	impact_stream << "TF/TF";
+    for(int tf = 0; tf < nFactors; tf++ ){
+		impact_stream << "\t" << motifNames[tf];}
+		impact_stream << endl;
+    	for(int tf_1 = 0; tf_1 < nFactors; tf_1++){
+			impact_stream << motifNames[tf_1];
+			for(int tf_2 = 0; tf_2 < nFactors; tf_2++){
+				double impact = 0;			
+				if(tf_2 >= tf_1 and coopMat(tf_1, tf_2) == 1 )				
+					impact = predictor_CV->comp_impact_coop_pair(par, tf_1, tf_2);
+				impact_stream << "\t" << impact;
+			}
+			impact_stream << endl;
+    	}
+    impact_stream.close();
+    cout << "Impact saved" << endl;
+
+    // print the impact
+    cout << "Impact of the TF:" << endl; 
+    for(int tf = 0; tf < nFactors; tf++ ){
+
+	double totalweight = 0;
+	for(int seqs_idx = 0; seqs_idx < nSeqs; seqs_idx++){
+		for( int idx = 1; idx <= seqSites[seqs_idx].size(); idx++ ){
+			if(seqSites[seqs_idx][idx].factorIdx != tf)  continue;
+			totalweight += seqSites[seqs_idx][idx].wtRatio;
+		}
+	}
+
+	// effect * binding energy * total weight
+	double impact = max(par.txpEffects[tf] , 1/par.txpEffects[tf]) * par.maxBindingWts[tf] * totalweight;
+	double log_impact = log10( abs( impact ) ); 
+
+	double impact_new = predictor_CV->comp_impact(par,tf) * 100;
+	double impact_coop = predictor_CV->comp_impact_coop(par,tf) *100;
+	printf ("%s \t %4.2f \t %4.1f %% \t %4.1f %% \n", motifNames[tf].c_str(), log_impact, impact_new, impact_coop);
+	//cout << motifNames[tf] << "\t" << log_impact << "\t" << impact_new << "\t" << impact_coop << endl;
+    }
+	#endif // PRINT_IMPACT
+
+
 	delete predictor_CV;
     #else // CROSS_VALIDATION
     for ( int i = 0; i < nSeqs; i++ ) {
@@ -601,4 +673,3 @@ int main( int argc, char* argv[] )
 
     return 0;	
 }
-

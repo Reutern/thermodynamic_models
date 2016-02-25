@@ -50,7 +50,6 @@ double OccPredictor::predictOcc(int idx_site, int position )
     if(occupancy > 1.0)
     	cout << sites[idx_site].factorIdx << " " << factorConcs[sites[idx_site].factorIdx] << " " << occupancy <<endl;
    
-
     return occupancy;
 }
 
@@ -94,33 +93,31 @@ double OccPredictor::compPartFunc(const vector< double >& factorConcs, int centr
 
     // recurrence 
     for ( int i = 1; i <= n; i++ ) {
+		if( siteOverlap( sites[ i ], sites[ centre ], motifs ) && i != centre){
+			Z[i] = 0;		// sites overlapping the central position can never bind
+			Zt[i] = Zt[i-1];	// they carry the sum of the previous site	
+			continue;
+		}
 
+		// The final boundary calculation (If the boundary is upstream of the central position, terms without the central position bound won't be taken into account.)
+		int boundary;
+		if(boundaries[i] < centre && centre < i)
+			boundary = centre;		// In case centre lies between boundaries[i] and i 
+		else
+			boundary = boundaries[i];	// the regular case
 
-	if( siteOverlap( sites[ i ], sites[ centre ], motifs ) && i != centre){
-		Z[i] = 0;		// sites overlapping the central position can never bind
-		Zt[i] = Zt[i-1];	// they carry the sum of the previous site	
-		continue;
-	}
+		double sum = Zt[boundary];
+	    for ( int j = boundary + 1; j < i; j++ ) {
+            if ( siteOverlap( sites[ i ], sites[ j ], motifs ) ) continue;
+            sum += compFactorInt( sites[ i ], sites[ j ] ) * Z[ j ];	
+	    }
 
-	// The final boundary calculation (If the boundary is upstream of the central position, terms without the central position bound won't be taken into account.)
-	int boundary;
-	if(boundaries[i] < centre && centre < i)
-		boundary = centre;		// In case centre lies between boundaries[i] and i 
-	else
-		boundary = boundaries[i];	// the regular case
+	    Z[i] = bindingWts[ i ] * factorConcs[sites[ i ].factorIdx] * sum;
 
-	double sum = Zt[boundary];
-        for ( int j = boundary + 1; j < i; j++ ) {
-                if ( siteOverlap( sites[ i ], sites[ j ], motifs ) ) continue;
-                sum += compFactorInt( sites[ i ], sites[ j ] ) * Z[ j ];	
-        }
-
-        Z[i] = bindingWts[ i ] * factorConcs[sites[ i ].factorIdx] * sum;
-
-	if( i == centre )   
-		Zt[i] = Z[i];			// the central position is always bound
-	else  
-		Zt[i] = Z[i] + Zt[i - 1];	// the regular case, where i could be free and therefore one takes the previous summand into account	
+		if( i == centre )   
+			Zt[i] = Z[i];			// the central position is always bound
+		else  
+			Zt[i] = Z[i] + Zt[i - 1];	// the regular case, where i could be free and therefore one takes the previous summand into account	
     }
    // for (int idx = 1; idx <= n; idx ++){
 	//if(Zt[idx] < Zt[idx-1])	 cout << centre << " " << idx << " " << Zt[idx-1] << " " << Zt[idx] << endl;

@@ -17,9 +17,11 @@ string getModelOptionStr( ModelType modelOption );
 
 enum FactorIntType {
     BINARY,     // Binary model of interaction
+	LINEAR,		// Linear model of interaction
     GAUSSIAN    // Gaussian model of interaction
 }; 
 
+FactorIntType getIntOption( const string& intOptionStr );
 string getIntOptionStr( FactorIntType intOption );
 
 enum ObjType {
@@ -27,7 +29,6 @@ enum ObjType {
     CORR,   // Pearson correlation
     PGP         // PGP score
 };
-
 
 enum PenaltyType {
     NONE,   // no parameter penalty
@@ -46,76 +47,6 @@ enum SearchType {
 };
 
 string getSearchOptionStr( SearchType searchOption );
-/*****************************************************
-* Factor-Factor Interactions
-******************************************************/
-
-/* FactorIntFunc class: distance-dependent function of TF-TF interaction  */
-class FactorIntFunc {
-public:
-    // compute the factor interaction, given the normal interaction (when they are close enough)
-    virtual double compFactorInt( double normalInt, int dist, bool orientation ) const = 0;
-
-    // the maximum distance beyond which there is no interaction
-    virtual int getMaxDist() const = 0;    
-};
-
-/* FactorIntFuncBinary class: binary distance function */
-class FactorIntFuncBinary : public FactorIntFunc {
-public:
-    // constructors
-    FactorIntFuncBinary( int _distThr, double _orientationEffect = 1.0 ) : distThr( _distThr ), orientationEffect( _orientationEffect ) { assert( distThr > 0 ); }
-
-    // compute the factor interaction
-    double compFactorInt( double normalInt, int dist, bool orientation ) const;
-
-    // the maximum distance beyond which there is no interaction
-    inline int getMaxDist() const {
-        return distThr;
-    } 
-private:
-    int distThr;		// if distance < thr, the "normal" value; otherwise 1 (no interaction)
-    double orientationEffect;	// the effect of orientation: if at different strands, the effect should be multiplied this value	
-};
-
-/* FactorIntFuncGaussian class: Gaussian distance function*/
-class FactorIntFuncGaussian : public FactorIntFunc {
-public: 
-    // constructors
-    FactorIntFuncGaussian( int _distThr, double _sigma ) : distThr( _distThr ), sigma( _sigma ) {
-        assert( distThr > 0 && sigma > 0 );
-    }
-
-    // compute the factor interaction
-    double compFactorInt( double normalInt, int dist, bool orientation ) const; 
-
-    // the maximum distance beyone which there is no interaction
-    inline int getMaxDist() const {
-        return distThr;
-    } 
-private: 
-    int distThr;     // no interaction if distance is greater than thr. 
-    double sigma;       // standard deviation of 
-};
-
-/* FactorIntFuncGeometric class: distance function decays geometrically (but never less than 1) */
-class FactorIntFuncGeometric : public FactorIntFunc {
-public:
-    // constructors
-    FactorIntFuncGeometric( int _distThr, double _spacingEffect, double _orientationEffect ) : distThr( _distThr ), spacingEffect( _spacingEffect ), orientationEffect( _orientationEffect ) { assert( distThr > 0 ); }
-
-    // compute the factor interaction
-    double compFactorInt( double normalInt, int dist, bool orientation ) const;
-
-    // the maximum distance beyond which there is no interaction
-    inline int getMaxDist() const {
-        return distThr;
-    } 
-private:
-    int distThr;		// if distance < thr, the "normal" value; otherwise decay with distance (by parameter spacingEffect)
-    double spacingEffect;		// the effect of spacing
-    double orientationEffect;	// the effect of orientation: if at different strands, the effect should be multiplied this value
-};
 
 /*****************************************************
 * Expression Model and Parameters
@@ -150,7 +81,7 @@ public:
  		
     // load the parameter values from a file, assuming the parameter has the correct dimensions (and initialized)
     int load( const string& file ); 
-    int load( const string& file, const vector <string>& seqNames);	// extended version of load with automated seqName allocation for q_btm 
+    int load( const string& file, const vector <string>& seqNames, const vector <string>& motifNames);	// extended version of load with automated seqName allocation for q_btm 
 
     // adjust the values of parameters: if the value is close to min or max allowed value, slightly change it s.t. it is away from the boundary
     void adjust(); 
@@ -225,6 +156,7 @@ public:
     // Returns the efficiency Z_ON/Z_OFF
     double predictExpr_scalefree( int length, const vector< double >& factorConcs, int seq_num );    
     static ModelType modelOption;     // model option   
+	static FactorIntType FactorIntOption;
     static bool one_qbtm_per_crm;
 
     // Access functions to privat variables
@@ -344,6 +276,7 @@ public:
 
     double comp_impact( const ExprPar& par, int tf );		// The impact of the parameter
     double comp_impact_coop( const ExprPar& par, int tf );		// The impact of all cooperativity parameters with tf involved
+    double comp_impact_acc( const ExprPar& par );		// The impact of the accessibility
     double comp_impact( const ExprPar& par, int tf, int crm );		// The impact of the parameter on one crm
     double comp_impact_coop( const ExprPar& par, int tf, int crm );		// The impact of all cooperativity parameters with tf involved on one crm
     double comp_impact_coop_pair( const ExprPar& par, int tf1, int tf2 );		// The impact of the cooperativity parameter
