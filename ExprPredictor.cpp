@@ -1,7 +1,7 @@
 #include </usr/local/include/gsl/gsl_math.h>
 #include </usr/local/include/gsl/gsl_multimin.h>
 
-#include "siman.h"
+#include "cmaes.h"
 #include "ExprPredictor.h"
 #include "param.h"
 #include <sys/time.h>
@@ -240,61 +240,62 @@ ExprPar::ExprPar( const vector< double >& pars, const IntMatrix& coopMat, const 
 
 double ExprPar::parameter_L2_norm() const
 {
-	double L2_norm = 0;
+	double L2_weights = 0;
+	double L2_effects = 0;
 
     for ( int i = 0; i < nFactors(); i++ ) {
 
-		L2_norm += pow( maxBindingWts[ i ] / max_weight,2 )/nFactors();
+		L2_weights += pow( maxBindingWts[ i ] / max_weight,2 )/nFactors();
 		if(txpEffects[i] >= 1)
-			L2_norm +=   pow( (txpEffects[i] -1) / ( max_effect_Thermo -1 ),2 )/nFactors();
+			L2_effects += pow( (txpEffects[i] -1) / ( max_effect_Thermo -1 ), 2) / nFactors();
 		else
-			L2_norm +=   pow( min_effect_Thermo / txpEffects[i],2 )/nFactors();
+			L2_effects += pow( min_effect_Thermo / txpEffects[i], 2) / nFactors();
 	}
 
 	double L2_norm_coop = 0;
-	int Nparameter = 0;
     for ( int i = 0; i < nFactors(); i++ ) {
         for ( int j = 0; j <= i; j++ ) {
-			Nparameter++;
-			L2_norm_coop += pow( factorIntMat( i, j ) / max_interaction,2 );
+			L2_norm_coop += pow(factorIntMat(i, j)/ max_interaction, 2);
+//			if(factorIntMat( i, j ) >= 1)
+//				L2_norm_coop += pow((factorIntMat(i, j) - 1)/ max_interaction, 2);
+//			else
+//				L2_norm_coop +=  pow(min_interaction / factorIntMat( i, j ), 2);
         }	
 	}
 
-	L2_norm_coop/= Nparameter;
+	L2_norm_coop /= nFactors();
 
-	return L2_norm + L2_norm_coop ;
+	return L2_weights + L2_effects + L2_norm_coop ;
 }
 
 double ExprPar::parameter_L1_norm() const
 {
-	double L1_norm = 0;
+	double L1_weights = 0;
+	double L1_effects = 0;
 
     for ( int i = 0; i < nFactors(); i++ ) {
 
-		L1_norm +=  maxBindingWts[ i ] / max_weight /nFactors() ;
+		L1_weights +=  maxBindingWts[ i ] / max_weight / nFactors();
 		if(txpEffects[i] >= 1)
-			L1_norm +=  (txpEffects[i] -1) / ( max_effect_Thermo -1 ) /nFactors();
+			L1_effects +=  (txpEffects[i] -1) / ( max_effect_Thermo -1 ) / nFactors();
 		else
-			L1_norm +=  min_effect_Thermo / txpEffects[i] /nFactors();
+			L1_effects +=  min_effect_Thermo / txpEffects[i] / nFactors();
 
 	}
 
 	double L1_norm_coop = 0;
 	int Nparameter = 0;
-
     for ( int i = 0; i < nFactors(); i++ ) {
         for ( int j = 0; j <= i; j++ ) {
-			Nparameter++;
-//			L1_norm_coop +=  factorIntMat( i, j ) / max_interaction;
-			if(factorIntMat( i, j ) >= 1)
-				L1_norm_coop +=  (factorIntMat( i, j ) - 1) / max_interaction;
-			else
-				L1_norm_coop +=  min_interaction / factorIntMat( i, j );
+			L1_norm_coop +=  factorIntMat(i, j) / max_interaction;
+//			if(factorIntMat( i, j ) >= 1)
+//				L1_norm_coop +=  (factorIntMat(i, j) - 1) / max_interaction;
+//			else
+//				L1_norm_coop +=  min_interaction / factorIntMat( i, j );
         }	
 	}
-
-	L1_norm_coop /= Nparameter;
-	return L1_norm + L1_norm_coop ;
+	L1_norm_coop /= nFactors();
+	return L1_weights + L1_effects + L1_norm_coop ;
 }
 
 
@@ -743,13 +744,13 @@ void ExprFunc::set_sites( SiteVec _sites )
 
     // Determin the boundaries
     _boundaries[0] = 0;
-    int range = max(coopDistThr, repressionDistThr );
-    for ( int k = 1; k < n; k++ ) {
+    int range = max(coopDistThr, repressionDistThr);
+    for (int k = 1; k < n; k++) {
     	int l; 
-	for ( l=0; l < k; l++ ) {
-	    if ( ( sites[k].start - sites[l].start ) <= range ) {break;} 
-	}
-    _boundaries[k] = l ;
+		for (l = 1; l < k; l++) {
+	    	if ((sites[k].start - sites[l].start) <= range or siteOverlap( sites[k], sites[l], motifs )) {break;} 
+		}
+    	_boundaries[k] = l - 1;
     }	
     set_boundaries(_boundaries);
     
@@ -1428,11 +1429,13 @@ double ExprFunc::compPartFuncOnChrMod_Limited(const vector< double >& factorConc
 double ExprFunc::compFactorInt( const Site& a, const Site& b ) const
 {
     double maxInt = par.factorIntMat(a.factorIdx, b.factorIdx);
+	if(par.factorIntMat(a.factorIdx, b.factorIdx) == 1.0)
+		return 1.0;
     unsigned dist = abs( a.start - b.start );
     assert( dist >= 0 );
 	double spacingTerm = 1;
 	if(FactorIntOption == BINARY) 
-	    spacingTerm = ( dist < coopDistThr ? maxInt : 1.0 );
+	    spacingTerm = ( dist < coopDistThr ? maxInt + 1 : 1.0 );
 	else if(FactorIntOption == LINEAR){
 		double d = float(dist)/float(coopDistThr);
 	    spacingTerm = ( dist < coopDistThr ? maxInt * (1 - d) + 1 : 1.0 );
@@ -1810,7 +1813,7 @@ double ExprPredictor::min_delta_f_SSE = 1.0E-8;
 double ExprPredictor::min_delta_f_Corr = 1.0E-8;
 double ExprPredictor::min_delta_f_PGP = 1.0E-8;
 int ExprPredictor::nSimplexIters = 20000;
-int ExprPredictor::nGradientIters = 50;
+int ExprPredictor::nGradientIters = 5000;
 bool ExprPredictor::one_qbtm_per_crm = ONE_QBTM;
 
 // Initialise static members as empty
@@ -2012,7 +2015,7 @@ double ExprPredictor::comp_impact( const ExprPar& par, int tf )
 	double obj_full = objFunc(par_full);	
 	double impact = (obj_full - obj_deleted) / obj_full;
 
-	if (objOption == SSE)	return	-impact;	// SSE gets minimised
+	if (objOption == SSE) return -impact;	// SSE gets minimised
 	else return impact;
 }
 
@@ -2023,15 +2026,15 @@ double ExprPredictor::comp_impact_coop( const ExprPar& par, int tf )
 	ExprPar par_full = par;
 	par_full.par_penalty = 0;
 	par_deleted.par_penalty = 0;
-	vector<double > zero_vector (nFactors(),ExprPar::min_interaction);
+	vector<double > zero_vector (nFactors(),1);
 	par_deleted.factorIntMat.setRow( tf, zero_vector );
 	par_deleted.factorIntMat.setCol( tf, zero_vector );
 	double obj_deleted = objFunc(par_deleted);
 	double obj_full = objFunc(par_full);	
 	double impact = (obj_full - obj_deleted);	
 
-	if (objOption == SSE)	return	-impact;	// SSE gets minimised
-	else return impact;
+	if (objOption == SSE)	return	impact;	// SSE gets minimised
+	else return -impact;
 }
 
 double ExprPredictor::comp_impact_acc( const ExprPar& par ) 
@@ -2063,8 +2066,8 @@ double ExprPredictor::comp_impact( const ExprPar& par, int tf, int crm )
 	double obj_full = objFunc(par_full, crm);	
 	double impact = obj_full - obj_deleted;			
 
-	if (objOption == SSE)	return	-impact;	// SSE gets minimised
-	else return impact;
+	if (objOption == SSE)	return	impact;	// SSE gets minimised
+	else return -impact;
 }
 
 double ExprPredictor::comp_impact_coop( const ExprPar& par, int tf, int crm ) 
@@ -2081,8 +2084,8 @@ double ExprPredictor::comp_impact_coop( const ExprPar& par, int tf, int crm )
 	double obj_full = objFunc(par_full, crm);	
 	double impact = obj_full - obj_deleted;
 
-	if (objOption == SSE)	return	-impact;	// SSE gets minimised
-	else return impact;	
+	if (objOption == SSE)	return	impact;	// SSE gets minimised
+	else return -impact;	
 }
 
 
@@ -2098,8 +2101,8 @@ double ExprPredictor::comp_impact_coop_pair( const ExprPar& par, int tf1, int tf
 	double obj_full = objFunc(par_full);	
 	double impact = obj_full - obj_deleted;
 
-	if (objOption == SSE)	return	-impact;	// SSE gets minimised
-	else return impact;	
+	if (objOption == SSE)	return	impact;	// SSE gets minimised
+	else return -impact;	
 }
 
 double ExprPredictor::compAvgCorr( const ExprPar& par ) 
@@ -2119,13 +2122,13 @@ double ExprPredictor::compAvgCorr( const ExprPar& par )
 	
 	// Determin the boundaries for func
 	_boundaries[0] = 0;
-	int range = max(coopDistThr, repressionDistThr );
+	int range = max(coopDistThr, repressionDistThr);
         for ( int k = 1; k < n; k++ ) {
 	       	int l; 
-		for ( l = k - 1; l >= 1; l-- ) {
-		    if ( ( seqSites[i][k].start - seqSites[i][l].start ) > range ) break; 
-		}
-	    _boundaries[k] = l ;
+			for ( l = k - 1; l >= 0; l-- ) {
+			    if ( ( seqSites[i][k].start - seqSites[i][l].start ) > range or siteOverlap(seqSites[i][k], seqSites[i][l], motifs ) ) break; 
+			}
+	   		_boundaries[k] = l ;
 	}	
         func->set_boundaries(_boundaries);
     
@@ -2521,73 +2524,6 @@ int ExprPredictor::gradient_minimize( ExprPar& par_result, double& obj_result )
     gsl_multimin_fdfminimizer_free( s );
     
     return 0;
-}
-
-int ExprPredictor::simulated_annealing( ExprPar& par_result, double& obj_result ) 
-{
-
-    const gsl_rng_type * T;
-    gsl_rng * r;
-    gsl_rng_env_setup();
-    T = gsl_rng_default;
-    r = gsl_rng_alloc(T);
-    gsl_siman_params_t siman_params = {1, 1, 0.5, 0.2, 0.1, 1.01, 2.0e-3};
-
-    vector< double > pars;
-    par_model.getFreePars( pars, coopMat, actIndicators, repIndicators ); 
-	//Hassan start:
-	int pars_size = pars.size();
-	fix_pars.clear();
-	free_pars.clear();
-	for( int index = 0; index < pars_size; index++ ){
-		if( indicator_bool[ index ] ){
-			//cout << "testing 1: " << pars[ index ] << endl;
-			free_pars.push_back( pars[ index ]);
-		}
-		else{
-			//cout << "testing 2: " << pars[ index ] << endl;
-			fix_pars.push_back( pars[ index ] );
-		}
-	}
-	
-	pars.clear();
-	pars = free_pars;
-	//Hassan end
-    // set the initial values to be searched 
-    gsl_vector* x = vector2gsl( pars ); 
-    gsl_siman_solve(r, x, (void*)this, gsl_obj_f, siman_stepper,siman_print, NULL, NULL, NULL, sizeof(*x), siman_params);
-
-	free_pars = gsl2vector(x);
-	pars.clear();
-	int free_par_counter = 0;
-	int fix_par_counter = 0;
-	for( int index = 0; index < pars_size; index ++ ){
-		if( indicator_bool[ index ] ){
-			pars.push_back( free_pars[ free_par_counter ++ ]);
-		}
-		else{
-			pars.push_back( fix_pars[ fix_par_counter ++ ]);
-		}
-	}
-
-    par_result = ExprPar ( pars, coopMat, actIndicators, repIndicators, nSeqs() );
-
-    // free the minimiser
-    gsl_vector_free( x );    
-    gsl_rng_free (r);
-    
-    return 0;
-}
-
-void siman_print(gsl_vector * xp)
-{
-}
-
-void siman_stepper(const gsl_rng * r, gsl_vector* v, double step_size)
-{
-    int idx = int(gsl_rng_uniform(r) * v->size);
-    double u = gsl_rng_uniform(r) * 2 * step_size - step_size + gsl_vector_get( v, idx );
-    gsl_vector_set( v , idx , u ) ; 
 }
 
 // function to save parameters to file

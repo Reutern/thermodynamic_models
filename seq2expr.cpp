@@ -16,7 +16,7 @@ int main( int argc, char* argv[] )
     string outFile, occFile, impactFile;     // output files
     int coopDistThr = 150;
     double factorIntSigma = 25.0;   // sigma parameter for the Gaussian interaction function
-    int repressionDistThr = 150;
+    int repressionDistThr = 0;
     int maxContact = 1;
 	double hyperparameter = 0.1;
 	vector<double> eTF (20,0.6);
@@ -437,7 +437,6 @@ int main( int argc, char* argv[] )
 	#endif // ACCESSIBILITY
 
 
-
     #if CALCULATE_OCCUPANCY
     ofstream Occout( occFile.c_str() );
     for ( int seq_idx = 0; seq_idx < nSeqs; seq_idx++ ) {
@@ -536,6 +535,8 @@ int main( int argc, char* argv[] )
         predictor_CV->train( par, rng );
         gsl_rng_free( rng );
     }
+
+
     double squaredErr = 0;
     double correlation = 0;
     for ( int i = 0; i < test_nSeqs; i++ ) {
@@ -561,6 +562,7 @@ int main( int argc, char* argv[] )
 
 	#if PRINT_IMPACT
     cout << "Save impact" << endl;
+	ExprPar par_impact = predictor_CV->getPar();
     ofstream impact_stream;
     impact_stream.open (impactFile);
 	impact_stream << "CRM";
@@ -570,7 +572,7 @@ int main( int argc, char* argv[] )
     for(int seqs_idx = 0; seqs_idx < test_nSeqs; seqs_idx++){
 		impact_stream << test_seqNames[seqs_idx];
         for(int tf = 0; tf < nFactors; tf++ ){
-			double impact = predictor_CV->comp_impact(par,tf,seqs_idx);
+			double impact = predictor_CV->comp_impact(par_impact,tf,seqs_idx);
 			impact_stream << "\t" << impact;
 		}
 		impact_stream << endl;
@@ -585,7 +587,7 @@ int main( int argc, char* argv[] )
 			for(int tf_2 = 0; tf_2 < nFactors; tf_2++){
 				double impact = 0;			
 				if(tf_2 >= tf_1 and coopMat(tf_1, tf_2) == 1 )				
-					impact = predictor_CV->comp_impact_coop_pair(par, tf_1, tf_2);
+					impact = predictor_CV->comp_impact_coop_pair(par_impact, tf_1, tf_2);
 				impact_stream << "\t" << impact;
 			}
 			impact_stream << endl;

@@ -366,9 +366,6 @@ private:
  //   static void catch_param(int sig_num);		
 };
 
-// the objective function and its gradient of ExprPredictor::simplex_minimize, simulated annealing or gradient_minimize
-void siman_print(gsl_vector* xp);
-void siman_stepper(const gsl_rng * r, gsl_vector* xp, double step_size);
 double gsl_obj_f( const gsl_vector* v, void* params );
 void gsl_obj_df( const gsl_vector* v, void* params, gsl_vector* grad ); 
 void gsl_obj_fdf( const gsl_vector* v, void* params, double* result, gsl_vector* grad ); 

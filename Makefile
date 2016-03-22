@@ -18,10 +18,10 @@ clean:
 	rm -f $(BIN)
 	rm -f $(ODIR)/*.o
 
-_OBJ = Tools.o siman.o SeqAnnotator.o ExprPredictor.o OccPredictor.o seq2expr.o
+_OBJ = Tools.o SeqAnnotator.o ExprPredictor.o OccPredictor.o seq2expr.o
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 
-DEPS = Tools.h siman.h SeqAnnotator.h ExprPredictor.h OccPredictor.h param.h
+DEPS = Tools.h SeqAnnotator.h ExprPredictor.h OccPredictor.h param.h
 
 $(ODIR)/%.o: %.cpp $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)

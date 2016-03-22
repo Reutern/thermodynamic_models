@@ -24,6 +24,7 @@ public:
     void set_sites( SiteVec _sites) {sites = _sites;}
     void set_boundaries( vector< int > _boundaries) {boundaries = _boundaries;}
     void set_bindingWts( vector< double > _bindingWts) {bindingWts = _bindingWts;}
+	static FactorIntType FactorIntOption;
 
 private:
     // TF binding motifs

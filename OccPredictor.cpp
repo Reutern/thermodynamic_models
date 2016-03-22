@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <set>
 
+FactorIntType OccPredictor::FactorIntOption = FactorIntFunc;
 
 OccPredictor::OccPredictor(const SiteVec & _sites, const vector< Motif >& _motifs, const Matrix& _factorExprData, const IntMatrix& _coopMat, int _coopDistThr, const ExprPar& _par ) : sites( _sites ), motifs( _motifs ), factorExprData( _factorExprData ), coopDistThr(_coopDistThr), par( _par )
 {
@@ -72,7 +73,7 @@ double OccPredictor::compPartFunc_total(const vector< double >& factorConcs) con
                 if ( siteOverlap( sites[ i ], sites[ j ], motifs ) ) continue;
                 sum += compFactorInt( sites[ i ], sites[ j ] ) * Z[ j ];	
         }
-        Z[i] = bindingWts[ i ] * factorConcs[sites[ i ].factorIdx] * sum;
+        Z[i] = bindingWts[i] * factorConcs[sites[i].factorIdx] * sum;
         Zt[i] = Z[i] + Zt[i - 1];
     }
     return Zt[n];
@@ -101,12 +102,15 @@ double OccPredictor::compPartFunc(const vector< double >& factorConcs, int centr
 
 		// The final boundary calculation (If the boundary is upstream of the central position, terms without the central position bound won't be taken into account.)
 		int boundary;
-		if(boundaries[i] < centre && centre < i)
+		double sum;
+		if(boundaries[i] < centre && centre < i){
 			boundary = centre;		// In case centre lies between boundaries[i] and i 
-		else
+			sum = Z[centre] * compFactorInt( sites[i], sites[centre] );
+		}
+		else{
 			boundary = boundaries[i];	// the regular case
-
-		double sum = Zt[boundary];
+			sum = Zt[boundary];
+		}
 	    for ( int j = boundary + 1; j < i; j++ ) {
             if ( siteOverlap( sites[ i ], sites[ j ], motifs ) ) continue;
             sum += compFactorInt( sites[ i ], sites[ j ] ) * Z[ j ];	
@@ -125,22 +129,24 @@ double OccPredictor::compPartFunc(const vector< double >& factorConcs, int centr
     return Zt[n];
 }
 
-
+// The interaction function for direct model
 double OccPredictor::compFactorInt( const Site& a, const Site& b ) const
 {
-
-// 	assert( !siteOverlap( a, b, motifs ) );
-    if(a.factorIdx != b.factorIdx)	return 1.0;	// Only TF of the same type interact 	
-    double maxInt = par.factorIntMat( a.factorIdx, b.factorIdx );
+    double maxInt = par.factorIntMat(a.factorIdx, b.factorIdx);
+	if(maxInt == 1) return 1.0; 
     unsigned dist = abs( a.start - b.start );
     assert( dist >= 0 );
-
-    #if FactorIntFunc
-    double spacingTerm = ( dist < coopDistThr ? maxInt *  (1 - float(dist)/coopDistThr ) + 1.0: 1.0 );
-    #else 
-    double spacingTerm = ( dist < coopDistThr ? maxInt : 1.0 );
-    #endif // FactorIntFunc
-
+	double spacingTerm = 1;
+	if(FactorIntOption == BINARY) 
+	    spacingTerm = ( dist < coopDistThr ? maxInt + 1 : 1.0 );
+	else if(FactorIntOption == LINEAR){
+		double d = float(dist)/float(coopDistThr);
+	    spacingTerm = ( dist < coopDistThr ? maxInt * (1 - d) + 1 : 1.0 );
+	}
+	else if(FactorIntOption == GAUSSIAN){
+		double d = float(dist)/float(coopDistThr);
+	    spacingTerm = ( dist < coopDistThr ? maxInt * exp( - 4.5 * ( d * d ) ) + 1: 1.0 );	// Sigma is one third of coopDistThr
+	}
     #if ORIENTATION
     double orientationTerm = ( a.strand == b.strand ) ? 1.0 : orientationEffect;
     return spacingTerm * orientationTerm;
