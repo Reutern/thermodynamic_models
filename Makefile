@@ -1,13 +1,16 @@
 CC = g++ -std=c++11 -fopenmp -O3 -mtune=native -march=native #-g #-O0 #for gdb, valgrind etc
 
 GSL_DIR = usr/local
+EIGEN_DIR = /usr/include/eigen3/  
+CMAES_DIR = /home/reutern/Programming/lib/libcmaes/src
+
 ODIR=.obj
 
-INC = -I$(GSL_DIR)
+INC = -I$(GSL_DIR) -I$(EIGEN_DIR) -I$(CMAES_DIR)
 CFLAGS = -O3 $(INC) 
 
-LIB_DIRS = -L$(GSL_DIR)/lib
-LIBS = -lgsl -lgslcblas -lm
+LIB_DIRS = -L$(GSL_DIR)/lib -L$(EIGEN_DIR) -L$(CMAES_DIR)/lib
+LIBS = -lgsl -lgslcblas -lm -lcmaes
 LFLAGS = -O3 $(LIB_DIRS) $(LIBS)
 
 BIN = seq2expr

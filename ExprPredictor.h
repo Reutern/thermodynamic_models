@@ -2,6 +2,7 @@
 #define EXPR_PREDICTOR_H
 
 #include "SeqAnnotator.h"
+#include "cmaes.h"
 #include <signal.h>
 
 enum ModelType {
@@ -235,6 +236,7 @@ public:
 class ExprPredictor {
 public:
     // constructors
+//	ExprPredictor();
     ExprPredictor( const vector< SiteVec >& _seqSites, const vector< int >& _seqLengths, const Matrix& _exprData, const vector< Motif >& _motifs, const Matrix& _factorExprData, const IntMatrix& _coopMat, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr, int _coopDistThr,const vector < bool >& _indicator_bool, const vector <string>& _motifNames, const vector <string>& _seqNames, const vector< Sequence >& _seqs  );
 
     // access methods
@@ -358,7 +360,7 @@ private:
     // minimize the objective function, using the current model parameters as initial values
     int simplex_minimize( ExprPar& par_result, double& obj_result );	// simplex	
     int gradient_minimize( ExprPar& par_result, double& obj_result );	// gradient: BFGS or conjugate gradient
-    int simulated_annealing( ExprPar& par_result, double& obj_result ); 
+	int cmaes_minimize( ExprPar& par_result, double& obj_result ); // CMA-ES
     // function to save parameters to file
     static int save_param();
     // Signal handler

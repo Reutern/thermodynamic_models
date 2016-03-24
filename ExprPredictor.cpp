@@ -1486,7 +1486,22 @@ bool ExprFunc::testRepression( const Site& a, const Site& b ) const
     double dist = abs( a.start - b.start );
     return repressionMat( a.factorIdx, b.factorIdx ) && ( dist <= repressionDistThr );
 }
+/*
+ExprPredictor::ExprPredictor(){
 
+    vector< SiteVec >& seqSites;		
+    const vector< int > _seqLengths(1,0); 
+	seqLengths = &_seqLengths;       
+    Matrix exprData;		
+    vector< Motif >& motifs;		
+    Matrix& factorExprData;		
+    const vector< bool > _actIndicators(1, true);   
+	actIndicators = &_actIndicators;
+    const vector< bool > _repIndicators(1, true);   
+	repIndicators = &_repIndicators;
+    IntMatrix _repressionMat;    
+}
+*/
 ExprPredictor::ExprPredictor( const vector< SiteVec >& _seqSites, const vector< int >& _seqLengths, const Matrix& _exprData, const vector< Motif >& _motifs, const Matrix& _factorExprData, const IntMatrix& _coopMat, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr, int _coopDistThr, const vector < bool >& _indicator_bool, const vector <string>& _motifNames, const vector <string>& _seqNames, const vector< Sequence >& _seqs  ) : seqSites( _seqSites ), seqLengths( _seqLengths ), exprData( _exprData ), motifs( _motifs ), factorExprData( _factorExprData ), actIndicators( _actIndicators ), maxContact( _maxContact ), repIndicators( _repIndicators ), repressionMat( _repressionMat ), repressionDistThr( _repressionDistThr ), coopDistThr( _coopDistThr ) ,indicator_bool ( _indicator_bool ), seqs(_seqs)
 {
 
@@ -1619,58 +1634,29 @@ int ExprPredictor::train( const ExprPar& par_init )
 {   
     par_model = par_init;	// Initialise the model parameter
     par_curr = par_init;	// The working parameter, which get saved in case of an emergancy
-    signal(SIGINT, catch_signal);
-
-/*  
-    cout << "*** Diagnostic printing BEFORE adjust() ***" << endl;
-    cout << "Parameters: " << endl;
-    printPar( par_curr );
-    cout << endl;
-    cout << "Objective function value: " << obj_model << endl;
-    cout << "*******************************************" << endl << endl;
-
-   if ( nAlternations > 0 && ExprPar::searchOption == CONSTRAINED ) par_model.adjust();
-*/
+    signal(SIGINT, catch_signal);	// Initialise signal catching
     obj_model = objFunc( par_model );
-/*    
-    cout << "*** Diagnostic printing AFTER adjust() ***" << endl;
-    cout << "Parameters: " << endl;
-    printPar( par_model );
-    cout << endl;
-    cout << "Objective function value: " << obj_model << endl;
-    cout << "*******************************************" << endl << endl;
-*/
 
-    if ( nAlternations > 0 && ExprPar::searchOption == CONSTRAINED ) { par_model.constrain_parameters(); 
-								       par_model.adjust(); }
+    if ( nAlternations > 0 && ExprPar::searchOption == CONSTRAINED ){ 
+		par_model.constrain_parameters(); 
+	    par_model.adjust(); }
     if ( nAlternations == 0 ) return 0;
     
-    // alternate between two different methods
     ExprPar par_result;
     double obj_result;
 
     for ( int i = 0; i < nAlternations; i++ ) {
 	cout << "Minimisation step " << i+1 << " of " << nAlternations << endl; 
-	//objOption = SSE;
-	cout << "Simplex minimisation: " << endl; 
-    simplex_minimize( par_result, obj_result );
-	//simulated_annealing( par_result, obj_result );
+//    simplex_minimize( par_result, obj_result );
+
+	cout << "CMA-ES minimisation: " << endl; 
+    cmaes_minimize( par_result, obj_result );
 	cout << endl;
-	//save result
-        //par_model = par_result; 
-	//save_param();	
 
-	//objOption = NORM_CORR;
-	//cout << "Simplex minimisation Norm_Corr: " << endl; 
-        //simplex_minimize( par_result, obj_result );	
-	//cout << endl;
-
-	// save result
-        par_model = par_result;
-        par_model.adjust();
+    par_model = par_result;
+    par_model.adjust();
 	save_param();
 
-//         par_model.adjust();
     }
 	
     // commit the parameters and the value of the objective function
@@ -1821,6 +1807,9 @@ ExprPar ExprPredictor::par_curr;
 IntMatrix ExprPredictor::coopMat = IntMatrix();
 vector <string> ExprPredictor::motifNames = vector <string>();
 vector <string> ExprPredictor::seqNames = vector <string>();
+
+// Initialise a global pointer that can smuggle ExprPredictor into FitFunc (I know! I hate it, too.)
+void* global_pointer;
 
 int ExprPredictor::randSamplePar( const gsl_rng* rng, ExprPar& par ) const
 {
@@ -2221,13 +2210,10 @@ double ExprPredictor::compAvgCrossCorr( const ExprPar& par )
 
 int ExprPredictor::simplex_minimize( ExprPar& par_result, double& obj_result ) 
 {
-// 	cout << "Start minimization" << endl;
     // extract initial parameters
     vector < double > pars;
     par_model.getFreePars( pars, coopMat, actIndicators, repIndicators ); 
-        
-	//Hassan start:
-	int pars_size = pars.size();
+    int pars_size = pars.size();
 	fix_pars.clear();
 	free_pars.clear();
 	for( int index = 0; index < pars_size; index++ ){
@@ -2242,7 +2228,6 @@ int ExprPredictor::simplex_minimize( ExprPar& par_result, double& obj_result )
 	pars.clear();
 	pars = free_pars;
 
-	//Hassan end
     // set the objective function
     gsl_multimin_function my_func;
     my_func.f = &gsl_obj_f;
@@ -2526,12 +2511,98 @@ int ExprPredictor::gradient_minimize( ExprPar& par_result, double& obj_result )
     return 0;
 }
 
+
+libcmaes::ProgressFunc<libcmaes::CMAParameters<>,libcmaes::CMASolutions> select_time = [](const libcmaes::CMAParameters<> &cmaparams, const libcmaes::CMASolutions &cmasols)
+{
+	if (cmasols.niter() % 1 == 0){
+		double current_score = - cmasols.best_candidate().get_fvalue();
+		double best_score = - cmasols.get_best_seen_candidate().get_fvalue();		 	
+		printf( "\r %i \t current score = %8.5f \t best score = %8.5f", cmasols.niter(), current_score, best_score);
+		fflush(stdout);}
+
+  return 0;
+};
+
+
+libcmaes::FitFunc obj_func_wrapper = [](const double *x, const int N)
+{
+
+    ExprPredictor* global_predictor = (ExprPredictor*)global_pointer;
+
+	vector < double > all_pars;
+	all_pars.clear();
+	int free_par_counter = 0;
+	int fix_par_counter = 0;
+	for( int index = 0; index < global_predictor->indicator_bool.size(); index ++ ){
+		if( global_predictor ->  indicator_bool[ index ]  ){
+			all_pars.push_back( x[ free_par_counter ++ ]  );
+		}
+		else{
+			all_pars.push_back( global_predictor ->  fix_pars[ fix_par_counter ++ ]  );
+		}
+	}
+
+    ExprPar par_tmp( all_pars, global_predictor->getCoopMat(), global_predictor->getActIndicators(), global_predictor->getRepIndicators(), global_predictor -> nSeqs() );
+    double obj = global_predictor->objFunc(par_tmp);
+    return obj;
+};
+
+int ExprPredictor::cmaes_minimize( ExprPar& par_result, double& obj_result ) 
+{
+    // extract initial parameters
+    vector < double > pars;
+    par_model.getFreePars(pars, coopMat, actIndicators, repIndicators); 
+        
+	int pars_size = pars.size();
+	fix_pars.clear();
+	free_pars.clear();
+	for( int index = 0; index < pars_size; index++ ){
+		if( indicator_bool[ index ] ){
+			free_pars.push_back( pars[ index ]);
+		}
+		else{
+			fix_pars.push_back( pars[ index ] );
+		}
+	}
+	
+	pars.clear();
+	pars = free_pars;
+
+	double sigma = 1;
+	libcmaes::CMAParameters<> cmaparams(pars, sigma);
+	cmaparams.set_fplot("monitor_params.dat");
+	cmaparams.set_algo(aCMAES);
+	global_pointer = (void*)this;
+	libcmaes::CMASolutions cmasols = libcmaes::cmaes<>(obj_func_wrapper, cmaparams, select_time);    
+
+
+	libcmaes::Candidate best_candidate = cmasols.get_best_seen_candidate();
+	free_pars = best_candidate.get_x();
+	pars.clear();
+	int free_par_counter = 0;
+	int fix_par_counter = 0;
+	for( int index = 0; index < pars_size; index ++ ){
+		if( indicator_bool[ index ] ){
+			pars.push_back( free_pars[ free_par_counter ++ ]);
+		}
+		else{
+			pars.push_back( fix_pars[ fix_par_counter ++ ]);
+		}
+	}
+
+    par_result = ExprPar ( pars, coopMat, actIndicators, repIndicators, nSeqs() );
+    obj_result = best_candidate.get_fvalue();	
+
+    return 0;
+}
+
+
 // function to save parameters to file
 int ExprPredictor::save_param()
 {
 	ofstream fparam_sm( "param.save" );
 	par_curr.print( fparam_sm, motifNames, seqNames, getCoopMat() );
-        fparam_sm.close();
+    fparam_sm.close();
 	return 0;
 }
 
