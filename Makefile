@@ -2,7 +2,7 @@ CC = g++ -std=c++11 -fopenmp -O3 -mtune=native -march=native #-g #-O0 #for gdb, 
 
 GSL_DIR = usr/local
 EIGEN_DIR = /usr/include/eigen3/  
-CMAES_DIR = /home/reutern/Programming/lib/libcmaes/src
+CMAES_DIR = /opt/libcmaes/src
 
 ODIR=.obj
 
@@ -21,10 +21,10 @@ clean:
 	rm -f $(BIN)
 	rm -f $(ODIR)/*.o
 
-_OBJ = Tools.o SeqAnnotator.o ExprPredictor.o OccPredictor.o seq2expr.o
+_OBJ = Tools.o SeqAnnotator.o ExprPredictor.o OccPredictor.o type.o seq2expr.o
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 
-DEPS = Tools.h SeqAnnotator.h ExprPredictor.h OccPredictor.h param.h
+DEPS = Tools.h SeqAnnotator.h ExprPredictor.h OccPredictor.h type.h param.h
 
 $(ODIR)/%.o: %.cpp $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)

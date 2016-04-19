@@ -9,94 +9,6 @@
 #include <unistd.h>
 #include <set>
 
-ModelType getModelOption( const string& modelOptionStr )
-{
-    if ( toupperStr( modelOptionStr ) == "LOGISTIC" ) return LOGISTIC;
-    if ( toupperStr( modelOptionStr ) == "DIRECT" ) return DIRECT;
-    if ( toupperStr( modelOptionStr ) == "QUENCHING" ) return QUENCHING;
-    if ( toupperStr( modelOptionStr ) == "CHRMOD_UNLIMITED" ) return CHRMOD_UNLIMITED;
-    if ( toupperStr( modelOptionStr ) == "CHRMOD_LIMITED" ) return CHRMOD_LIMITED;
-
-    cerr << "modelOptionStr is not a valid model option" << endl; 
-    exit(1);
-}
-
-string getModelOptionStr( ModelType modelOption )
-{
-    if ( modelOption == LOGISTIC ) return "Logisitic";
-    if ( modelOption == DIRECT ) return "Direct";
-    if ( modelOption == QUENCHING ) return "Quenching";
-    if ( modelOption == CHRMOD_UNLIMITED ) return "ChrMod_Unlimited";
-    if ( modelOption == CHRMOD_LIMITED ) return "ChrMod_Limited";
-
-    return "Invalid";
-}
-
-FactorIntType getIntOption( const string& intOptionStr )
-{
-   if ( toupperStr( intOptionStr ) == "BINARY" ) return BINARY;
-    if ( toupperStr( intOptionStr ) == "LINEAR" ) return LINEAR;
-    if ( toupperStr( intOptionStr ) == "GAUSSIAN" ) return GAUSSIAN;
-
-    cerr << "intOptionStr is not a valid interaction option" << endl; 
-    exit(1);
-}
-
-string getIntOptionStr( FactorIntType intOption )
-{
-    if ( intOption == BINARY ) return "BINARY";
-	if ( intOption == LINEAR ) return "LINEAR"; 
-    if ( intOption == GAUSSIAN ) return "GAUSSIAN";
-
-    return "Invalid";
-}
-
-ObjType getObjOption( const string& objOptionStr )
-{
-    if ( toupperStr( objOptionStr ) == "SSE" ) return SSE;
-    if ( toupperStr( objOptionStr ) == "CORR" ) return CORR;
-    if ( toupperStr( objOptionStr ) == "PGP" ) return PGP;
-
-    cerr << "objOptionStr is not a valid option of objective function" << endl; 
-    exit(1);
-}
-
-string getObjOptionStr( ObjType objOption )
-{
-    if ( objOption == SSE ) return "SSE";
-    if ( objOption == CORR ) return "Corr";
-    if ( objOption == PGP ) return "PGP";
-
-    return "Invalid";
-}
-
-PenaltyType getPenaltyOption( const string& PenaltyOptionStr )
-{
-    if ( toupperStr( PenaltyOptionStr ) == "NONE" ) return NONE;
-    if ( toupperStr( PenaltyOptionStr ) == "L1" ) return L1;
-    if ( toupperStr( PenaltyOptionStr ) == "L2" ) return L2;
-
-    cerr << "PenaltyOptionStr is not a valid option of penalty function" << endl; 
-    exit(1);
-}
-
-string getPenaltyOptionStr( PenaltyType PenaltyOption )
-{
-    if ( PenaltyOption == NONE ) return "NONE";
-    if ( PenaltyOption == L1 ) return "L1";
-    if ( PenaltyOption == L2 ) return "L2";
-
-    return "Invalid";
-}
-
-string getSearchOptionStr( SearchType searchOption )
-{
-    if ( searchOption == UNCONSTRAINED ) return "Unconstrained";
-    if ( searchOption == CONSTRAINED ) return "Constrained";
-
-    return "Invalid";
-}
-
 ExprPar::ExprPar( int _nFactors, int _nSeqs ) : factorIntMat()
 {	
     assert( _nFactors > 0 );
@@ -698,10 +610,10 @@ double ExprPar::min_basal_Thermo = 1.0E-5;
 double ExprPar::max_basal_Thermo = 0.05;
 
 #elif PARAMETER_SPACE == 1	// medium
-double ExprPar::min_weight = 0.0001;		
+double ExprPar::min_weight = 0.001;		
 double ExprPar::max_weight = 1000;		
 double ExprPar::min_interaction = 0.0001;	
-double ExprPar::max_interaction = 5000;
+double ExprPar::max_interaction = 10000;
 double ExprPar::min_effect_Thermo = 0.001;	
 double ExprPar::max_effect_Thermo = 1000;
 double ExprPar::min_repression = 1.0E-3;
@@ -710,12 +622,12 @@ double ExprPar::min_basal_Thermo = 1.0E-6;
 double ExprPar::max_basal_Thermo = 0.1;
 
 #elif PARAMETER_SPACE == 2	// large
-double ExprPar::min_weight = 0.00001;		
-double ExprPar::max_weight = 5000;		
-double ExprPar::min_interaction = 0.0001;	
-double ExprPar::max_interaction = 5000;
+double ExprPar::min_weight = 0.001;		
+double ExprPar::max_weight = 1000;		
+double ExprPar::min_interaction = 0.001;	
+double ExprPar::max_interaction = 1000;
 double ExprPar::min_effect_Thermo = 0.0001;	
-double ExprPar::max_effect_Thermo = 5000;
+double ExprPar::max_effect_Thermo = 10000;
 double ExprPar::min_repression = 1.0E-3;
 double ExprPar::max_repression = 500; 
 double ExprPar::min_basal_Thermo = 1.0E-7;	
@@ -1646,23 +1558,30 @@ int ExprPredictor::train( const ExprPar& par_init )
     double obj_result;
 
     for ( int i = 0; i < nAlternations; i++ ) {
-	cout << "Minimisation step " << i+1 << " of " << nAlternations << endl; 
-//    simplex_minimize( par_result, obj_result );
+		if(optimizationOption == CMAES){
+			double tolerance = 1e-4;
+			double sigma [4] = {0.01, 0.1, 1.0, 5.0};
+			cout << "CMA-ES minimization (sigma = " << sigma[i] << "):" << endl; 
+			cmaes_minimize(par_result, obj_result, sigma[i], tolerance);
+		}
+		else if(optimizationOption == Simplex){
+			cout << "Simplex minimization " << i << " of " << nAlternations << ":" << endl; 
+			simplex_minimize(par_result, obj_result);
+		}
+		else if(optimizationOption == BFGS){
+			cout << "Gradient minimization step " << i << " of " << nAlternations << ":" << endl; 
+			gradient_minimize(par_result, obj_result);
+		}
 
-	cout << "CMA-ES minimisation: " << endl; 
-    cmaes_minimize( par_result, obj_result );
-	cout << endl;
+		cout << endl;
 
-    par_model = par_result;
-    par_model.adjust();
-	save_param();
-
+		if(obj_result <= obj_model){ 
+			par_model = par_result;
+			obj_model = obj_result;
+			save_param();
+			}
     }
 	
-    // commit the parameters and the value of the objective function
-    par_model = par_result; 
-    obj_model = obj_result;
-		
     return 0;	
 }
 
@@ -1764,6 +1683,7 @@ int ExprPredictor::predict( const SiteVec& targetSites, int targetSeqLength, vec
 ModelType ExprPredictor::modelOption = CHRMOD_LIMITED;
 int ExprPredictor::estBindingOption = 1;    // 1. estimate binding parameters; 0. not estimate binding parameters
 ObjType ExprPredictor::objOption = OBJECTIVE_FUNCTION;
+OptimizationType ExprPredictor::optimizationOption = OPTIMIZATION_ALGORITHM;
 PenaltyType ExprPredictor::PenaltyOption = PARAMETER_PENALTY;
 FactorIntType ExprFunc::FactorIntOption = FactorIntFunc;
 
@@ -2511,15 +2431,21 @@ int ExprPredictor::gradient_minimize( ExprPar& par_result, double& obj_result )
     return 0;
 }
 
-
 libcmaes::ProgressFunc<libcmaes::CMAParameters<>,libcmaes::CMASolutions> select_time = [](const libcmaes::CMAParameters<> &cmaparams, const libcmaes::CMASolutions &cmasols)
 {
+	#if FILE_OUTPUT
+	if (cmasols.niter() % 100 == 0){
+		double current_score = - cmasols.best_candidate().get_fvalue();
+		double best_score = - cmasols.get_best_seen_candidate().get_fvalue();		 	
+		printf( "\r %i \t current score = %8.5f \t best score = %8.5f", cmasols.niter(), current_score, best_score);
+		fflush(stdout);}
+	#else
 	if (cmasols.niter() % 1 == 0){
 		double current_score = - cmasols.best_candidate().get_fvalue();
 		double best_score = - cmasols.get_best_seen_candidate().get_fvalue();		 	
 		printf( "\r %i \t current score = %8.5f \t best score = %8.5f", cmasols.niter(), current_score, best_score);
 		fflush(stdout);}
-
+	#endif // FILE_OUTPUT
   return 0;
 };
 
@@ -2547,7 +2473,8 @@ libcmaes::FitFunc obj_func_wrapper = [](const double *x, const int N)
     return obj;
 };
 
-int ExprPredictor::cmaes_minimize( ExprPar& par_result, double& obj_result ) 
+
+int ExprPredictor::cmaes_minimize(ExprPar& par_result, double& obj_result, double sigma, double tolerance) 
 {
     // extract initial parameters
     vector < double > pars;
@@ -2568,8 +2495,8 @@ int ExprPredictor::cmaes_minimize( ExprPar& par_result, double& obj_result )
 	pars.clear();
 	pars = free_pars;
 
-	double sigma = 1;
 	libcmaes::CMAParameters<> cmaparams(pars, sigma);
+	cmaparams.set_ftolerance(tolerance);
 	cmaparams.set_fplot("monitor_params.dat");
 	cmaparams.set_algo(aCMAES);
 	global_pointer = (void*)this;

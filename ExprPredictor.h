@@ -3,51 +3,9 @@
 
 #include "SeqAnnotator.h"
 #include "cmaes.h"
+#include "type.h"
 #include <signal.h>
 
-enum ModelType {
-    LOGISTIC,   // logistic regression
-    DIRECT,     // direct interaction between TF and BTM, repressor works through BTM
-    QUENCHING,      // repressor stops activator from interacting with BTM
-    CHRMOD_UNLIMITED,     // repressor works by chromatin modification (making it unaccessible), unlimited activation
-    CHRMOD_LIMITED        // repressor works by chromatin modification (making it unaccessible), limited activation
-};
-
-ModelType getModelOption( const string& modelOptionStr );
-string getModelOptionStr( ModelType modelOption ); 
-
-enum FactorIntType {
-    BINARY,     // Binary model of interaction
-	LINEAR,		// Linear model of interaction
-    GAUSSIAN    // Gaussian model of interaction
-}; 
-
-FactorIntType getIntOption( const string& intOptionStr );
-string getIntOptionStr( FactorIntType intOption );
-
-enum ObjType {
-    SSE,    // sum of squared error
-    CORR,   // Pearson correlation
-    PGP         // PGP score
-};
-
-enum PenaltyType {
-    NONE,   // no parameter penalty
-    L1,    // L1 norm 
-    L2,    // L2 norm
-};
-
-ObjType getObjOption( const string& objOptionStr );
-string getObjOptionStr( ObjType objOption );
-PenaltyType getPenaltyOption( const string& PenaltyOptionStr );
-string getPenaltyOptionStr( PenaltyType PenaltyOption );
-
-enum SearchType {
-    UNCONSTRAINED,  // unconstrained search
-    CONSTRAINED     // constrained search
-};
-
-string getSearchOptionStr( SearchType searchOption );
 
 /*****************************************************
 * Expression Model and Parameters
@@ -289,6 +247,7 @@ public:
 	std::ofstream gene_crm_fout;
 
     static ModelType modelOption;     // model option
+    static OptimizationType optimizationOption;     // model option
     static int estBindingOption;    // whether estimate binding parameters
     static ObjType objOption;       // option of the objective function
     static PenaltyType PenaltyOption;       // option of the objective function
@@ -360,7 +319,7 @@ private:
     // minimize the objective function, using the current model parameters as initial values
     int simplex_minimize( ExprPar& par_result, double& obj_result );	// simplex	
     int gradient_minimize( ExprPar& par_result, double& obj_result );	// gradient: BFGS or conjugate gradient
-	int cmaes_minimize( ExprPar& par_result, double& obj_result ); // CMA-ES
+	int cmaes_minimize( ExprPar& par_result, double& obj_result, double sigma, double tolerance); // CMA-ES
     // function to save parameters to file
     static int save_param();
     // Signal handler
