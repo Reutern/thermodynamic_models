@@ -320,6 +320,7 @@ private:
     int simplex_minimize( ExprPar& par_result, double& obj_result );	// simplex	
     int gradient_minimize( ExprPar& par_result, double& obj_result );	// gradient: BFGS or conjugate gradient
 	int cmaes_minimize( ExprPar& par_result, double& obj_result, double sigma, double tolerance); // CMA-ES
+	double train_btr(vector< double >& predictedEfficiency, vector< double >& observedExprs, int i);
     // function to save parameters to file
     static int save_param();
     // Signal handler

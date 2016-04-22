@@ -1449,34 +1449,35 @@ ExprPredictor::ExprPredictor( const vector< SiteVec >& _seqSites, const vector< 
 
 double ExprPredictor::objFunc( const ExprPar& par ) 
 {
-    #if TIMER 
-    timeval start, end;
-    gettimeofday(&start, 0);
-    #endif // TIMER
+
 
     ExprFunc* func = createExprFunc( par );
     double squaredErr = 0;
     double correlation = 0;
     double pgp_score = 0;
-
+    #if TIMER 
+    timeval start, end;
+    gettimeofday(&start, 0);
+    #endif // TIMER
     for ( int i = 0; i < nSeqs(); i++ ) {
     	// Initiate the sites for func
 		func->set_sites(seqSites[ i ]);        
-		vector< double > predictedExprs (nConds(), -1);
+		vector< double > predictedEfficiency (nConds(), -1);
         vector< double > observedExprs (nConds(), 1);
         vector < vector < double > > concs (nConds(), vector <double> (factorExprData.nRows(), 0) );
         
 		#pragma omp parallel for schedule(dynamic)
 		for (int j = 0; j < nConds(); j++ ) {		
 			concs[j] = factorExprData.getCol( j );
-			predictedExprs[j] = func->predictExpr( seqLengths[ i ], concs[j], i );	
+			predictedEfficiency[j] = func->predictExpr_scalefree( seqLengths[ i ], concs[j], i );	
 			observedExprs[j] = exprData( i, j );									// observed expression for the i-th sequence at the j-th condition
 		}
+		correlation += train_btr(predictedEfficiency, observedExprs, i);
 
 		double beta = 1.0;
-		squaredErr += least_square( predictedExprs, observedExprs, beta );
-		correlation += corr( predictedExprs, observedExprs ); 
-		pgp_score += pgp( predictedExprs, observedExprs, beta );
+		//squaredErr += least_square( predictedExprs, observedExprs, beta );
+		//correlation += corr( predictedExprs, observedExprs ); 
+		//pgp_score += pgp( predictedExprs, observedExprs, beta );
     }	
 
     #if TIMER 
@@ -1565,14 +1566,16 @@ int ExprPredictor::train( const ExprPar& par_init )
 			cmaes_minimize(par_result, obj_result, sigma[i], tolerance);
 		}
 		else if(optimizationOption == Simplex){
-			cout << "Simplex minimization " << i << " of " << nAlternations << ":" << endl; 
+			cout << "Simplex minimization " << i + 1 << " of " << nAlternations << ":" << endl; 
 			simplex_minimize(par_result, obj_result);
 		}
 		else if(optimizationOption == BFGS){
-			cout << "Gradient minimization step " << i << " of " << nAlternations << ":" << endl; 
+			cout << "Gradient minimization step " << i + 1 << " of " << nAlternations << ":" << endl; 
 			gradient_minimize(par_result, obj_result);
 		}
 
+		par_result.basalTxps = par_model.basalTxps;
+		cout << par_result.basalTxps << endl;
 		cout << endl;
 
 		if(obj_result <= obj_model){ 
@@ -1580,6 +1583,7 @@ int ExprPredictor::train( const ExprPar& par_init )
 			obj_model = obj_result;
 			save_param();
 			}
+		
     }
 	
     return 0;	
@@ -1718,7 +1722,7 @@ int ExprPredictor::nRandStarts = 5;
 double ExprPredictor::min_delta_f_SSE = 1.0E-8;
 double ExprPredictor::min_delta_f_Corr = 1.0E-8;
 double ExprPredictor::min_delta_f_PGP = 1.0E-8;
-int ExprPredictor::nSimplexIters = 20000;
+int ExprPredictor::nSimplexIters = 20;
 int ExprPredictor::nGradientIters = 5000;
 bool ExprPredictor::one_qbtm_per_crm = ONE_QBTM;
 
@@ -2523,6 +2527,37 @@ int ExprPredictor::cmaes_minimize(ExprPar& par_result, double& obj_result, doubl
     return 0;
 }
 
+double ExprPredictor::train_btr(vector< double >& predictedEfficiency, vector< double >& observedExprs, int i) 
+{
+	double btr = par_model.basalTxps[i];
+	double btr_log = log(btr);
+	double step_size = 1;
+	double delta_corr = -corr_gradient( predictedEfficiency, observedExprs, btr);
+	double delta_log_corr = delta_corr * btr;
+
+	int Nsteps = 0;
+	while (abs(delta_log_corr * step_size) > 1e-5 && Nsteps < 5000){
+		Nsteps += 1;
+		btr_log -= step_size * delta_log_corr;
+		btr = exp(btr_log);
+		delta_corr = -corr_gradient( predictedEfficiency, observedExprs, btr);
+		delta_log_corr = delta_corr * btr;
+		// Optional use a cooling process
+		//step_size *= 0.99;
+		if(btr < ExprPar::min_basal_Thermo) {
+			btr = ExprPar::min_basal_Thermo;
+			break;
+		} 
+		if(btr > ExprPar::max_basal_Thermo) {
+			btr = ExprPar::max_basal_Thermo;
+			break;
+		} 
+	}
+	par_model.basalTxps[i] = btr;
+	par_curr.basalTxps[i] = btr;
+	double corr = corr_scalefree( predictedEfficiency, observedExprs, btr);
+	return corr;
+}
 
 // function to save parameters to file
 int ExprPredictor::save_param()

@@ -107,7 +107,7 @@ int main( int argc, char* argv[] )
     ExprPredictor::min_delta_f_SSE = 1.0E-10;
     ExprPredictor::min_delta_f_Corr = 1.0E-10;
     ExprPredictor::min_delta_f_PGP = 1.0E-10;
-    ExprPredictor::nSimplexIters = 20000;
+    ExprPredictor::nSimplexIters = 2000;
     ExprPredictor::nGradientIters = 200;
 
     int rval;
@@ -296,7 +296,7 @@ int main( int argc, char* argv[] )
 		}
 		if( ExprPredictor::one_qbtm_per_crm ){
 			for( int index = 0; index < nSeqs; index++ ){
-				indicator_bool.push_back( true );
+				indicator_bool.push_back( false );
 			}
 		}
 		else{
@@ -510,7 +510,7 @@ int main( int argc, char* argv[] )
 			indicator_bool_modified.push_back( false );		// TF parameters are fixed
 		}
 		for( int index = 0; index < test_nSeqs; index++ ){
-			indicator_bool_modified.push_back( true );		// qbtm get trained again
+			indicator_bool_modified.push_back( false );		// qbtm get trained again
 			basalTxps_modified.push_back( 0.1 );
 		}
 		#if ACCESSIBILITY

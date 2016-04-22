@@ -295,6 +295,9 @@ double median( const vector< double >& x );
 // standar deviation 
 double std_dev( const vector< double >& x );
 
+double corr_scalefree( const vector< double >& efficiency, const vector< double >& measured, double btr);
+double corr_gradient( const vector< double >& efficiency, const vector< double >& measured, double btr);
+
 // Pearson correlation of v1 and v2, they must have equal sizes
 double corr( const vector< double >& x, const vector< double >& y );
 

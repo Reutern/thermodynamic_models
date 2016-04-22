@@ -829,14 +829,12 @@ double corr( const vector< double >& x, const vector< double >& y )
     // pseudo-observation at tau = 0
     vector< double > X( x );
     vector< double > Y( y );
-    X.insert( X.begin(), 0.0 );
-    Y.insert( Y.begin(), 0.0 );
-    int n = X.size() - 1;
+    int n = X.size();
 
     // variance of X and Y
     double sum_x = 0; 
     double sum_y = 0;
-    for ( int s = 1; s <= n; s++ ) {
+    for ( int s = 0; s < n; s++ ) {
         sum_x += ( X[s] - x_bar ) * ( X[s] - x_bar );
         sum_y += ( Y[s] - y_bar ) * ( Y[s] - y_bar );
     }
@@ -847,7 +845,7 @@ double corr( const vector< double >& x, const vector< double >& y )
 	
     // covariance and correlation
     double sum = 0;
-    for ( int s = 1; s <= n ; s++ ) {
+    for ( int s = 0; s < n ; s++ ) {
         sum += ( X[s] - x_bar ) * ( Y[s] - y_bar );
     }
     double cov_xy = sum / n;
@@ -855,6 +853,96 @@ double corr( const vector< double >& x, const vector< double >& y )
 
     return corr_xy;
 }
+
+double corr_scalefree( const vector< double >& efficiency, const vector< double >& measured, double btr)
+{
+    if ( efficiency.size() != measured.size() ) return RET_ERROR; 
+    if ( efficiency.size() == 0 ) return RET_ERROR;
+
+    // pseudo-observation at tau = 0
+    vector< double > X( efficiency );
+    vector< double > Y( measured );
+    int n = X.size();
+
+    for ( int s = 0; s < n ; s++ ) {	
+		X[s] = efficiency[s] * btr / (1 + efficiency[s] * btr);
+	}
+
+    // means of X and Y
+    double x_bar = mean( X );
+    double y_bar = mean( Y );
+    
+    // variance of X and Y
+    double sum_x = 0; 
+    double sum_y = 0;
+    for ( int s = 0; s < n; s++ ) {
+        sum_x += ( X[s] - x_bar ) * ( X[s] - x_bar );
+        sum_y += ( Y[s] - y_bar ) * ( Y[s] - y_bar );
+    }
+    double x_var = sum_x;
+    double y_var = sum_y; 
+    
+	if (x_var == 0 || y_var == 0){ return 0; }	// In case of a flat profile
+	
+    // covariance and correlation
+    double sum = 0;
+    for ( int s = 0; s < n ; s++ ) {
+        sum += ( X[s] - x_bar ) * ( Y[s] - y_bar );
+    }
+    double cov_xy = sum;
+    double corr_xy = cov_xy / sqrt( x_var * y_var );
+
+    return corr_xy;
+}
+
+
+double corr_gradient( const vector< double >& efficiency, const vector< double >& measured, double btr)
+{
+    if ( efficiency.size() != measured.size() ) return RET_ERROR; 
+    if ( efficiency.size() == 0 ) return RET_ERROR;
+
+    // pseudo-observation at tau = 0
+    vector< double > X( efficiency );
+    vector< double > X_gradient( efficiency );
+    vector< double > Y( measured );
+    int n = X.size();
+
+    for ( int s = 0; s < n ; s++ ) {	
+		X[s] = efficiency[s] * btr / (1 + efficiency[s] * btr);
+		X_gradient[s] = X[s] * X[s] / efficiency[s] / btr / btr;
+	}
+
+    // means of X and Y
+    double x_bar = mean( X );
+    double x_gradient_bar = mean( X_gradient );
+    double y_bar = mean( Y );
+    
+    // variance of X and Y
+    double sum_x = 0; 
+    double sum_y = 0;
+    for ( int s = 0; s < n; s++ ) {
+        sum_x += ( X[s] - x_bar ) * ( X[s] - x_bar );
+        sum_y += ( Y[s] - y_bar ) * ( Y[s] - y_bar );
+    }
+    double x_var = sum_x;
+    double y_var = sum_y; 
+    
+	if (x_var == 0 || y_var == 0){ return 0; }	// In case of a flat profile
+	
+    // covariance and correlation
+    double sum_1 = 0;
+    double sum_2 = 0;
+    double sum_3 = 0;
+    for ( int s = 0; s < n ; s++ ) {
+        sum_1 += ( X[s] - x_bar ) * ( Y[s] - y_bar );
+        sum_2 += ( X_gradient[s] - x_gradient_bar ) * ( Y[s] - y_bar );
+        sum_3 += ( X[s] - x_bar ) * ( X_gradient[s] - x_gradient_bar );
+    }
+    double corr_gradient = (sum_2 - sum_1 * sum_3 / x_var  ) / sqrt( x_var * y_var );
+
+    return corr_gradient;
+}
+
 
 double corr_vertical( const vector< vector< double > >& x, const vector< vector< double > >& y )
 {
