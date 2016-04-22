@@ -1,9 +1,14 @@
 #include <gsl/gsl_linalg.h>
 #include <gsl/gsl_randist.h>
 #include <gsl/gsl_statistics.h>
+#include <fstream>
 
 #include "Tools.h"
 
+bool fexists(const std::string& filename) {
+  ifstream ifile(filename.c_str());
+  return ifile;
+}
 const log_add_table table( -10.0, 0, 500 );		// global variable
 
 // create a vector from gsl_vector

@@ -2503,10 +2503,19 @@ int ExprPredictor::cmaes_minimize(ExprPar& par_result, double& obj_result, doubl
 	pars = free_pars;
 
 	libcmaes::CMAParameters<> cmaparams(pars, sigma);
-	cmaparams.set_ftolerance(tolerance);
-	cmaparams.set_fplot("monitor_params.dat");
+	cmaparams.set_ftolerance(tolerance);	
 	cmaparams.set_algo(aCMAES);
 	global_pointer = (void*)this;
+
+	string fname;
+	for(int idx = 1; idx < 1000; idx ++){
+		fname = "monitor_params_"+to_string(idx)+".dat";
+		if(!fexists(fname))
+			break;
+	}
+
+	cmaparams.set_fplot(fname);
+
 	libcmaes::CMASolutions cmasols = libcmaes::cmaes<>(obj_func_wrapper, cmaparams, select_time);    
 
 

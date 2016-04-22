@@ -36,6 +36,8 @@ const int INT_INF = numeric_limits< int >::max() / 2;
 * Vectors and Matrices 
 ******************************************************/
 
+bool fexists(const std::string& filename);
+
 /* functions for gsl_vector and gsl_vector_int */
 vector< double > gsl2vector( const gsl_vector* v );
 gsl_vector* vector2gsl( const vector< double >& v );
