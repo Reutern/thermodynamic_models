@@ -1723,6 +1723,7 @@ double ExprPredictor::min_delta_f_SSE = 1.0E-8;
 double ExprPredictor::min_delta_f_Corr = 1.0E-8;
 double ExprPredictor::min_delta_f_PGP = 1.0E-8;
 int ExprPredictor::nSimplexIters = 20;
+int ExprPredictor::nCMAESIters = 10000;
 int ExprPredictor::nGradientIters = 5000;
 bool ExprPredictor::one_qbtm_per_crm = ONE_QBTM;
 

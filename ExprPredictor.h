@@ -264,6 +264,7 @@ public:
     static double min_delta_f_Corr;     // the minimum change of the objective function under correlation
     static double min_delta_f_PGP;            // the minimum change of the objective function under PGP
     static int nSimplexIters;       // maximum number of iterations for Simplex optimizer
+    static int nCMAESIters;       // maximum number of iterations for CMAES optimizer
     static int nGradientIters;      // maximum number of iterations for Gradient optimizer
     static bool one_qbtm_per_crm;
     vector < bool > indicator_bool;	// States if Parameters are free or fixed for training
