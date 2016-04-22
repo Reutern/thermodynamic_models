@@ -2442,13 +2442,15 @@ libcmaes::ProgressFunc<libcmaes::CMAParameters<>,libcmaes::CMASolutions> select_
 		double current_score = - cmasols.best_candidate().get_fvalue();
 		double best_score = - cmasols.get_best_seen_candidate().get_fvalue();		 	
 		printf( "\r %i \t current score = %8.5f \t best score = %8.5f", cmasols.niter(), current_score, best_score);
-		fflush(stdout);}
+		fflush(stdout);
+	}
 	#else
 	if (cmasols.niter() % 1 == 0){
 		double current_score = - cmasols.best_candidate().get_fvalue();
 		double best_score = - cmasols.get_best_seen_candidate().get_fvalue();		 	
 		printf( "\r %i \t current score = %8.5f \t best score = %8.5f", cmasols.niter(), current_score, best_score);
-		fflush(stdout);}
+		fflush(stdout);
+	}
 	#endif // FILE_OUTPUT
   return 0;
 };
@@ -2473,6 +2475,7 @@ libcmaes::FitFunc obj_func_wrapper = [](const double *x, const int N)
 	}
 
     ExprPar par_tmp( all_pars, global_predictor->getCoopMat(), global_predictor->getActIndicators(), global_predictor->getRepIndicators(), global_predictor -> nSeqs() );
+	global_predictor->par_curr = par_tmp;
     double obj = global_predictor->objFunc(par_tmp);
     return obj;
 };

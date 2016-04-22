@@ -276,6 +276,9 @@ public:
     void printPar( const ExprPar& par ) const;
     static ExprPar par_curr;
 
+    // function to save parameters to file
+    static int save_param();
+
 private:
     // training data
     const vector< SiteVec >& seqSites;		// the extracted sites for all sequences
@@ -321,8 +324,6 @@ private:
     int gradient_minimize( ExprPar& par_result, double& obj_result );	// gradient: BFGS or conjugate gradient
 	int cmaes_minimize( ExprPar& par_result, double& obj_result, double sigma, double tolerance); // CMA-ES
 	double train_btr(vector< double >& predictedEfficiency, vector< double >& observedExprs, int i);
-    // function to save parameters to file
-    static int save_param();
     // Signal handler
     static void catch_signal(int sig_num);
  //   static void catch_param(int sig_num);		
