@@ -528,7 +528,7 @@ int main( int argc, char* argv[] )
 	rng = gsl_rng_alloc( T );
 	gsl_rng_set( rng, time( 0 ) );		// set the seed equal to simulTime(0)
 
-
+/*
     if(ExprPredictor::one_qbtm_per_crm){
         // train qbtm
         ExprPredictor::nAlternations = 1;
@@ -536,6 +536,8 @@ int main( int argc, char* argv[] )
         predictor_CV->train( par, rng );
         gsl_rng_free( rng );
     }
+
+*/
 
 
     double squaredErr = 0;

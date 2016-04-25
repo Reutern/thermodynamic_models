@@ -771,6 +771,10 @@ double ExprFunc::predictExpr( int length, const vector< double >& factorConcs, i
         return logistic( par.basalTxps[ promoter_number ] + totalEffect );
     }
 
+
+
+
+
     double Z_off = 0;
     double Z_on = 0;
 
@@ -1575,8 +1579,6 @@ int ExprPredictor::train( const ExprPar& par_init )
 		}
 
 		par_result.basalTxps = par_model.basalTxps;
-		cout << par_result.basalTxps << endl;
-		cout << endl;
 
 		if(obj_result <= obj_model){ 
 			par_model = par_result;
@@ -1641,17 +1643,29 @@ int ExprPredictor::train()
     return 0;	
 }
 
-int ExprPredictor::predict( const SiteVec& targetSites, int targetSeqLength, vector< double >& targetExprs, int seq_num ) const
+int ExprPredictor::predict( const SiteVec& targetSites, int targetSeqLength, vector< double >& targetExprs, int seq_num )
 {
     targetExprs.clear();
     targetExprs.resize( nConds() );
     ExprFunc* func = createExprFunc( par_model );
     func->set_sites(targetSites);
 	
+	vector< double > predictedEfficiency (nConds(), -1);
+    vector< double > observedExprs = exprData.getRow( seq_num );
+    vector < vector < double > > concs (nConds(), vector <double> (factorExprData.nRows(), 0) );
+        
+	#pragma omp parallel for schedule(dynamic)
+	for (int j = 0; j < nConds(); j++ ) {		
+		concs[j] = factorExprData.getCol( j );
+		predictedEfficiency[j] = func->predictExpr_scalefree( targetSeqLength, concs[j], seq_num );	
+	}
+
+	train_btr(predictedEfficiency, observedExprs, seq_num);
+
 	#pragma omp parallel for schedule(dynamic)
     for ( int j = 0; j < nConds(); j++ ) {
-        vector< double > concs = factorExprData.getCol( j );
-        double predicted = func->predictExpr( targetSeqLength, concs, seq_num );	
+		double efficiency = par_model.basalTxps[seq_num] * predictedEfficiency[j];
+        double predicted = efficiency / (1 + efficiency);	
         targetExprs[j] = predicted ;
     }
     
@@ -2555,7 +2569,7 @@ double ExprPredictor::train_btr(vector< double >& predictedEfficiency, vector< d
 		btr = exp(btr_log);
 		delta_corr = -corr_gradient( predictedEfficiency, observedExprs, btr);
 		delta_log_corr = delta_corr * btr;
-		// Optional use a cooling process
+		// Optionally use a cooling process
 		//step_size *= 0.99;
 		if(btr < ExprPar::min_basal_Thermo) {
 			btr = ExprPar::min_basal_Thermo;

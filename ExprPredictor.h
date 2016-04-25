@@ -230,9 +230,10 @@ public:
     int train( const ExprPar& par_init ); 	// training with the initial values given
     int train( const ExprPar& par_init, const gsl_rng* rng );   // training with the initial values and allowing random starts
     int train();	// automatic training: first estimate the initial values, then train
-            
+
+
     // predict expression values of a sequence (across the same conditions)
-    int predict( const SiteVec& targetSites, int targetSeqLength, vector< double >& targetExprs, int seq_num ) const; 
+    int predict( const SiteVec& targetSites, int targetSeqLength, vector< double >& targetExprs, int seq_num ); 
 
     double comp_impact( const ExprPar& par, int tf );		// The impact of the parameter
     double comp_impact_coop( const ExprPar& par, int tf );		// The impact of all cooperativity parameters with tf involved
