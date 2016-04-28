@@ -1455,10 +1455,11 @@ double ExprFunc::compPartFuncOnChrMod_Limited(const vector< double >& factorConc
 // The interaction function for direct model
 double ExprFunc::compFactorInt( const Site& a, const Site& b ) const
 {
-    double maxInt = par.factorIntMat(a.factorIdx, b.factorIdx);
 	if(par.factorIntMat(a.factorIdx, b.factorIdx) == 1.0)
 		return 1.0;
-    unsigned dist = abs( a.start - b.start );
+ 
+    double maxInt = par.factorIntMat(a.factorIdx, b.factorIdx);
+   unsigned dist = abs( a.start - b.start );
     assert( dist >= 0 );
 	double spacingTerm = 1;
 	if(FactorIntOption == BINARY) 
@@ -1505,6 +1506,23 @@ double ExprFunc::compFactorInt( int t_1, int t_2, int _dist ) const
     #endif //ORIENTATION
 }
 
+
+
+// The synergy function for direct model
+double ExprFunc::compFactorSyn( const Site& a, const Site& b ) const
+{
+	if(par.factorSynMat(a.factorIdx, b.factorIdx) == 1.0)
+		return 1.0;
+
+    double maxSyn = par.factorSynMat(a.factorIdx, b.factorIdx);
+
+    unsigned dist = abs( a.start - b.start );
+    assert( dist >= 0 );
+	double spacingTerm = 1;
+    spacingTerm = ( dist < SynDistThr ? maxSyn + 1 : 1.0 );
+
+    return spacingTerm;
+}
 
 bool ExprFunc::testRepression( const Site& a, const Site& b ) const
 {
