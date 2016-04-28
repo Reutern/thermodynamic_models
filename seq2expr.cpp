@@ -12,9 +12,10 @@ int main( int argc, char* argv[] )
     long time_start = time(NULL);
   
     // command line processing
-    string seqFile, test_seqFile, accFile, test_accFile, annFile, exprFile, test_exprFile, motifFile, factorExprFile, coopFile, factorInfoFile, repressionFile, parFile, print_parFile;
+    string seqFile, test_seqFile, accFile, test_accFile, annFile, exprFile, test_exprFile, motifFile, factorExprFile, coopFile, SynFile, factorInfoFile, repressionFile, parFile, print_parFile;
     string outFile, occFile, impactFile;     // output files
     int coopDistThr = 150;
+    int SynDistThr = 50;
     double factorIntSigma = 25.0;   // sigma parameter for the Gaussian interaction function
     int repressionDistThr = 0;
     int maxContact = 1;
@@ -50,6 +51,8 @@ int main( int argc, char* argv[] )
             ExprPredictor::modelOption = getModelOption( argv[++i] );
         else if ( !strcmp( "-c", argv[ i ] ) )
             coopFile = argv[ ++i ];
+        else if ( !strcmp( "-sy", argv[ i ] ) )
+            SynFile = argv[ ++i ];
         else if ( !strcmp( "-i", argv[ i ] ) )
             factorInfoFile = argv[ ++i ];            
         else if ( !strcmp( "-r", argv[ i ] ) )
@@ -68,6 +71,8 @@ int main( int argc, char* argv[] )
             print_parFile = argv[++i]; 
         else if ( !strcmp( "-ct", argv[i] ) )
             coopDistThr = atof( argv[++i] ); 
+        else if ( !strcmp( "-syt", argv[i] ) )
+            SynDistThr = atof( argv[++i] ); 
         else if ( !strcmp( "-sigma", argv[i] ) )
             factorIntSigma = atof( argv[++i] );    
         else if ( !strcmp( "-rt", argv[i] ) )
@@ -91,7 +96,7 @@ int main( int argc, char* argv[] )
     if (seqFile.empty() || exprFile.empty() || motifFile.empty() || factorExprFile.empty() || outFile.empty() || 
 	   ( ( ExprPredictor::modelOption == QUENCHING || ExprPredictor::modelOption == CHRMOD_UNLIMITED || ExprPredictor::modelOption == CHRMOD_LIMITED ) 
 	   &&  factorInfoFile.empty() ) || ( ExprPredictor::modelOption == QUENCHING && repressionFile.empty() ) ) {
-    	cerr << "Usage: " << argv[ 0 ] << " -s seqFile -ts test_seqFile -e exprFile -te test_exprFile -m motifFile -f factorExprFile -fo outFile [-a annFile -o modelOption -c coopFile -i	factorInfoFile -r repressionFile -oo objOption -mc maxContact -p parFile -pp print_parFile -rt repressionDistThr -na nAlternations -ct coopDistThr -hy hyperparameter -sigma factorIntSigma]" << endl;
+    	cerr << "Usage: " << argv[ 0 ] << " -s seqFile -ts test_seqFile -e exprFile -te test_exprFile -m motifFile -f factorExprFile -fo outFile [-a annFile -o modelOption -c coopFile  -c SynFile -i	factorInfoFile -r repressionFile -oo objOption -mc maxContact -p parFile -pp print_parFile -rt repressionDistThr -na nAlternations -ct coopDistThr -ct SynDistThr -hy hyperparameter -sigma factorIntSigma]" << endl;
         cerr << "modelOption: Logistic, Direct, Quenching, ChrMod_Unlimited, ChrMod_Limited" << endl;
         exit( 1 );
     }           
@@ -244,6 +249,35 @@ int main( int argc, char* argv[] )
 	    	}
         }        
     } 
+
+    // read the synergy matrix 
+    int num_of_Syn_pairs = 0;
+    IntMatrix SynMat( nFactors, nFactors, false );
+    if (!SynFile.empty()) {
+        ifstream fSyn( SynFile.c_str() );
+        if (!fSyn) {
+            cerr << "Cannot open the Synergy file " << SynFile << endl;
+            exit( 1 );
+        }  
+        while (fSyn >> factor1 >> factor2) {
+			if(factor1 == "all"){
+				IntMatrix fullMat( nFactors, nFactors, true );
+				SynMat = fullMat;
+				num_of_Syn_pairs = (nFactors + 1) * nFactors / 2;
+			}
+			else{
+		        assert( factorIdxMap.count(factor1) && factorIdxMap.count(factor2) );
+		        int idx1 = factorIdxMap[factor1];
+		        int idx2 = factorIdxMap[factor2];
+		        if(SynMat(idx1, idx2) == false && SynMat(idx2, idx1) == false ){
+					SynMat(idx1, idx2) = true;
+					SynMat(idx2, idx1) = true;
+					num_of_Syn_pairs ++;
+				}
+	    	}
+        }        
+    } 
+
     // read the roles of factors
     vector< bool > actIndicators(nFactors, false);
     vector< bool > repIndicators(nFactors, false);
@@ -293,6 +327,9 @@ int main( int argc, char* argv[] )
 	else{
 		//for binding weights, coop pairs and transcriptional effects
 		for( int index = 0; index < nFactors + num_of_coop_pairs + nFactors ; index++ ){
+			indicator_bool.push_back( true );
+		}
+		for( int index = 0; index < nFactors + num_of_Syn_pairs + nFactors ; index++ ){
 			indicator_bool.push_back( true );
 		}
 		if( ExprPredictor::one_qbtm_per_crm ){
@@ -394,7 +431,7 @@ int main( int argc, char* argv[] )
         } 
     }
     // Initialise the predictor class
-    ExprPredictor* predictor = new ExprPredictor( seqSites, seqLengths, exprData, motifs, factorExprData, coopMat, actIndicators, maxContact, repIndicators, repressionMat, repressionDistThr, coopDistThr, indicator_bool, motifNames, seqNames, seqs );
+    ExprPredictor* predictor = new ExprPredictor( seqSites, seqLengths, exprData, motifs, factorExprData, coopMat, SynMat, actIndicators, maxContact, repIndicators, repressionMat, repressionDistThr, coopDistThr, SynDistThr, indicator_bool, motifNames, seqNames, seqs );
 
     // random number generator
 	gsl_rng* rng;
@@ -414,10 +451,10 @@ int main( int argc, char* argv[] )
     ofstream pout( print_parFile.c_str() );
     if ( !pout ) {
         cout << "Estimated values of parameters:" << endl;
-        par.print( cout, motifNames, seqNames, coopMat );
+        par.print( cout, motifNames, seqNames, coopMat, SynMat );
     }
     else {
-        par.print( pout, motifNames, seqNames, coopMat );
+        par.print( pout, motifNames, seqNames, coopMat, SynMat );
     }
     cout << "Performance = " << setprecision( 5 ) << ( ExprPredictor::objOption == SSE ? predictor->getObj() : -predictor->getObj() ) << endl;
 
@@ -443,7 +480,7 @@ int main( int argc, char* argv[] )
 		fflush(stdout);
 
     	// Initialise the occupancy predictor
-    	OccPredictor* occpred = new OccPredictor( seqSites[seq_idx], motifs, factorExprData, coopMat, coopDistThr, par_init );
+    	OccPredictor* occpred = new OccPredictor( seqSites[seq_idx], motifs, factorExprData, coopMat, SynMat, coopDistThr, SynDistThr, par_init );
 		Occout << seqNames[seq_idx] << "\t" << seqSites[seq_idx].size() - 1 << "\t" << seqLengths[seq_idx] << "\t" << "strand" << endl ; 
 
     	for(int site_idx = 1; site_idx < seqSites[seq_idx].size(); site_idx++){
@@ -507,7 +544,7 @@ int main( int argc, char* argv[] )
 		par.basalTxps = basalTxps_modified;
     }
 	// New predictor 
-	ExprPredictor* predictor_CV = new ExprPredictor( test_seqSites, test_seqLengths, test_exprData, motifs, factorExprData, coopMat, actIndicators, maxContact, repIndicators, repressionMat, repressionDistThr, coopDistThr, indicator_bool, motifNames, test_seqNames, test_seqs );
+	ExprPredictor* predictor_CV = new ExprPredictor( test_seqSites, test_seqLengths, test_exprData, motifs, factorExprData, coopMat, SynMat, actIndicators, maxContact, repIndicators, repressionMat, repressionDistThr, coopDistThr, SynDistThr, indicator_bool, motifNames, test_seqNames, test_seqs );
 	predictor_CV->setPar(par);
     // random number generator
 	rng = gsl_rng_alloc( T );
