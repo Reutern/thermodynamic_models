@@ -882,10 +882,6 @@ double ExprFunc::predictExpr( int length, const vector< double >& factorConcs, i
         return logistic( par.basalTxps[ promoter_number ] + totalEffect );
     }
 
-
-
-
-
     double Z_off = 0;
     double Z_on = 0;
 
@@ -1263,10 +1259,7 @@ double ExprFunc::compPartFuncOnDirect(const vector< double >& factorConcs) const
         double sum = Zt[boundaries[i]];
         for ( int j = boundaries[i] + 1; j < i; j++ ) {
             if ( siteOverlap( sites[ i ], sites[ j ], motifs ) ) continue;
-			//if ( sites[i].factorIdx == 3 and sites[j].factorIdx == 0){
-            //	sum += compFactorInt( sites[ i ], sites[ j ] ) / par.txpEffects[ sites[i].factorIdx ] * Z[ j ];}	//	Hb has no effect, when bcd is present, but still gives cooperativity
-			//else{
-            	sum += compFactorInt( sites[ i ], sites[ j ] ) * Z[ j ];
+            	sum += compFactorSyn( sites[ i ], sites[ j ] ) * compFactorInt( sites[ i ], sites[ j ] ) * Z[ j ];
         }
         Z[i] =  bindingWts[ i ] * factorConcs[sites[ i ].factorIdx] * par.txpEffects[ sites[i].factorIdx ] * sum;
         Zt[i] = Z[i] + Zt[i - 1];
