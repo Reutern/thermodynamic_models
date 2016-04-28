@@ -384,7 +384,6 @@ int main( int argc, char* argv[] )
     cout << "Site energies saved" << endl;
     #endif //SAVE_ENERGIES
 
-
     // read the initial parameter values
     ExprPar par_init( nFactors, nSeqs );
     if ( !parFile.empty() ) {
@@ -394,10 +393,9 @@ int main( int argc, char* argv[] )
             exit( 1 );
         } 
     }
-
     // Initialise the predictor class
     ExprPredictor* predictor = new ExprPredictor( seqSites, seqLengths, exprData, motifs, factorExprData, coopMat, actIndicators, maxContact, repIndicators, repressionMat, repressionDistThr, coopDistThr, indicator_bool, motifNames, seqNames, seqs );
-   
+
     // random number generator
 	gsl_rng* rng;
 	gsl_rng_env_setup();
@@ -460,7 +458,6 @@ int main( int argc, char* argv[] )
 
     cout << endl;
     #endif // CALCULATE_OCCUPANCY
-
     #if CROSS_VALIDATION
     // read the sequences
     vector< Sequence > test_seqs;
@@ -499,46 +496,22 @@ int main( int argc, char* argv[] )
         }
     }
 
-	vector <bool> indicator_bool_modified = indicator_bool;
-
     // Additional parameter training for the qbtm of the test enhancers
     if(ExprPredictor::one_qbtm_per_crm){
-		// Create indicator vector
 		vector <double> basalTxps_modified;
 		basalTxps_modified.clear();
-		indicator_bool_modified.clear();
-		for( int index = 0; index < nFactors + num_of_coop_pairs + nFactors; index++ ){
-			indicator_bool_modified.push_back( false );		// TF parameters are fixed
-		}
 		for( int index = 0; index < test_nSeqs; index++ ){
-			indicator_bool_modified.push_back( false );		// qbtm get trained again
 			basalTxps_modified.push_back( 0.1 );
 		}
-		#if ACCESSIBILITY
-		indicator_bool_modified.push_back( false ); 	// acc_scale
-		#endif //ACCESSIBILITY
-
 		// Modify parameters
 		par.basalTxps = basalTxps_modified;
     }
 	// New predictor 
-	ExprPredictor* predictor_CV = new ExprPredictor( test_seqSites, test_seqLengths, test_exprData, motifs, factorExprData, coopMat, actIndicators, maxContact, repIndicators, repressionMat, repressionDistThr, coopDistThr, indicator_bool_modified, motifNames, test_seqNames, test_seqs );
+	ExprPredictor* predictor_CV = new ExprPredictor( test_seqSites, test_seqLengths, test_exprData, motifs, factorExprData, coopMat, actIndicators, maxContact, repIndicators, repressionMat, repressionDistThr, coopDistThr, indicator_bool, motifNames, test_seqNames, test_seqs );
 	predictor_CV->setPar(par);
     // random number generator
 	rng = gsl_rng_alloc( T );
 	gsl_rng_set( rng, time( 0 ) );		// set the seed equal to simulTime(0)
-
-/*
-    if(ExprPredictor::one_qbtm_per_crm){
-        // train qbtm
-        ExprPredictor::nAlternations = 1;
-		cout << "Cross validation training:" << endl;
-        predictor_CV->train( par, rng );
-        gsl_rng_free( rng );
-    }
-
-*/
-
 
     double squaredErr = 0;
     double correlation = 0;

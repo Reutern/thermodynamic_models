@@ -9,7 +9,7 @@
 #include <unistd.h>
 #include <set>
 
-ExprPar::ExprPar( int _nFactors, int _nSeqs ) : factorIntMat()
+ExprPar::ExprPar( int _nFactors, int _nSeqs ) : factorIntMat(), factorSynMat()
 {	
     assert( _nFactors > 0 );
 	
@@ -18,7 +18,10 @@ ExprPar::ExprPar( int _nFactors, int _nSeqs ) : factorIntMat()
     }	
 
     factorIntMat.setDimensions( _nFactors, _nFactors );
-    factorIntMat.setAll( ExprPar::default_interaction );       
+    factorIntMat.setAll( ExprPar::default_interaction );  
+
+    factorSynMat.setDimensions( _nFactors, _nFactors );
+    factorSynMat.setAll( ExprPar::default_synergy );       
 
     for ( int i = 0; i < _nFactors; i++ ) {
         double defaultEffect = modelOption == LOGISTIC ? ExprPar::default_effect_Logistic : ExprPar::default_effect_Thermo;
@@ -42,9 +45,10 @@ ExprPar::ExprPar( int _nFactors, int _nSeqs ) : factorIntMat()
     par_penalty = ExprPar::default_par_penalty;
 }
 	
-ExprPar::ExprPar( const vector< double >& _maxBindingWts, const Matrix& _factorIntMat, const vector< double >& _txpEffects, const vector< double >& _repEffects, const vector < double >& _basalTxps, int _nSeqs, double _acc_scale, double _par_penalty ) : maxBindingWts( _maxBindingWts ), factorIntMat( _factorIntMat ), txpEffects( _txpEffects ), repEffects( _repEffects ), basalTxps( _basalTxps ), nSeqs( _nSeqs  ), acc_scale(_acc_scale), par_penalty(_par_penalty)
+ExprPar::ExprPar( const vector< double >& _maxBindingWts, const Matrix& _factorIntMat, const Matrix& _factorSynMat, const vector< double >& _txpEffects, const vector< double >& _repEffects, const vector < double >& _basalTxps, int _nSeqs, double _acc_scale, double _par_penalty ) : maxBindingWts( _maxBindingWts ), factorIntMat( _factorIntMat ), factorSynMat( _factorSynMat ), txpEffects( _txpEffects ), repEffects( _repEffects ), basalTxps( _basalTxps ), nSeqs( _nSeqs  ), acc_scale(_acc_scale), par_penalty(_par_penalty)
 {
     if ( !factorIntMat.isEmpty() ) assert( factorIntMat.nRows() == maxBindingWts.size() && factorIntMat.isSquare() ); 	
+    if ( !factorSynMat.isEmpty() ) assert( factorSynMat.nRows() == maxBindingWts.size() && factorSynMat.isSquare() ); 	
     assert( txpEffects.size() == maxBindingWts.size() && repEffects.size() == maxBindingWts.size() );
     	if ( one_qbtm_per_crm ){
     		assert( basalTxps.size() == nSeqs );
@@ -54,10 +58,11 @@ ExprPar::ExprPar( const vector< double >& _maxBindingWts, const Matrix& _factorI
 	}
 }
 
-ExprPar::ExprPar( const vector< double >& pars, const IntMatrix& coopMat, const vector< bool >& actIndicators, const vector< bool >& repIndicators, int _nSeqs ) : factorIntMat()
+ExprPar::ExprPar( const vector< double >& pars, const IntMatrix& coopMat, const IntMatrix& SynMat, const vector< bool >& actIndicators, const vector< bool >& repIndicators, int _nSeqs ) : factorIntMat(), factorSynMat()
 {	
     int _nFactors = actIndicators.size();
     assert( coopMat.isSquare() && coopMat.nRows() == _nFactors );
+    assert( SynMat.isSquare() && SynMat.nRows() == _nFactors );
     assert( repIndicators.size() == _nFactors );
     int counter = 0;
 	
@@ -85,6 +90,23 @@ ExprPar::ExprPar( const vector< double >& pars, const IntMatrix& coopMat, const 
     for ( int i = 0; i < _nFactors; i++ ) {
         for ( int j = i + 1; j < _nFactors; j++ ) {
             factorIntMat( i, j ) = factorIntMat( j, i );
+        }
+    }       
+
+    // set the synergy matrix
+    factorSynMat.setDimensions( _nFactors, _nFactors );
+    for ( int i = 0; i < _nFactors; i++ ) {
+        for ( int j = 0; j <= i; j++ ) {
+            if ( SynMat( i, j ) ) {
+                double synergy = searchOption == CONSTRAINED ? exp( inverse_infty_transform( pars[counter++], log( min_synergy ), log( max_synergy ) ) ) : exp( pars[counter++] );
+                factorSynMat( i, j ) = synergy;  
+            }
+            else factorSynMat( i, j ) = ExprPar::default_synergy;
+        }
+    }
+    for ( int i = 0; i < _nFactors; i++ ) {
+        for ( int j = i + 1; j < _nFactors; j++ ) {
+            factorSynMat( i, j ) = factorSynMat( j, i );
         }
     }       
 
@@ -177,7 +199,19 @@ double ExprPar::parameter_L2_norm() const
 
 	L2_norm_coop /= nFactors();
 
-	return L2_weights + L2_effects + L2_norm_coop ;
+	double L2_norm_syn = 0;
+    for ( int i = 0; i < nFactors(); i++ ) {
+        for ( int j = 0; j <= i; j++ ) {
+			if(factorSynMat( i, j ) >= 1)
+				L2_norm_syn += pow((factorSynMat(i, j) - 1)/ max_synergy, 2);
+			else
+				L2_norm_syn +=  pow(min_synergy / factorSynMat( i, j ), 2);
+		}
+	}
+
+	L2_norm_syn /= nFactors();
+
+	return L2_weights + L2_effects + L2_norm_coop + L2_norm_syn;
 }
 
 double ExprPar::parameter_L1_norm() const
@@ -207,13 +241,26 @@ double ExprPar::parameter_L1_norm() const
         }	
 	}
 	L1_norm_coop /= nFactors();
-	return L1_weights + L1_effects + L1_norm_coop ;
+
+	double L1_norm_syn = 0;
+    for ( int i = 0; i < nFactors(); i++ ) {
+        for ( int j = 0; j <= i; j++ ) {
+			if(factorSynMat( i, j ) >= 1)
+				L1_norm_syn += (factorSynMat(i, j) - 1)/ max_synergy;
+			else
+				L1_norm_syn +=  min_synergy / factorSynMat( i, j );
+		}
+	}
+	L1_norm_syn /= nFactors();
+
+	return L1_weights + L1_effects + L1_norm_coop + L1_norm_syn;
 }
 
 
-void ExprPar::getFreePars( vector< double >& pars, const IntMatrix& coopMat, const vector< bool >& actIndicators, const vector< bool >& repIndicators ) const
+void ExprPar::getFreePars( vector< double >& pars, const IntMatrix& coopMat, const IntMatrix& SynMat, const vector< bool >& actIndicators, const vector< bool >& repIndicators ) const
 {
     assert( coopMat.isSquare() && coopMat.nRows() == nFactors() );  
+    assert( SynMat.isSquare() && SynMat.nRows() == nFactors() );  
     assert( actIndicators.size() == nFactors() && repIndicators.size() == nFactors() );
     pars.clear();
 		
@@ -236,6 +283,19 @@ void ExprPar::getFreePars( vector< double >& pars, const IntMatrix& coopMat, con
             }
         }	       
     }
+
+    // write the synergy matrix
+    if ( modelOption != LOGISTIC ) {
+        for ( int i = 0; i < nFactors(); i++ ) {
+            for ( int j = 0; j <= i; j++ ) {
+                if ( SynMat( i, j ) ) {
+                    double synergy = searchOption == CONSTRAINED ? infty_transform( log( factorSynMat( i, j ) ), log( min_synergy ), log( max_synergy ) ) : log( factorSynMat( i, j ) ); 
+                   pars.push_back( synergy );
+                }
+            }
+        }	       
+    }
+
 	
     // write the transcriptional effects
     for ( int i = 0; i < nFactors(); i++ ) {
@@ -283,7 +343,7 @@ void ExprPar::getFreePars( vector< double >& pars, const IntMatrix& coopMat, con
 
 }
 
-void ExprPar::print( ostream& os, const vector< string >& motifNames, const vector< string >& seqNames, const IntMatrix& coopMat ) const
+void ExprPar::print( ostream& os, const vector< string >& motifNames, const vector< string >& seqNames, const IntMatrix& coopMat, const IntMatrix& SynMat) const
 {
 //     os.setf( ios::fixed );
 //     os.precision( 3 );
@@ -312,11 +372,17 @@ void ExprPar::print( ostream& os, const vector< string >& motifNames, const vect
 	    os << seqNames[_i] << "\t" << basalTxps[ _i ] << endl;
 	}	
     }
-    // print the cooperative interactions
+    // print the interaction interactions
     os << "Cooperativity Factor:"  << endl;
     for ( int i = 0; i < nFactors(); i++ ) {
         for ( int j = 0; j <= i; j++ ) {
-            if ( coopMat( i, j ) ) os << motifNames[i] << "\t" << motifNames[j] << "\t" << factorIntMat( i, j ) << endl;
+            if ( coopMat( i, j ) ) os << motifNames[i] << "\t" << motifNames[j] << "\t" << factorIntMat( i, j ) << endl;			
+        }
+    }
+    os << "Synergy Factor:"  << endl;
+    for ( int i = 0; i < nFactors(); i++ ) {
+        for ( int j = 0; j <= i; j++ ) {
+            if ( SynMat( i, j ) ) os << motifNames[i] << "\t" << motifNames[j] << "\t" << factorSynMat( i, j ) << endl;			
         }
     }
 }
@@ -446,6 +512,20 @@ int ExprPar::load( const string& file, const vector <string>& seqNames, const ve
         factorIntMat( idx2, idx1 ) = coopVal;
     }
 
+    fin >> symbol >> eqSign;
+    if (symbol != "Synergy" || eqSign != "Factor:") return RET_ERROR;
+
+    // read the cooperative interactions
+    string factor1, factor2;
+    double SynVal;
+    while ( fin >> factor1 >> factor2 >> SynVal ) {
+        if( !factorIdxMap.count( factor1 ) || !factorIdxMap.count( factor2 ) ) return RET_ERROR;
+        int idx1 = factorIdxMap[factor1];
+        int idx2 = factorIdxMap[factor2];
+        factorSynMat( idx1, idx2 ) = SynVal;
+        factorSynMat( idx2, idx1 ) = SynVal;
+    }
+
     fin.close();
     return fin ? RET_ERROR : 0;
 }
@@ -471,7 +551,21 @@ void ExprPar::adjust()
             }
         }
     }
-    
+
+    // adjust the synergy matrix 
+    for ( int i = 0; i < nFactors(); i++ ) {
+        for ( int j = 0; j <= i; j++ ) {
+            if ( factorSynMat( i, j ) < ExprPar::min_synergy * ( 1.0 + ExprPar::delta ) ) { 
+                factorSynMat( i, j ) *= 2.0; 
+                factorSynMat( j, i ) = factorSynMat( i, j ); 
+            }
+            if ( factorSynMat( i, j ) > ExprPar::max_synergy * ( 1.0 - ExprPar::delta ) ) {
+                factorSynMat( i, j ) /= 2.0;
+                factorSynMat( j, i ) = factorSynMat( i, j ); 
+            }
+        }
+    }
+
     // adjust transcriptional effects
     for ( int i = 0; i < nFactors(); i++ ) {
         if ( modelOption == LOGISTIC ) {
@@ -534,6 +628,20 @@ void ExprPar::constrain_parameters()
         }
     }
     
+    // constrain the synergy matrix 
+    for ( int i = 0; i < nFactors(); i++ ) {
+        for ( int j = 0; j <= i; j++ ) {
+            if ( factorSynMat( i, j ) < ExprPar::min_synergy * ( 1.0 + ExprPar::delta ) ) { 
+                factorSynMat( i, j ) = ExprPar::min_synergy; 
+                factorSynMat( j, i ) = factorSynMat( i, j ); 
+            }
+            if ( factorSynMat( i, j ) > ExprPar::max_synergy * ( 1.0 - ExprPar::delta ) ) {
+                factorSynMat( i, j ) = ExprPar::max_synergy;
+                factorSynMat( j, i ) = factorSynMat( i, j ); 
+            }
+        }
+    }
+
     // constrain transcriptional effects
     for ( int i = 0; i < nFactors(); i++ ) {
         if ( modelOption == LOGISTIC ) {
@@ -583,6 +691,7 @@ double ExprPar::default_acc_scale = 1;
 double ExprPar::default_par_penalty = 0.1;
 double ExprPar::default_weight = 1.0;
 double ExprPar::default_interaction = 1.0;
+double ExprPar::default_synergy = 1.0;
 double ExprPar::default_effect_Logistic = 0.0;
 double ExprPar::default_effect_Thermo = 1.0;
 double ExprPar::default_repression = 1.0E-2;
@@ -602,6 +711,8 @@ double ExprPar::min_weight = 0.001;
 double ExprPar::max_weight = 500;	
 double ExprPar::min_interaction = 0.0001;	
 double ExprPar::max_interaction = 500;
+double ExprPar::min_synergy = 0.1;	
+double ExprPar::max_synergy = 10;
 double ExprPar::min_effect_Thermo = 0.01;	
 double ExprPar::max_effect_Thermo = 500;
 double ExprPar::min_repression = 1.0E-3;
@@ -614,6 +725,8 @@ double ExprPar::min_weight = 0.001;
 double ExprPar::max_weight = 1000;		
 double ExprPar::min_interaction = 0.0001;	
 double ExprPar::max_interaction = 10000;
+double ExprPar::min_synergy = 0.05;	
+double ExprPar::max_synergy = 50;
 double ExprPar::min_effect_Thermo = 0.001;	
 double ExprPar::max_effect_Thermo = 1000;
 double ExprPar::min_repression = 1.0E-3;
@@ -626,6 +739,8 @@ double ExprPar::min_weight = 0.001;
 double ExprPar::max_weight = 1000;		
 double ExprPar::min_interaction = 0.001;	
 double ExprPar::max_interaction = 1000;
+double ExprPar::min_synergy = 0.01;	
+double ExprPar::max_synergy = 100;
 double ExprPar::min_effect_Thermo = 0.0001;	
 double ExprPar::max_effect_Thermo = 10000;
 double ExprPar::min_repression = 1.0E-3;
@@ -736,11 +851,9 @@ double ExprFunc::predictExpr_scalefree(int length, const vector< double >& facto
 
 double ExprFunc::predictExpr( int length, const vector< double >& factorConcs, int seq_num )
 {
-
    int promoter_number = seq_num;
 	if( !one_qbtm_per_crm )
 		promoter_number = 0;	// Only one promoter strength
-
      #if TOSCA  
   // timeval start, end;
   //gettimeofday(&start, 0);
@@ -750,7 +863,6 @@ double ExprFunc::predictExpr( int length, const vector< double >& factorConcs, i
   //gettimeofday(&end, 0);
   //cout <<end.tv_usec-start.tv_usec << endl;
     #else
-
     // Logistic model
     if ( modelOption == LOGISTIC ) {
         vector< double > factorOcc( motifs.size(), 0 ); // total occupancy of each factor
@@ -1454,7 +1566,6 @@ ExprPredictor::ExprPredictor( const vector< SiteVec >& _seqSites, const vector< 
 double ExprPredictor::objFunc( const ExprPar& par ) 
 {
 
-
     ExprFunc* func = createExprFunc( par );
     double squaredErr = 0;
     double correlation = 0;
@@ -1463,26 +1574,49 @@ double ExprPredictor::objFunc( const ExprPar& par )
     timeval start, end;
     gettimeofday(&start, 0);
     #endif // TIMER
-    for ( int i = 0; i < nSeqs(); i++ ) {
-    	// Initiate the sites for func
-		func->set_sites(seqSites[ i ]);        
-		vector< double > predictedEfficiency (nConds(), -1);
-        vector< double > observedExprs (nConds(), 1);
-        vector < vector < double > > concs (nConds(), vector <double> (factorExprData.nRows(), 0) );
-        
-		#pragma omp parallel for schedule(dynamic)
-		for (int j = 0; j < nConds(); j++ ) {		
-			concs[j] = factorExprData.getCol( j );
-			predictedEfficiency[j] = func->predictExpr_scalefree( seqLengths[ i ], concs[j], i );	
-			observedExprs[j] = exprData( i, j );									// observed expression for the i-th sequence at the j-th condition
-		}
-		correlation += train_btr(predictedEfficiency, observedExprs, i);
+	if(one_qbtm_per_crm){        
+		for ( int i = 0; i < nSeqs(); i++ ) {
+			// Initiate the sites for func
+			func->set_sites(seqSites[ i ]);        
+			vector< double > predictedEfficiency (nConds(), -1);
+		    vector< double > observedExprs (nConds(), 1);
+		    vector < vector < double > > concs (nConds(), vector <double> (factorExprData.nRows(), 0) );
+		    
+			#pragma omp parallel for schedule(dynamic)
+			for (int j = 0; j < nConds(); j++ ) {		
+				concs[j] = factorExprData.getCol( j );
+				predictedEfficiency[j] = func->predictExpr_scalefree( seqLengths[ i ], concs[j], i );	
+				observedExprs[j] = exprData( i, j );									// observed expression for the i-th sequence at the j-th condition
+			}
+			correlation += train_btr(predictedEfficiency, observedExprs, i);
 
-		double beta = 1.0;
-		//squaredErr += least_square( predictedExprs, observedExprs, beta );
-		//correlation += corr( predictedExprs, observedExprs ); 
-		//pgp_score += pgp( predictedExprs, observedExprs, beta );
-    }	
+			double beta = 1.0;
+			//squaredErr += least_square( predictedExprs, observedExprs, beta );
+			//correlation += corr( predictedExprs, observedExprs ); 
+			//pgp_score += pgp( predictedExprs, observedExprs, beta );
+		}	
+	}
+	else{
+		for ( int i = 0; i < nSeqs(); i++ ) {
+			// Initiate the sites for func
+			func->set_sites(seqSites[ i ]);        
+			vector< double > predictedExprs (nConds(), -1);
+		    vector< double > observedExprs (nConds(), 1);
+		    vector < vector < double > > concs (nConds(), vector <double> (factorExprData.nRows(), 0) );
+		    
+			#pragma omp parallel for schedule(dynamic)
+			for (int j = 0; j < nConds(); j++ ) {		
+				concs[j] = factorExprData.getCol( j );
+				predictedExprs[j] = func->predictExpr( seqLengths[ i ], concs[j], i );	
+				observedExprs[j] = exprData( i, j );									// observed expression for the i-th sequence at the j-th condition
+			}
+
+			double beta = 1.0;
+			squaredErr += least_square( predictedExprs, observedExprs, beta );
+			correlation += corr( predictedExprs, observedExprs ); 
+			pgp_score += pgp( predictedExprs, observedExprs, beta );
+		}	
+	}
 
     #if TIMER 
     gettimeofday(&end, 0);
@@ -1504,6 +1638,7 @@ double ExprPredictor::objFunc( const ExprPar& par )
     else if (objOption == PGP)	return -obj_pgp + penalty;
     return 0;
 }
+
 
 double ExprPredictor::objFunc( const ExprPar& par, int crm ) 
 {
@@ -1558,7 +1693,6 @@ int ExprPredictor::train( const ExprPar& par_init )
 		par_model.constrain_parameters(); 
 	    par_model.adjust(); }
     if ( nAlternations == 0 ) return 0;
-    
     ExprPar par_result;
     double obj_result;
 
@@ -1653,26 +1787,35 @@ int ExprPredictor::predict( const SiteVec& targetSites, int targetSeqLength, vec
 	vector< double > predictedEfficiency (nConds(), -1);
     vector< double > observedExprs = exprData.getRow( seq_num );
     vector < vector < double > > concs (nConds(), vector <double> (factorExprData.nRows(), 0) );
-        
-	#pragma omp parallel for schedule(dynamic)
-	for (int j = 0; j < nConds(); j++ ) {		
-		concs[j] = factorExprData.getCol( j );
-		predictedEfficiency[j] = func->predictExpr_scalefree( targetSeqLength, concs[j], seq_num );	
+	if(one_qbtm_per_crm){        
+		#pragma omp parallel for schedule(dynamic)
+		for (int j = 0; j < nConds(); j++ ) {		
+			concs[j] = factorExprData.getCol( j );
+			predictedEfficiency[j] = func->predictExpr_scalefree( targetSeqLength, concs[j], seq_num );	
+		}
+
+		train_btr(predictedEfficiency, observedExprs, seq_num);
+
+		#pragma omp parallel for schedule(dynamic)
+		for ( int j = 0; j < nConds(); j++ ) {
+			double efficiency = par_model.basalTxps[seq_num] * predictedEfficiency[j];
+		    double predicted = efficiency / (1 + efficiency);	
+		    targetExprs[j] = predicted;
+		}
 	}
+	else{
+		#pragma omp parallel for schedule(dynamic)
+		for ( int j = 0; j < nConds(); j++ ) {
+			double predicted = func->predictExpr( targetSeqLength, concs[j], seq_num );       
+		    targetExprs[j] = predicted;
+		}
+	}    
 
-	train_btr(predictedEfficiency, observedExprs, seq_num);
-
-	#pragma omp parallel for schedule(dynamic)
-    for ( int j = 0; j < nConds(); j++ ) {
-		double efficiency = par_model.basalTxps[seq_num] * predictedEfficiency[j];
-        double predicted = efficiency / (1 + efficiency);	
-        targetExprs[j] = predicted ;
-    }
-    
     delete func;
 
     return 0; 
 }
+        
 
 // double ExprPredictor::test( const vector< Sequence >& testSeqs, const Matrix& testExprData, int perfOption ) const
 // {

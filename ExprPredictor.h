@@ -15,11 +15,11 @@
 class ExprPar {
 public:
     // constructors 
-    ExprPar() : factorIntMat() {}
+    ExprPar() : factorIntMat(), factorSynMat() {}
     ExprPar( int _nFactors, int _nSeqs );		// default values of parameters
-    ExprPar( const vector< double >& _maxBindingWts, const Matrix& _factorIntMat, const vector< double >& _txpEffects, const vector< double >& _repEffects, const vector < double >&  _basalTxps, int _nSeqs, double _acc_scale, double _par_penalty );
-    ExprPar( const vector< double >& pars, const IntMatrix& coopMat, const vector< bool >& actIndicators, const vector< bool >& repIndicators, int _nSeqs );	// construct from a "flat" vector of free parameters (assuming they are in the correct/uniform scale)
-    void copy( const ExprPar& other ) { maxBindingWts = other.maxBindingWts; factorIntMat = other.factorIntMat; txpEffects = other.txpEffects; repEffects = other.repEffects; basalTxps = other.basalTxps; nSeqs = basalTxps.size(); acc_scale = other.acc_scale; par_penalty = other.par_penalty; }
+    ExprPar( const vector< double >& _maxBindingWts, const Matrix& _factorIntMat, const Matrix& _factorSynMat, const vector< double >& _txpEffects, const vector< double >& _repEffects, const vector < double >&  _basalTxps, int _nSeqs, double _acc_scale, double _par_penalty );
+    ExprPar( const vector< double >& pars, const IntMatrix& coopMat, const IntMatrix& synMat, const vector< bool >& actIndicators, const vector< bool >& repIndicators, int _nSeqs );	// construct from a "flat" vector of free parameters (assuming they are in the correct/uniform scale)
+    void copy( const ExprPar& other ) { maxBindingWts = other.maxBindingWts; factorIntMat = other.factorIntMat; factorSynMat = other.factorSynMat; txpEffects = other.txpEffects; repEffects = other.repEffects; basalTxps = other.basalTxps; nSeqs = basalTxps.size(); acc_scale = other.acc_scale; par_penalty = other.par_penalty; }
     ExprPar( const ExprPar& other ) { copy( other ); }
 
     // assignment
@@ -51,6 +51,7 @@ public:
     // parameters
     vector< double > maxBindingWts;			// binding weight of the strongest site for each TF: K(S_max) [TF_max]
     Matrix factorIntMat; 		// (maximum) interactions between pairs of factors: omega(f,f')
+    Matrix factorSynMat; 		// Synergy interaction terms
     vector< double > txpEffects;    // transcriptional effects: alpha for Direct and Quenching model, exp(alpha) for Logistic model (so that the same default values can be used). Equal to 1 if a TF is not an activator under the Quenching model
     vector< double > repEffects;    // repression effects: beta under ChrMod models (the equlibrium constant of nucleosome association with chromatin). Equal to 0 if a TF is not a repressor. 
     vector < double > basalTxps;        // basal transcription: q_p for Direct and Quenching model, exp(alpha_0) for Logistic model (so that the same default value can be used)
@@ -69,6 +70,7 @@ public:
     static double default_par_penalty;	// default parameter penalty
     static double default_weight;	// default binding weight
     static double default_interaction;		// default factor interaction
+    static double default_synergy;		// default factor synergy
     static double default_effect_Logistic;   // default transcriptional effect under Logistic model
     static double default_effect_Thermo;     // default transcriptional effect under thermo. models
     static double default_repression;   // default repression
@@ -80,6 +82,8 @@ public:
     static double max_weight;		// max. binding weight
     static double min_interaction;	    // min. interaction
     static double max_interaction;	    // max. interaction
+    static double min_synergy;	    // min. synergy
+    static double max_synergy;	    // max. synergy
     static double min_effect_Logistic;   // min. transcriptional effect under Logistic model
     static double max_effect_Logistic;   // max. transcriptional effect under Logistic model
 //     static double min_effect_Direct;   // min. transcriptional effect under Direct model
@@ -101,7 +105,7 @@ public:
 class ExprFunc {
 public:
     // constructors
-    ExprFunc( const vector< Motif >& _motifs,  const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr,  int _coopDistThr, const ExprPar& _par, const vector< Sequence >& _seqs  );
+    ExprFunc(const vector< Motif >& _motifs,  const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr,  int _coopDistThr, int _synDistThr, const ExprPar& _par, const vector< Sequence >& _seqs);
 
     // access methods
     const vector< Motif >& getMotifs() const {
@@ -133,6 +137,7 @@ public:
     const IntMatrix& repressionMat;    // repression matrix: R(f,f') = 1 if f can repress f'
     int repressionDistThr;   // distance threshold for repression: d_R
     int coopDistThr;    // distance threshold for interaction	
+    int SynDistThr;    // distance threshold for interaction	
 		
     // model parameters
     const ExprPar& par;
@@ -182,6 +187,9 @@ public:
     double compFactorInt( const Site& a, const Site& b ) const;
     double compFactorInt( int t_1, int t_2, int _dist  ) const;
 
+	// compute the TF-TF synergy
+    double compFactorSyn( const Site& a, const Site& b ) const;
+
     // test if one site represses another site
     bool testRepression( const Site& a, const Site& b ) const;
 };
@@ -195,7 +203,7 @@ class ExprPredictor {
 public:
     // constructors
 //	ExprPredictor();
-    ExprPredictor( const vector< SiteVec >& _seqSites, const vector< int >& _seqLengths, const Matrix& _exprData, const vector< Motif >& _motifs, const Matrix& _factorExprData, const IntMatrix& _coopMat, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr, int _coopDistThr,const vector < bool >& _indicator_bool, const vector <string>& _motifNames, const vector <string>& _seqNames, const vector< Sequence >& _seqs  );
+    ExprPredictor( const vector< SiteVec >& _seqSites, const vector< int >& _seqLengths, const Matrix& _exprData, const vector< Motif >& _motifs, const Matrix& _factorExprData, const IntMatrix& _coopMat, const IntMatrix& _synMat, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr, int _coopDistThr, int _synDistThr, const vector < bool >& _indicator_bool, const vector <string>& _motifNames, const vector <string>& _seqNames, const vector< Sequence >& _seqs  );
 
     // access methods
     int nSeqs() const {
@@ -209,6 +217,9 @@ public:
     }
     static const IntMatrix& getCoopMat() {
         return coopMat;
+    }
+    static const IntMatrix& getSynMat() {
+        return SynMat;
     }
     const vector< bool >& getActIndicators() const {
         return actIndicators;
@@ -291,12 +302,14 @@ private:
 
     // control parameters 
     static IntMatrix coopMat;       // cooperativity matrix: C(f,f') = 1 if f and f' bind cooperatively    
+    static IntMatrix SynMat;       // Synergy matrix    
     const vector< bool >& actIndicators;   // 1 if the TF is in the activator set
     int maxContact;     // the maximum contact     
     const vector< bool >& repIndicators;    // 1 if the TF is in the repressor set
     const IntMatrix& repressionMat;    // repression matrix: R(f,f') = 1 if f can repress f'
     int repressionDistThr;   // distance threshold for repression: d_R
     int coopDistThr;   // distance threshold for cooperativity
+    int SynDistThr;   // distance threshold for cooperativity
     
     // model parameters and the value of the objective function
     ExprPar par_model;
