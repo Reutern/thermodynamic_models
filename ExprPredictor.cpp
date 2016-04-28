@@ -516,7 +516,6 @@ int ExprPar::load( const string& file, const vector <string>& seqNames, const ve
     if (symbol != "Synergy" || eqSign != "Factor:") return RET_ERROR;
 
     // read the cooperative interactions
-    string factor1, factor2;
     double SynVal;
     while ( fin >> factor1 >> factor2 >> SynVal ) {
         if( !factorIdxMap.count( factor1 ) || !factorIdxMap.count( factor2 ) ) return RET_ERROR;
@@ -752,7 +751,7 @@ double ExprPar::max_basal_Thermo = 1;
 bool ExprPar::one_qbtm_per_crm = ONE_QBTM;
 bool ExprFunc::one_qbtm_per_crm = ONE_QBTM;
 
-ExprFunc::ExprFunc( const vector< Motif >& _motifs, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr, int _coopDistThr, const ExprPar& _par, const vector< Sequence >& _seqs ) : motifs( _motifs ), actIndicators( _actIndicators ), maxContact( _maxContact ), repIndicators( _repIndicators ), repressionMat( _repressionMat ), repressionDistThr( _repressionDistThr ), coopDistThr( _coopDistThr ), par( _par ), seqs( _seqs )
+ExprFunc::ExprFunc( const vector< Motif >& _motifs, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr, int _coopDistThr, int _SynDistThr, const ExprPar& _par, const vector< Sequence >& _seqs ) : motifs( _motifs ), actIndicators( _actIndicators ), maxContact( _maxContact ), repIndicators( _repIndicators ), repressionMat( _repressionMat ), repressionDistThr( _repressionDistThr ), coopDistThr( _coopDistThr ), SynDistThr( _SynDistThr ), par( _par ), seqs( _seqs )
 {
     int nFactors = par.nFactors();
     assert( motifs.size() == nFactors ); 
@@ -1060,7 +1059,7 @@ int ExprFunc::compPartFunc_seq_interfactor(double &result_Z_on, double &result_Z
 {
 
     // The distance index
-    int dmax = max( coopDistThr, repressionDistThr ) + 1;
+    int dmax = max( coopDistThr, repressionDistThr) + 1;
 
     // The binder index
     int tmax = motifs.size();	
@@ -1133,7 +1132,7 @@ int ExprFunc::compPartFunc_seq(double &result_Z_on, double &result_Z_off, int _s
 {
 
     // The distance index
-    int dmax = max( coopDistThr, repressionDistThr );
+    int dmax = max( coopDistThr, repressionDistThr);
 
     // The binder index
     int tmax = motifs.size();	
@@ -1530,16 +1529,18 @@ ExprPredictor::ExprPredictor(){
     IntMatrix _repressionMat;    
 }
 */
-ExprPredictor::ExprPredictor( const vector< SiteVec >& _seqSites, const vector< int >& _seqLengths, const Matrix& _exprData, const vector< Motif >& _motifs, const Matrix& _factorExprData, const IntMatrix& _coopMat, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr, int _coopDistThr, const vector < bool >& _indicator_bool, const vector <string>& _motifNames, const vector <string>& _seqNames, const vector< Sequence >& _seqs  ) : seqSites( _seqSites ), seqLengths( _seqLengths ), exprData( _exprData ), motifs( _motifs ), factorExprData( _factorExprData ), actIndicators( _actIndicators ), maxContact( _maxContact ), repIndicators( _repIndicators ), repressionMat( _repressionMat ), repressionDistThr( _repressionDistThr ), coopDistThr( _coopDistThr ) ,indicator_bool ( _indicator_bool ), seqs(_seqs)
+ExprPredictor::ExprPredictor( const vector< SiteVec >& _seqSites, const vector< int >& _seqLengths, const Matrix& _exprData, const vector< Motif >& _motifs, const Matrix& _factorExprData, const IntMatrix& _coopMat, const IntMatrix& _SynMat, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr, int _coopDistThr, int _SynDistThr, const vector < bool >& _indicator_bool, const vector <string>& _motifNames, const vector <string>& _seqNames, const vector< Sequence >& _seqs  ) : seqSites( _seqSites ), seqLengths( _seqLengths ), exprData( _exprData ), motifs( _motifs ), factorExprData( _factorExprData ), actIndicators( _actIndicators ), maxContact( _maxContact ), repIndicators( _repIndicators ), repressionMat( _repressionMat ), repressionDistThr( _repressionDistThr ), coopDistThr( _coopDistThr ), SynDistThr( _SynDistThr ), indicator_bool ( _indicator_bool ), seqs(_seqs)
 {
 
     motifNames = _motifNames;
     coopMat = _coopMat;
+    SynMat = _SynMat;
     seqNames = _seqNames;
 
     assert( exprData.nRows() == nSeqs() );
     assert( factorExprData.nRows() == nFactors() && factorExprData.nCols() == nConds() );
     assert( coopMat.isSquare() && coopMat.isSymmetric() && coopMat.nRows() == nFactors() );
+    assert( SynMat.isSquare() && SynMat.isSymmetric() && SynMat.nRows() == nFactors() );
     assert( actIndicators.size() == nFactors() );
     assert( maxContact > 0 );
     assert( repIndicators.size() == nFactors() );
@@ -1887,6 +1888,7 @@ bool ExprPredictor::one_qbtm_per_crm = ONE_QBTM;
 // Initialise static members as empty
 ExprPar ExprPredictor::par_curr;
 IntMatrix ExprPredictor::coopMat = IntMatrix();
+IntMatrix ExprPredictor::SynMat = IntMatrix();
 vector <string> ExprPredictor::motifNames = vector <string>();
 vector <string> ExprPredictor::seqNames = vector <string>();
 
@@ -1915,6 +1917,21 @@ int ExprPredictor::randSamplePar( const gsl_rng* rng, ExprPar& par ) const
         for ( int i = 0; i < nFactors(); i++ ) {
             for ( int j = i + 1; j < nFactors(); j++ ) {
                 par.factorIntMat( i, j ) = par.factorIntMat( j, i );
+            }
+        }       
+    }
+
+    // sample the interaction matrix
+    if ( modelOption != LOGISTIC ) {
+        for ( int i = 0; i < nFactors(); i++ ) {
+            for ( int j = 0; j <= i; j++ ) {
+                double rand_synergy = exp( gsl_ran_flat( rng, log( ExprPar::min_synergy ), log( ExprPar::max_synergy ) ) );
+                if ( SynMat( i, j ) ) par.factorSynMat( i, j ) = rand_synergy;
+            }
+        }
+        for ( int i = 0; i < nFactors(); i++ ) {
+            for ( int j = i + 1; j < nFactors(); j++ ) {
+                par.factorSynMat( i, j ) = par.factorSynMat( j, i );
             }
         }       
     }
@@ -1972,6 +1989,16 @@ bool ExprPredictor::testPar( const ExprPar& par ) const
         for ( int i = 0; i < nFactors(); i++ ) {
             for ( int j = 0; j <= i; j++ ) {
                 if ( par.factorIntMat( i, j ) < ExprPar::min_interaction * ( 1.0 + ExprPar::delta ) || par.factorIntMat( i, j ) > ExprPar::max_interaction * ( 1.0 - ExprPar::delta ) )
+                    return false;
+            }
+        }
+    }
+
+    // test the synergy matrix
+    if ( modelOption != LOGISTIC ) {
+        for ( int i = 0; i < nFactors(); i++ ) {
+            for ( int j = 0; j <= i; j++ ) {
+                if ( par.factorSynMat( i, j ) < ExprPar::min_synergy * ( 1.0 + ExprPar::delta ) || par.factorSynMat( i, j ) > ExprPar::max_synergy * ( 1.0 - ExprPar::delta ) )
                     return false;
             }
         }
@@ -2036,6 +2063,13 @@ void ExprPredictor::printPar( const ExprPar& par ) const
         }
     }
 
+   // print the synergy matrix
+    for ( int i = 0; i < nFactors(); i++ ) {
+        for ( int j = 0; j <= i; j++ ) {
+            if ( SynMat( i, j ) ) cout << par.factorSynMat( i, j ) << "\t";
+        }
+    }
+
     // print the transcriptional effects
     for ( int i = 0; i < nFactors(); i++ ) {
         if ( modelOption == LOGISTIC || modelOption == DIRECT ) cout << par.txpEffects[i] << "\t";
@@ -2065,7 +2099,7 @@ void ExprPredictor::printPar( const ExprPar& par ) const
 ExprFunc* ExprPredictor::createExprFunc( const ExprPar& par ) const
 {
 
-    return new ExprFunc( motifs, actIndicators, maxContact, repIndicators, repressionMat, repressionDistThr, coopDistThr, par, seqs );
+    return new ExprFunc( motifs, actIndicators, maxContact, repIndicators, repressionMat, repressionDistThr, coopDistThr, SynDistThr, par, seqs );
 }
 
 
@@ -2259,12 +2293,10 @@ double ExprPredictor::compAvgCrossCorr( const ExprPar& par )
         vector< double > observedExprs (nConds(), 1);
         vector < vector < double > > concs (nConds(), vector <double> (factorExprData.nRows(), 0) );
         
-
-	
-        // Initiate the sites for func
+    // Initiate the sites for func
 	func->set_sites(seqSites[ i ]);
-       #pragma omp parallel for schedule(dynamic)
-        for (int j = 0; j < nConds(); j++ ) {
+    #pragma omp parallel for schedule(dynamic)
+    for (int j = 0; j < nConds(); j++ ) {
 
 			
             	concs[j] = factorExprData.getCol( j );
@@ -2294,7 +2326,7 @@ int ExprPredictor::simplex_minimize( ExprPar& par_result, double& obj_result )
 {
     // extract initial parameters
     vector < double > pars;
-    par_model.getFreePars( pars, coopMat, actIndicators, repIndicators ); 
+    par_model.getFreePars( pars, coopMat, SynMat, actIndicators, repIndicators ); 
     int pars_size = pars.size();
 	fix_pars.clear();
 	free_pars.clear();
@@ -2359,12 +2391,12 @@ int ExprPredictor::simplex_minimize( ExprPar& par_result, double& obj_result )
 	}
 
 	
-        par_curr = ExprPar ( pars, coopMat, actIndicators, repIndicators, nSeqs() );
+        par_curr = ExprPar ( pars, coopMat, SynMat, actIndicators, repIndicators, nSeqs() );
 
 	//Hassan end
 	// check if the current values of parameters are valid
         //the following line should be uncommented if you remove all the changes by Hassan
-	//ExprPar par_curr = ExprPar( gsl2vector( s->x ), coopMat, actIndicators, repIndicators );
+	//ExprPar par_curr = ExprPar( gsl2vector( s->x ), coopMat, SynMat actIndicators, repIndicators );
         
 	
 	if ( ExprPar::searchOption == CONSTRAINED && !testPar( par_curr ) ) break;
@@ -2399,7 +2431,7 @@ int ExprPredictor::simplex_minimize( ExprPar& par_result, double& obj_result )
         printPar( par_curr );
         printf( "\tf() = %8.5f size = %.3f\n", s->fval, size );
 	cout << "======================================" << endl;
-	par_curr.print( cout, motifNames, seqNames, coopMat);
+	par_curr.print( cout, motifNames, seqNames, coopMat, SynMat);
 	cout << "======================================" << endl;
 	cout << "======================================" << endl << endl;
 	#endif // SHORT_OUTPUT
@@ -2427,10 +2459,10 @@ int ExprPredictor::simplex_minimize( ExprPar& par_result, double& obj_result )
 		}
 	}
 
-        par_result = ExprPar ( pars, coopMat, actIndicators, repIndicators, nSeqs() );
+        par_result = ExprPar ( pars, coopMat, SynMat, actIndicators, repIndicators, nSeqs() );
 	//Hassan end
 	//uncomment the following line if you remove all the changes by Hassan
-    //par_result = ExprPar( gsl2vector( s->x ), coopMat, actIndicators, repIndicators );
+    //par_result = ExprPar( gsl2vector( s->x ), coopMat, SynMat, actIndicators, repIndicators );
     obj_result = s->fval;
     
     // free the minimizer
@@ -2446,7 +2478,7 @@ int ExprPredictor::gradient_minimize( ExprPar& par_result, double& obj_result )
 // 	cout << "Start minimization" << endl;
     // extract initial parameters
     vector< double > pars;
-    par_model.getFreePars( pars, coopMat, actIndicators, repIndicators ); 
+    par_model.getFreePars( pars, coopMat, SynMat, actIndicators, repIndicators ); 
             
 	//Hassan start:
 	int pars_size = pars.size();
@@ -2517,10 +2549,10 @@ int ExprPredictor::gradient_minimize( ExprPar& par_result, double& obj_result )
 		}
 	}
 
-        par_curr = ExprPar ( pars, coopMat, actIndicators, repIndicators, nSeqs() );
+        par_curr = ExprPar ( pars, coopMat, SynMat, actIndicators, repIndicators, nSeqs() );
 	
 	//Hassan end
-        //ExprPar par_curr = ExprPar( gsl2vector( s->x ), coopMat, actIndicators, repIndicators );
+        //ExprPar par_curr = ExprPar( gsl2vector( s->x ), coopMat, SynMat, actIndicators, repIndicators );
         if ( ExprPar::searchOption == CONSTRAINED && !testPar( par_curr ) ) break;
     
 
@@ -2554,7 +2586,7 @@ int ExprPredictor::gradient_minimize( ExprPar& par_result, double& obj_result )
         printPar( par_curr );
         printf( "\tf() = %8.5f size = %.3f\n", s->fval, size );
 	cout << "======================================" << endl;
-	par_curr.print( cout, motifNames, seqNames, coopMat);
+	par_curr.print( cout, motifNames, seqNames, coopMat, SynMat);
 	cout << "======================================" << endl;
 	cout << "======================================" << endl << endl;
 	#endif // SHORT_OUTPUT
@@ -2581,9 +2613,9 @@ int ExprPredictor::gradient_minimize( ExprPar& par_result, double& obj_result )
 		}
 	}
 
-    par_result = ExprPar ( pars, coopMat, actIndicators, repIndicators, nSeqs() );
+    par_result = ExprPar ( pars, coopMat, SynMat, actIndicators, repIndicators, nSeqs() );
 	//Hassan end
-    //par_result = ExprPar( gsl2vector( s->x ), coopMat, actIndicators, repIndicators );
+    //par_result = ExprPar( gsl2vector( s->x ), coopMat, SynMat, actIndicators, repIndicators );
     obj_result = s->f;
     
     // free the minimizer
@@ -2632,7 +2664,7 @@ libcmaes::FitFunc obj_func_wrapper = [](const double *x, const int N)
 		}
 	}
 
-    ExprPar par_tmp( all_pars, global_predictor->getCoopMat(), global_predictor->getActIndicators(), global_predictor->getRepIndicators(), global_predictor -> nSeqs() );
+    ExprPar par_tmp( all_pars, global_predictor->getCoopMat(), global_predictor->getSynMat(), global_predictor->getActIndicators(), global_predictor->getRepIndicators(), global_predictor -> nSeqs() );
 	global_predictor->par_curr = par_tmp;
     double obj = global_predictor->objFunc(par_tmp);
     return obj;
@@ -2643,7 +2675,7 @@ int ExprPredictor::cmaes_minimize(ExprPar& par_result, double& obj_result, doubl
 {
     // extract initial parameters
     vector < double > pars;
-    par_model.getFreePars(pars, coopMat, actIndicators, repIndicators); 
+    par_model.getFreePars(pars, coopMat, SynMat, actIndicators, repIndicators); 
         
 	int pars_size = pars.size();
 	fix_pars.clear();
@@ -2691,7 +2723,7 @@ int ExprPredictor::cmaes_minimize(ExprPar& par_result, double& obj_result, doubl
 		}
 	}
 
-    par_result = ExprPar ( pars, coopMat, actIndicators, repIndicators, nSeqs() );
+    par_result = ExprPar ( pars, coopMat, SynMat, actIndicators, repIndicators, nSeqs() );
     obj_result = best_candidate.get_fvalue();	
 
     return 0;
@@ -2733,7 +2765,7 @@ double ExprPredictor::train_btr(vector< double >& predictedEfficiency, vector< d
 int ExprPredictor::save_param()
 {
 	ofstream fparam_sm( "param.save" );
-	par_curr.print( fparam_sm, motifNames, seqNames, getCoopMat() );
+	par_curr.print( fparam_sm, motifNames, seqNames, getCoopMat(), getSynMat());
     fparam_sm.close();
 	return 0;
 }
@@ -2773,8 +2805,8 @@ double gsl_obj_f( const gsl_vector* v, void* params )
 	}
 
 
-    ExprPar par( all_pars, predictor->getCoopMat(), predictor->getActIndicators(), predictor->getRepIndicators(), predictor -> nSeqs() );
-    //ExprPar par( gsl2vector( v ), predictor->getCoopMat(), predictor->getActIndicators(), predictor->getRepIndicators() );
+    ExprPar par( all_pars, predictor->getCoopMat(), predictor->getSynMat(), predictor->getActIndicators(), predictor->getRepIndicators(), predictor -> nSeqs() );
+    //ExprPar par( gsl2vector( v ), predictor->getCoopMat(), predictor->getSynMat(), predictor->getActIndicators(), predictor->getRepIndicators() );
     predictor->par_curr = par;
     // call the ExprPredictor object to evaluate the objective function 
     double obj = predictor->objFunc( par );

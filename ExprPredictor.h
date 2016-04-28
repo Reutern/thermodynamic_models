@@ -18,7 +18,7 @@ public:
     ExprPar() : factorIntMat(), factorSynMat() {}
     ExprPar( int _nFactors, int _nSeqs );		// default values of parameters
     ExprPar( const vector< double >& _maxBindingWts, const Matrix& _factorIntMat, const Matrix& _factorSynMat, const vector< double >& _txpEffects, const vector< double >& _repEffects, const vector < double >&  _basalTxps, int _nSeqs, double _acc_scale, double _par_penalty );
-    ExprPar( const vector< double >& pars, const IntMatrix& coopMat, const IntMatrix& synMat, const vector< bool >& actIndicators, const vector< bool >& repIndicators, int _nSeqs );	// construct from a "flat" vector of free parameters (assuming they are in the correct/uniform scale)
+    ExprPar( const vector< double >& pars, const IntMatrix& coopMat, const IntMatrix& SynMat, const vector< bool >& actIndicators, const vector< bool >& repIndicators, int _nSeqs );	// construct from a "flat" vector of free parameters (assuming they are in the correct/uniform scale)
     void copy( const ExprPar& other ) { maxBindingWts = other.maxBindingWts; factorIntMat = other.factorIntMat; factorSynMat = other.factorSynMat; txpEffects = other.txpEffects; repEffects = other.repEffects; basalTxps = other.basalTxps; nSeqs = basalTxps.size(); acc_scale = other.acc_scale; par_penalty = other.par_penalty; }
     ExprPar( const ExprPar& other ) { copy( other ); }
 
@@ -33,10 +33,10 @@ public:
 	double parameter_L1_norm() const;
 	
     // get the free parameters (in the correct/uniform scale)
-    void getFreePars( vector< double >& pars, const IntMatrix& coopMat, const vector< bool >& actIndicators, const vector< bool >& repIndicators ) const; 
+    void getFreePars( vector< double >& pars, const IntMatrix& coopMat, const IntMatrix& SynMat, const vector< bool >& actIndicators, const vector< bool >& repIndicators ) const; 
 	
     // print the parameters
-    void print( ostream& os, const vector< string >& motifNames, const vector< string >& seqNames, const IntMatrix& coopMat ) const;
+    void print( ostream& os, const vector< string >& motifNames, const vector< string >& seqNames, const IntMatrix& coopMat, const IntMatrix& SynMat) const;
  		
     // load the parameter values from a file, assuming the parameter has the correct dimensions (and initialized)
     int load( const string& file ); 
@@ -105,7 +105,7 @@ public:
 class ExprFunc {
 public:
     // constructors
-    ExprFunc(const vector< Motif >& _motifs,  const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr,  int _coopDistThr, int _synDistThr, const ExprPar& _par, const vector< Sequence >& _seqs);
+    ExprFunc(const vector< Motif >& _motifs,  const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr, int _coopDistThr, int _SynDistThr, const ExprPar& _par, const vector< Sequence >& _seqs);
 
     // access methods
     const vector< Motif >& getMotifs() const {
@@ -203,7 +203,7 @@ class ExprPredictor {
 public:
     // constructors
 //	ExprPredictor();
-    ExprPredictor( const vector< SiteVec >& _seqSites, const vector< int >& _seqLengths, const Matrix& _exprData, const vector< Motif >& _motifs, const Matrix& _factorExprData, const IntMatrix& _coopMat, const IntMatrix& _synMat, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr, int _coopDistThr, int _synDistThr, const vector < bool >& _indicator_bool, const vector <string>& _motifNames, const vector <string>& _seqNames, const vector< Sequence >& _seqs  );
+    ExprPredictor( const vector< SiteVec >& _seqSites, const vector< int >& _seqLengths, const Matrix& _exprData, const vector< Motif >& _motifs, const Matrix& _factorExprData, const IntMatrix& _coopMat, const IntMatrix& _SynMat, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr, int _coopDistThr, int _SynDistThr, const vector < bool >& _indicator_bool, const vector <string>& _motifNames, const vector <string>& _seqNames, const vector< Sequence >& _seqs  );
 
     // access methods
     int nSeqs() const {
