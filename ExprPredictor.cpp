@@ -443,6 +443,16 @@ int ExprPar::load( const string& file )
         factorIntMat( idx2, idx1 ) = coopVal;
     }
 
+    // read the synergy interactions
+    double SynVal;
+    while ( fin >> factor1 >> factor2 >> SynVal ) {
+        if( !factorIdxMap.count( factor1 ) || !factorIdxMap.count( factor2 ) ) return RET_ERROR;
+        int idx1 = factorIdxMap[factor1];
+        int idx2 = factorIdxMap[factor2];
+        factorSynMat( idx1, idx2 ) = SynVal;
+        factorSynMat( idx2, idx1 ) = SynVal;
+    }
+
     fin.close();
     return fin ? RET_ERROR : 0;
 }
@@ -453,12 +463,12 @@ int ExprPar::load( const string& file, const vector <string>& seqNames, const ve
     ifstream fin( file.c_str() );
     if ( !fin ){ cerr << "Cannot open parameter file " << file << endl;	exit( 1 ); } 
 
+
     // factor name to index mapping
     map< string, int > factorIdxMap;
     for ( int i = 0; i < nFactors(); i++ ) {
         factorIdxMap[motifNames[i]] = i;
     }
-
     // read the factor information
 	string name_tmp;
     for ( int i = 0; i < nFactors(); i++ ) {
@@ -467,15 +477,12 @@ int ExprPar::load( const string& file, const vector <string>& seqNames, const ve
 		fin >> maxBindingWts[idx] >> txpEffects[idx]; 
         if ( modelOption == CHRMOD_UNLIMITED || modelOption == CHRMOD_LIMITED ) fin >> repEffects[idx];
     }
-
     string symbol, eqSign, value;
-
     #if ACCESSIBILITY
     fin >> symbol >> eqSign >> value;
     if (symbol != "Accessibility" || eqSign != "=") return RET_ERROR;
     acc_scale = atof( value.c_str() );
     #endif // ACCESSIBILITY
-
     // read the basal transcription
     if( one_qbtm_per_crm ){
     	if( seqNames.size() != nSeqs ) return RET_ERROR;
@@ -497,10 +504,8 @@ int ExprPar::load( const string& file, const vector <string>& seqNames, const ve
 	double basalTxp_val = atof( value.c_str() );
 	basalTxps[ 0 ] =  basalTxp_val ;
     }
-
     fin >> symbol >> eqSign;
     if (symbol != "Cooperativity" || eqSign != "Factor:") return RET_ERROR;
-
     // read the cooperative interactions
     string factor1, factor2;
     double coopVal;
@@ -512,10 +517,7 @@ int ExprPar::load( const string& file, const vector <string>& seqNames, const ve
         factorIntMat( idx2, idx1 ) = coopVal;
     }
 
-    fin >> symbol >> eqSign;
-    if (symbol != "Synergy" || eqSign != "Factor:") return RET_ERROR;
-
-    // read the cooperative interactions
+    // read the synergy interactions
     double SynVal;
     while ( fin >> factor1 >> factor2 >> SynVal ) {
         if( !factorIdxMap.count( factor1 ) || !factorIdxMap.count( factor2 ) ) return RET_ERROR;
