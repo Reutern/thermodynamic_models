@@ -546,6 +546,8 @@ int main( int argc, char* argv[] )
 	// New predictor 
 	ExprPredictor* predictor_CV = new ExprPredictor( test_seqSites, test_seqLengths, test_exprData, motifs, factorExprData, coopMat, SynMat, actIndicators, maxContact, repIndicators, repressionMat, repressionDistThr, coopDistThr, SynDistThr, indicator_bool, motifNames, test_seqNames, test_seqs );
 	predictor_CV->setPar(par);
+
+
     // random number generator
 	rng = gsl_rng_alloc( T );
 	gsl_rng_set( rng, time( 0 ) );		// set the seed equal to simulTime(0)
@@ -570,7 +572,6 @@ int main( int argc, char* argv[] )
 
     double obj_corr = correlation / test_nSeqs;
     double obj_sse = sqrt( squaredErr / ( test_nSeqs * nConds ) ); 
- 
     cout << "Performance on test set: SSE = " << obj_sse << "\t" << "Corr = " << obj_corr << endl;
 
 	#if PRINT_IMPACT

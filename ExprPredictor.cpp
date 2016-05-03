@@ -1670,8 +1670,8 @@ double ExprPredictor::objFunc( const ExprPar& par, int crm )
 	#pragma omp parallel for schedule(dynamic)
 	for (int j = 0; j < nConds(); j++ ) {		
 		concs[j] = factorExprData.getCol( j );
-		predictedExprs[j] = func->predictExpr( seqLengths[ crm ], concs[j], crm );	
-		observedExprs[j] = exprData( crm, j );									// observed expression for the i-th sequence at the j-th condition
+		predictedExprs[j] = func->predictExpr(seqLengths[ crm ], concs[j], crm);	
+		observedExprs[j] = exprData(crm, j);									// observed expression for the i-th sequence at the j-th condition
 	}
 
 	double beta = 1.0;
@@ -1705,7 +1705,7 @@ int ExprPredictor::train( const ExprPar& par_init )
 
     if ( nAlternations > 0 && ExprPar::searchOption == CONSTRAINED ){ 
 		par_model.constrain_parameters(); 
-	    par_model.adjust(); }
+	    }//par_model.adjust(); }
     if ( nAlternations == 0 ) return 0;
     ExprPar par_result;
     double obj_result;
@@ -1725,15 +1725,15 @@ int ExprPredictor::train( const ExprPar& par_init )
 			cout << "Gradient minimization step " << i + 1 << " of " << nAlternations << ":" << endl; 
 			gradient_minimize(par_result, obj_result);
 		}
-
-		par_result.basalTxps = par_model.basalTxps;
-
+		if(one_qbtm_per_crm){
+			par_result.basalTxps = par_model.basalTxps;
+		}
 		if(obj_result <= obj_model){ 
 			par_model = par_result;
 			obj_model = obj_result;
 			save_param();
 			}
-		
+
     }
 	
     return 0;	
@@ -1820,6 +1820,7 @@ int ExprPredictor::predict( const SiteVec& targetSites, int targetSeqLength, vec
 	else{
 		#pragma omp parallel for schedule(dynamic)
 		for ( int j = 0; j < nConds(); j++ ) {
+			concs[j] = factorExprData.getCol( j );
 			double predicted = func->predictExpr( targetSeqLength, concs[j], seq_num );       
 		    targetExprs[j] = predicted;
 		}
@@ -2677,7 +2678,7 @@ libcmaes::FitFunc obj_func_wrapper = [](const double *x, const int N)
 		}
 	}
 
-    ExprPar par_tmp( all_pars, global_predictor->getCoopMat(), global_predictor->getSynMat(), global_predictor->getActIndicators(), global_predictor->getRepIndicators(), global_predictor -> nSeqs() );
+    ExprPar par_tmp(all_pars, global_predictor->getCoopMat(), global_predictor->getSynMat(), global_predictor->getActIndicators(), global_predictor->getRepIndicators(), global_predictor -> nSeqs());
 	global_predictor->par_curr = par_tmp;
     double obj = global_predictor->objFunc(par_tmp);
     return obj;
@@ -2708,6 +2709,7 @@ int ExprPredictor::cmaes_minimize(ExprPar& par_result, double& obj_result, doubl
 	libcmaes::CMAParameters<> cmaparams(pars, sigma);
 	cmaparams.set_ftolerance(tolerance);	
 	cmaparams.set_algo(aCMAES);
+	cmaparams.set_max_iter(nCMAESIters);
 	global_pointer = (void*)this;
 
 	string fname;
@@ -2736,7 +2738,7 @@ int ExprPredictor::cmaes_minimize(ExprPar& par_result, double& obj_result, doubl
 		}
 	}
 
-    par_result = ExprPar ( pars, coopMat, SynMat, actIndicators, repIndicators, nSeqs() );
+    par_result = ExprPar(pars, coopMat, SynMat, actIndicators, repIndicators, nSeqs());
     obj_result = best_candidate.get_fvalue();	
 
     return 0;
