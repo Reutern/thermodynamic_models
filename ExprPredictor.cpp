@@ -42,7 +42,7 @@ ExprPar::ExprPar( int _nFactors, int _nSeqs ) : factorIntMat(), factorSynMat()
 	}
 
     acc_scale = ExprPar::default_acc_scale;
-    par_penalty = ExprPar::default_par_penalty;
+    par_penalty = ExprPar::default_par_penalty_weights;
 }
 	
 ExprPar::ExprPar( const vector< double >& _maxBindingWts, const Matrix& _factorIntMat, const Matrix& _factorSynMat, const vector< double >& _txpEffects, const vector< double >& _repEffects, const vector < double >& _basalTxps, int _nSeqs, double _acc_scale, double _par_penalty ) : maxBindingWts( _maxBindingWts ), factorIntMat( _factorIntMat ), factorSynMat( _factorSynMat ), txpEffects( _txpEffects ), repEffects( _repEffects ), basalTxps( _basalTxps ), nSeqs( _nSeqs  ), acc_scale(_acc_scale), par_penalty(_par_penalty)
@@ -169,7 +169,7 @@ ExprPar::ExprPar( const vector< double >& pars, const IntMatrix& coopMat, const 
     acc_scale = searchOption == CONSTRAINED ? exp( inverse_infty_transform( pars[counter++], log( min_acc_scale ), log( max_acc_scale ) ) ) : exp( pars[counter++] );
     #endif // ACCESSIBILITY
 
-    par_penalty = ExprPar::default_par_penalty;
+    par_penalty = ExprPar::default_par_penalty_weights;
 }
 
 double ExprPar::parameter_L2_norm() const
@@ -210,6 +210,8 @@ double ExprPar::parameter_L2_norm() const
 	}
 
 	L2_norm_syn /= nFactors();
+
+	//cout <<  L2_weights << " " << L2_effects << " " << L2_norm_coop << " " << L2_norm_syn << endl;
 
 	return L2_weights + L2_effects + L2_norm_coop + L2_norm_syn;
 }
@@ -689,7 +691,9 @@ int ExprPar::estBindingOption = 1;  // 1. estimate binding parameters; 0. not es
 
 double ExprPar::delta = 0.0001;
 double ExprPar::default_acc_scale = 1;
-double ExprPar::default_par_penalty = 0.1;
+double ExprPar::default_par_penalty_weights = 0.1;
+double ExprPar::default_par_penalty_effects = 0.1;
+double ExprPar::default_par_penalty_coop = 0.1;
 double ExprPar::default_weight = 1.0;
 double ExprPar::default_interaction = 1.0;
 double ExprPar::default_synergy = 1.0;
@@ -1713,9 +1717,8 @@ int ExprPredictor::train( const ExprPar& par_init )
     for ( int i = 0; i < nAlternations; i++ ) {
 		if(optimizationOption == CMAES){
 			double tolerance = 1e-4;
-			double sigma [4] = {0.01, 0.1, 1.0, 5.0};
-			cout << "CMA-ES minimization (sigma = " << sigma[i] << "):" << endl; 
-			cmaes_minimize(par_result, obj_result, sigma[i], tolerance);
+			cout << "CMA-ES minimization (sigma = " << cmaes_sigma << "):" << endl; 
+			cmaes_minimize(par_result, obj_result, cmaes_sigma, tolerance);
 		}
 		else if(optimizationOption == Simplex){
 			cout << "Simplex minimization " << i + 1 << " of " << nAlternations << ":" << endl; 
@@ -1897,6 +1900,8 @@ double ExprPredictor::min_delta_f_PGP = 1.0E-8;
 int ExprPredictor::nSimplexIters = 20;
 int ExprPredictor::nCMAESIters = 10000;
 int ExprPredictor::nGradientIters = 5000;
+double ExprPredictor::cmaes_sigma = 0.1;
+
 bool ExprPredictor::one_qbtm_per_crm = ONE_QBTM;
 
 // Initialise static members as empty

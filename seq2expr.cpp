@@ -16,10 +16,10 @@ int main( int argc, char* argv[] )
     string outFile, occFile, impactFile;     // output files
     int coopDistThr = 150;
     int SynDistThr = 50;
-    double factorIntSigma = 25.0;   // sigma parameter for the Gaussian interaction function
     int repressionDistThr = 0;
     int maxContact = 1;
 	double hyperparameter = 0.1;
+	double sigma = 0.01;
 	vector<double> eTF (20,0.6);
 
 
@@ -74,7 +74,7 @@ int main( int argc, char* argv[] )
         else if ( !strcmp( "-syt", argv[i] ) )
             SynDistThr = atof( argv[++i] ); 
         else if ( !strcmp( "-sigma", argv[i] ) )
-            factorIntSigma = atof( argv[++i] );    
+            sigma = atof( argv[++i] );    
         else if ( !strcmp( "-rt", argv[i] ) )
             repressionDistThr = atof( argv[++i] );    
         else if ( !strcmp( "-na", argv[i] ) )
@@ -96,7 +96,7 @@ int main( int argc, char* argv[] )
     if (seqFile.empty() || exprFile.empty() || motifFile.empty() || factorExprFile.empty() || outFile.empty() || 
 	   ( ( ExprPredictor::modelOption == QUENCHING || ExprPredictor::modelOption == CHRMOD_UNLIMITED || ExprPredictor::modelOption == CHRMOD_LIMITED ) 
 	   &&  factorInfoFile.empty() ) || ( ExprPredictor::modelOption == QUENCHING && repressionFile.empty() ) ) {
-    	cerr << "Usage: " << argv[ 0 ] << " -s seqFile -ts test_seqFile -e exprFile -te test_exprFile -m motifFile -f factorExprFile -fo outFile [-a annFile -o modelOption -c coopFile  -c SynFile -i	factorInfoFile -r repressionFile -oo objOption -mc maxContact -p parFile -pp print_parFile -rt repressionDistThr -na nAlternations -ct coopDistThr -ct SynDistThr -hy hyperparameter -sigma factorIntSigma]" << endl;
+    	cerr << "Usage: " << argv[ 0 ] << " -s seqFile -ts test_seqFile -e exprFile -te test_exprFile -m motifFile -f factorExprFile -fo outFile [-a annFile -o modelOption -c coopFile  -c SynFile -i	factorInfoFile -r repressionFile -oo objOption -mc maxContact -p parFile -pp print_parFile -rt repressionDistThr -na nAlternations -ct coopDistThr -ct SynDistThr -hy hyperparameter -sigma cmaes_sigma]" << endl;
         cerr << "modelOption: Logistic, Direct, Quenching, ChrMod_Unlimited, ChrMod_Limited" << endl;
         exit( 1 );
     }           
@@ -106,7 +106,9 @@ int main( int argc, char* argv[] )
     FactorIntType FactorIntOption = FactorIntFunc;     // type of interaction function
     ExprPar::searchOption = CONSTRAINED;      // search option: unconstrained; constrained. 
     ExprPar::estBindingOption = 1;
-	ExprPar::default_par_penalty = hyperparameter;
+	ExprPar::default_par_penalty_weights = hyperparameter;
+	ExprPar::default_par_penalty_effects = hyperparameter;
+	ExprPar::default_par_penalty_coop = hyperparameter;
 
     ExprPredictor::nRandStarts = 0;
     ExprPredictor::min_delta_f_SSE = 1.0E-10;
@@ -115,6 +117,7 @@ int main( int argc, char* argv[] )
     ExprPredictor::nSimplexIters = 2000;
     ExprPredictor::nCMAESIters = 10000;
     ExprPredictor::nGradientIters = 200;
+    ExprPredictor::cmaes_sigma = sigma;   // sigma parameter for CMA-ES
 
     int rval;
     vector< vector< double > > data;    // buffer for reading matrix data
@@ -359,7 +362,6 @@ int main( int argc, char* argv[] )
     if ( !coopFile.empty() ) {
         cout << "Interaction_Model = " << getIntOptionStr( FactorIntOption ) << endl;
         cout << "Interaction_Distance_Threshold = " << coopDistThr << endl;
-        if ( FactorIntOption == GAUSSIAN ) cout << "Sigma = " << factorIntSigma << endl;
     }
     cout << "Search_Option = " << getSearchOptionStr( ExprPar::searchOption ) << endl;
     cout << "Num_Random_Starts = " << ExprPredictor::nRandStarts << endl;

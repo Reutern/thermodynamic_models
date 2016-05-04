@@ -67,7 +67,9 @@ public:
     static bool one_qbtm_per_crm;
     
     static double default_acc_scale;	// default accessibility scaling parameter
-    static double default_par_penalty;	// default parameter penalty
+    static double default_par_penalty_weights;	// default parameter penalty
+    static double default_par_penalty_effects;	// default parameter penalty
+    static double default_par_penalty_coop;	// default parameter penalty
     static double default_weight;	// default binding weight
     static double default_interaction;		// default factor interaction
     static double default_synergy;		// default factor synergy
@@ -278,6 +280,7 @@ public:
     static int nSimplexIters;       // maximum number of iterations for Simplex optimizer
     static int nCMAESIters;       // maximum number of iterations for CMAES optimizer
     static int nGradientIters;      // maximum number of iterations for Gradient optimizer
+	static double cmaes_sigma;
     static bool one_qbtm_per_crm;
     vector < bool > indicator_bool;	// States if Parameters are free or fixed for training
     static vector <string> motifNames;
