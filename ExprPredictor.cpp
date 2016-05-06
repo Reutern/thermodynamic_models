@@ -42,10 +42,9 @@ ExprPar::ExprPar( int _nFactors, int _nSeqs ) : factorIntMat(), factorSynMat()
 	}
 
     acc_scale = ExprPar::default_acc_scale;
-    par_penalty = ExprPar::default_par_penalty_weights;
 }
 	
-ExprPar::ExprPar( const vector< double >& _maxBindingWts, const Matrix& _factorIntMat, const Matrix& _factorSynMat, const vector< double >& _txpEffects, const vector< double >& _repEffects, const vector < double >& _basalTxps, int _nSeqs, double _acc_scale, double _par_penalty ) : maxBindingWts( _maxBindingWts ), factorIntMat( _factorIntMat ), factorSynMat( _factorSynMat ), txpEffects( _txpEffects ), repEffects( _repEffects ), basalTxps( _basalTxps ), nSeqs( _nSeqs  ), acc_scale(_acc_scale), par_penalty(_par_penalty)
+ExprPar::ExprPar( const vector< double >& _maxBindingWts, const Matrix& _factorIntMat, const Matrix& _factorSynMat, const vector< double >& _txpEffects, const vector< double >& _repEffects, const vector < double >& _basalTxps, int _nSeqs, double _acc_scale) : maxBindingWts( _maxBindingWts ), factorIntMat( _factorIntMat ), factorSynMat( _factorSynMat ), txpEffects( _txpEffects ), repEffects( _repEffects ), basalTxps( _basalTxps ), nSeqs( _nSeqs  ), acc_scale(_acc_scale)
 {
     if ( !factorIntMat.isEmpty() ) assert( factorIntMat.nRows() == maxBindingWts.size() && factorIntMat.isSquare() ); 	
     if ( !factorSynMat.isEmpty() ) assert( factorSynMat.nRows() == maxBindingWts.size() && factorSynMat.isSquare() ); 	
@@ -169,7 +168,6 @@ ExprPar::ExprPar( const vector< double >& pars, const IntMatrix& coopMat, const 
     acc_scale = searchOption == CONSTRAINED ? exp( inverse_infty_transform( pars[counter++], log( min_acc_scale ), log( max_acc_scale ) ) ) : exp( pars[counter++] );
     #endif // ACCESSIBILITY
 
-    par_penalty = ExprPar::default_par_penalty_weights;
 }
 
 double ExprPar::parameter_L2_norm() const
@@ -186,14 +184,21 @@ double ExprPar::parameter_L2_norm() const
 			L2_effects += pow( min_effect_Thermo / txpEffects[i], 2) / nFactors();
 	}
 
+
+	return L2_weights + L2_effects;
+}
+
+
+double ExprPar::parameter_L2_norm_interactions() const
+{
 	double L2_norm_coop = 0;
     for ( int i = 0; i < nFactors(); i++ ) {
         for ( int j = 0; j <= i; j++ ) {
-			L2_norm_coop += pow(factorIntMat(i, j)/ max_interaction, 2);
-//			if(factorIntMat( i, j ) >= 1)
-//				L2_norm_coop += pow((factorIntMat(i, j) - 1)/ max_interaction, 2);
-//			else
-//				L2_norm_coop +=  pow(min_interaction / factorIntMat( i, j ), 2);
+//			L2_norm_coop += pow(factorIntMat(i, j)/ max_interaction, 2);
+			if(factorIntMat( i, j ) >= 1)
+				L2_norm_coop += pow((factorIntMat(i, j) - 1)/ max_interaction, 2);
+			else
+				L2_norm_coop +=  pow(min_interaction / factorIntMat( i, j ), 2);
         }	
 	}
 
@@ -211,10 +216,9 @@ double ExprPar::parameter_L2_norm() const
 
 	L2_norm_syn /= nFactors();
 
-	//cout <<  L2_weights << " " << L2_effects << " " << L2_norm_coop << " " << L2_norm_syn << endl;
-
-	return L2_weights + L2_effects + L2_norm_coop + L2_norm_syn;
+	return L2_norm_coop + L2_norm_syn;
 }
+
 
 double ExprPar::parameter_L1_norm() const
 {
@@ -231,15 +235,21 @@ double ExprPar::parameter_L1_norm() const
 
 	}
 
+	return L1_weights + L1_effects;
+}
+
+
+double ExprPar::parameter_L1_norm_interactions() const
+{
 	double L1_norm_coop = 0;
 	int Nparameter = 0;
     for ( int i = 0; i < nFactors(); i++ ) {
         for ( int j = 0; j <= i; j++ ) {
-			L1_norm_coop +=  factorIntMat(i, j) / max_interaction;
-//			if(factorIntMat( i, j ) >= 1)
-//				L1_norm_coop +=  (factorIntMat(i, j) - 1) / max_interaction;
-//			else
-//				L1_norm_coop +=  min_interaction / factorIntMat( i, j );
+//			L1_norm_coop +=  factorIntMat(i, j) / max_interaction;
+			if(factorIntMat( i, j ) >= 1)
+				L1_norm_coop +=  (factorIntMat(i, j) - 1) / max_interaction;
+			else
+				L1_norm_coop +=  min_interaction / factorIntMat( i, j );
         }	
 	}
 	L1_norm_coop /= nFactors();
@@ -255,7 +265,7 @@ double ExprPar::parameter_L1_norm() const
 	}
 	L1_norm_syn /= nFactors();
 
-	return L1_weights + L1_effects + L1_norm_coop + L1_norm_syn;
+	return L1_norm_coop + L1_norm_syn;
 }
 
 
@@ -691,9 +701,8 @@ int ExprPar::estBindingOption = 1;  // 1. estimate binding parameters; 0. not es
 
 double ExprPar::delta = 0.0001;
 double ExprPar::default_acc_scale = 1;
-double ExprPar::default_par_penalty_weights = 0.1;
-double ExprPar::default_par_penalty_effects = 0.1;
-double ExprPar::default_par_penalty_coop = 0.1;
+double ExprPar::par_penalty = 1;
+double ExprPar::interaction_penalty = 1;
 double ExprPar::default_weight = 1.0;
 double ExprPar::default_interaction = 1.0;
 double ExprPar::default_synergy = 1.0;
@@ -1647,9 +1656,9 @@ double ExprPredictor::objFunc( const ExprPar& par )
     obj_pgp = pgp_score / nSeqs();
 	double penalty = 0;
 	if (PenaltyOption == L1) 
-		penalty = par.par_penalty * par.parameter_L1_norm();
+		penalty = par.par_penalty * par.parameter_L1_norm() + par.interaction_penalty * par.parameter_L1_norm_interactions();
 	if (PenaltyOption == L2) 
-		penalty = par.par_penalty * par.parameter_L2_norm();
+		penalty = par.par_penalty * par.parameter_L2_norm() + par.interaction_penalty * par.parameter_L2_norm_interactions();
 
     if (objOption == SSE)	return obj_sse - penalty;
     else if (objOption == CORR)	return -obj_corr + penalty;
@@ -1690,9 +1699,9 @@ double ExprPredictor::objFunc( const ExprPar& par, int crm )
 
 	double penalty = 0;
 	if (PenaltyOption == L1) 
-		penalty = par.par_penalty * par.parameter_L1_norm();
+		penalty = par.par_penalty * par.parameter_L1_norm() + par.interaction_penalty * par.parameter_L1_norm_interactions();
 	if (PenaltyOption == L2) 
-		penalty = par.par_penalty * par.parameter_L2_norm();
+		penalty = par.par_penalty * par.parameter_L2_norm() + par.interaction_penalty * par.parameter_L2_norm_interactions();
 
     if (objOption == SSE)	return obj_sse - penalty;
     else if (objOption == CORR)	return -obj_corr + penalty;

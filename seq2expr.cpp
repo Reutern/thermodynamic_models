@@ -18,7 +18,8 @@ int main( int argc, char* argv[] )
     int SynDistThr = 50;
     int repressionDistThr = 0;
     int maxContact = 1;
-	double hyperparameter = 0.1;
+	double hyperparameter = 1;
+	double hyperparameter_interactions = 1;
 	double sigma = 0.01;
 	vector<double> eTF (20,0.6);
 
@@ -84,7 +85,9 @@ int main( int argc, char* argv[] )
         else if ( !strcmp( "-if", argv[i] ) )
             impactFile = argv[++i];    
         else if ( !strcmp( "-hy", argv[i] ) )
-            hyperparameter = atof( argv[++i] );    
+            hyperparameter = atof( argv[++i] );   
+        else if ( !strcmp( "-hyc", argv[i] ) )
+            hyperparameter_interactions = atof( argv[++i] );    
         else if ( !strcmp( "-oq", argv[i] ) ){
            	ExprPredictor::one_qbtm_per_crm = true;    
 			ExprPar::one_qbtm_per_crm = true;
@@ -106,9 +109,8 @@ int main( int argc, char* argv[] )
     FactorIntType FactorIntOption = FactorIntFunc;     // type of interaction function
     ExprPar::searchOption = CONSTRAINED;      // search option: unconstrained; constrained. 
     ExprPar::estBindingOption = 1;
-	ExprPar::default_par_penalty_weights = hyperparameter;
-	ExprPar::default_par_penalty_effects = hyperparameter;
-	ExprPar::default_par_penalty_coop = hyperparameter;
+	ExprPar::par_penalty = hyperparameter;
+	ExprPar::interaction_penalty = hyperparameter_interactions;
 
     ExprPredictor::nRandStarts = 0;
     ExprPredictor::min_delta_f_SSE = 1.0E-10;

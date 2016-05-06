@@ -17,9 +17,9 @@ public:
     // constructors 
     ExprPar() : factorIntMat(), factorSynMat() {}
     ExprPar( int _nFactors, int _nSeqs );		// default values of parameters
-    ExprPar( const vector< double >& _maxBindingWts, const Matrix& _factorIntMat, const Matrix& _factorSynMat, const vector< double >& _txpEffects, const vector< double >& _repEffects, const vector < double >&  _basalTxps, int _nSeqs, double _acc_scale, double _par_penalty );
+    ExprPar( const vector< double >& _maxBindingWts, const Matrix& _factorIntMat, const Matrix& _factorSynMat, const vector< double >& _txpEffects, const vector< double >& _repEffects, const vector < double >&  _basalTxps, int _nSeqs, double _acc_scale);
     ExprPar( const vector< double >& pars, const IntMatrix& coopMat, const IntMatrix& SynMat, const vector< bool >& actIndicators, const vector< bool >& repIndicators, int _nSeqs );	// construct from a "flat" vector of free parameters (assuming they are in the correct/uniform scale)
-    void copy( const ExprPar& other ) { maxBindingWts = other.maxBindingWts; factorIntMat = other.factorIntMat; factorSynMat = other.factorSynMat; txpEffects = other.txpEffects; repEffects = other.repEffects; basalTxps = other.basalTxps; nSeqs = basalTxps.size(); acc_scale = other.acc_scale; par_penalty = other.par_penalty; }
+    void copy( const ExprPar& other ) { maxBindingWts = other.maxBindingWts; factorIntMat = other.factorIntMat; factorSynMat = other.factorSynMat; txpEffects = other.txpEffects; repEffects = other.repEffects; basalTxps = other.basalTxps; nSeqs = basalTxps.size(); acc_scale = other.acc_scale;}
     ExprPar( const ExprPar& other ) { copy( other ); }
 
     // assignment
@@ -31,6 +31,8 @@ public:
 	// parameter norm
 	double parameter_L2_norm() const;
 	double parameter_L1_norm() const;
+	double parameter_L2_norm_interactions() const;
+	double parameter_L1_norm_interactions() const;
 	
     // get the free parameters (in the correct/uniform scale)
     void getFreePars( vector< double >& pars, const IntMatrix& coopMat, const IntMatrix& SynMat, const vector< bool >& actIndicators, const vector< bool >& repIndicators ) const; 
@@ -57,7 +59,8 @@ public:
     vector < double > basalTxps;        // basal transcription: q_p for Direct and Quenching model, exp(alpha_0) for Logistic model (so that the same default value can be used)
 	//double expRatio; 		// constant factor of measurement to prediction 
     double acc_scale;
-	double par_penalty;
+	static double par_penalty;
+	static double interaction_penalty;
 
 	int nSeqs;
 
@@ -67,9 +70,6 @@ public:
     static bool one_qbtm_per_crm;
     
     static double default_acc_scale;	// default accessibility scaling parameter
-    static double default_par_penalty_weights;	// default parameter penalty
-    static double default_par_penalty_effects;	// default parameter penalty
-    static double default_par_penalty_coop;	// default parameter penalty
     static double default_weight;	// default binding weight
     static double default_interaction;		// default factor interaction
     static double default_synergy;		// default factor synergy
