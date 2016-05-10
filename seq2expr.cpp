@@ -334,7 +334,7 @@ int main( int argc, char* argv[] )
 		for( int index = 0; index < nFactors + num_of_coop_pairs + nFactors ; index++ ){
 			indicator_bool.push_back( true );
 		}
-		for( int index = 0; index < nFactors + num_of_Syn_pairs + nFactors ; index++ ){
+		for( int index = 0; index < num_of_Syn_pairs; index++ ){
 			indicator_bool.push_back( true );
 		}
 		if( ExprPredictor::one_qbtm_per_crm ){
@@ -360,7 +360,8 @@ int main( int argc, char* argv[] )
         cout << "Repression_Distance_Threshold = " << repressionDistThr << endl;
     }
     cout << "Objective_Function = " << getObjOptionStr( ExprPredictor::objOption ) << endl;
-    cout << "Penalty_Function = " << getPenaltyOptionStr( ExprPredictor::PenaltyOption ) << "\tlambda = " << hyperparameter << endl;
+    cout << "Penalty_Function = " << getPenaltyOptionStr( ExprPredictor::PenaltyOption ) << endl;
+	cout << "lambda = " << hyperparameter << "\tlambda coop = " << hyperparameter_interactions << endl;
     if ( !coopFile.empty() ) {
         cout << "Interaction_Model = " << getIntOptionStr( FactorIntOption ) << endl;
         cout << "Interaction_Distance_Threshold = " << coopDistThr << endl;

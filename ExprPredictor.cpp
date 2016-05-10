@@ -760,7 +760,7 @@ double ExprPar::max_effect_Thermo = 10000;
 double ExprPar::min_repression = 1.0E-3;
 double ExprPar::max_repression = 500; 
 double ExprPar::min_basal_Thermo = 1.0E-7;	
-double ExprPar::max_basal_Thermo = 1;
+double ExprPar::max_basal_Thermo = 0.1;
 #endif // PARAMETER_SPACE
 
 bool ExprPar::one_qbtm_per_crm = ONE_QBTM;
@@ -1474,11 +1474,11 @@ double ExprFunc::compFactorInt( const Site& a, const Site& b ) const
 	    spacingTerm = ( dist < coopDistThr ? maxInt + 1 : 1.0 );
 	else if(FactorIntOption == LINEAR){
 		double d = float(dist)/float(coopDistThr);
-	    spacingTerm = ( dist < coopDistThr ? maxInt * (1 - d) + 1 : 1.0 );
+	    spacingTerm = ( dist < coopDistThr ? maxInt  * (1 - d) + d : 1.0 );
 	}
 	else if(FactorIntOption == GAUSSIAN){
 		double d = float(dist)/float(coopDistThr);
-	    spacingTerm = ( dist < coopDistThr ? maxInt * exp( - 4.5 * ( d * d ) ) + 1: 1.0 );	// Sigma is one third of coopDistThr
+	    spacingTerm = ( dist < coopDistThr ? (maxInt - 1) * exp( - 4.5 * ( d * d ) ) + 1: 1.0 );	// Sigma is one third of coopDistThr
 	}
     #if ORIENTATION
     double orientationTerm = ( a.strand == b.strand ) ? 1.0 : orientationEffect;
@@ -1644,7 +1644,6 @@ double ExprPredictor::objFunc( const ExprPar& par )
 			pgp_score += pgp( predictedExprs, observedExprs, beta );
 		}	
 	}
-
     #if TIMER 
     gettimeofday(&end, 0);
     cout << "Time " << (end.tv_sec-start.tv_sec)+1e-6*(end.tv_usec-start.tv_usec) << endl;
@@ -1656,6 +1655,7 @@ double ExprPredictor::objFunc( const ExprPar& par )
     obj_pgp = pgp_score / nSeqs();
 	double penalty = 0;
 	if (PenaltyOption == L1) 
+
 		penalty = par.par_penalty * par.parameter_L1_norm() + par.interaction_penalty * par.parameter_L1_norm_interactions();
 	if (PenaltyOption == L2) 
 		penalty = par.par_penalty * par.parameter_L2_norm() + par.interaction_penalty * par.parameter_L2_norm_interactions();
@@ -1696,7 +1696,6 @@ double ExprPredictor::objFunc( const ExprPar& par, int crm )
     obj_corr = correlation;
     obj_sse = sqrt( squaredErr / ( nConds() ) ); 
     obj_pgp = pgp_score;
-
 	double penalty = 0;
 	if (PenaltyOption == L1) 
 		penalty = par.par_penalty * par.parameter_L1_norm() + par.interaction_penalty * par.parameter_L1_norm_interactions();
@@ -2229,7 +2228,7 @@ double ExprPredictor::comp_impact_coop_pair( const ExprPar& par, int tf1, int tf
 	ExprPar par_full = par;
 	par_full.par_penalty = 0;
 	par_deleted.par_penalty = 0;
-	par_deleted.factorIntMat( tf1, tf2 ) = ExprPar::min_interaction;
+	par_deleted.factorIntMat( tf1, tf2 ) = 1;//ExprPar::min_interaction;
 	double obj_deleted = objFunc(par_deleted);
 	double obj_full = objFunc(par_full);	
 	double impact = obj_full - obj_deleted;
@@ -2684,7 +2683,7 @@ libcmaes::FitFunc obj_func_wrapper = [](const double *x, const int N)
 	int free_par_counter = 0;
 	int fix_par_counter = 0;
 	for( int index = 0; index < global_predictor->indicator_bool.size(); index ++ ){
-		if( global_predictor ->  indicator_bool[ index ]  ){
+		if( global_predictor->indicator_bool[index]){
 			all_pars.push_back( x[ free_par_counter ++ ]  );
 		}
 		else{
@@ -2721,6 +2720,7 @@ int ExprPredictor::cmaes_minimize(ExprPar& par_result, double& obj_result, doubl
 	pars = free_pars;
 
 	libcmaes::CMAParameters<> cmaparams(pars, sigma);
+	cout << "Number offspring: " << cmaparams.lambda() << endl;
 	cmaparams.set_ftolerance(tolerance);	
 	cmaparams.set_algo(aCMAES);
 	cmaparams.set_max_iter(nCMAESIters);
@@ -2825,7 +2825,7 @@ double gsl_obj_f( const gsl_vector* v, void* params )
 	int free_par_counter = 0;
 	int fix_par_counter = 0;
 	for( int index = 0; index < predictor -> indicator_bool.size(); index ++ ){
-		if( predictor ->  indicator_bool[ index ]  ){
+		if( predictor->indicator_bool[index]){
 			all_pars.push_back( temp_free_pars[ free_par_counter ++ ]  );
 		}
 		else{
