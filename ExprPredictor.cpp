@@ -9,7 +9,7 @@
 #include <unistd.h>
 #include <set>
 
-ExprPar::ExprPar( int _nFactors, int _nSeqs ) : factorIntMat(), factorSynMat()
+ExprPar::ExprPar( int _nFactors, int _nSeqs ) : factorIntMat(), factorSynMat(), factorSkewMat()
 {	
     assert( _nFactors > 0 );
 	
@@ -21,7 +21,10 @@ ExprPar::ExprPar( int _nFactors, int _nSeqs ) : factorIntMat(), factorSynMat()
     factorIntMat.setAll( ExprPar::default_interaction );  
 
     factorSynMat.setDimensions( _nFactors, _nFactors );
-    factorSynMat.setAll( ExprPar::default_synergy );       
+    factorSynMat.setAll( ExprPar::default_synergy );   
+
+    factorSkewMat.setDimensions( _nFactors, _nFactors );
+    factorSkewMat.setAll( ExprPar::default_synergy );       
 
     for ( int i = 0; i < _nFactors; i++ ) {
         double defaultEffect = modelOption == LOGISTIC ? ExprPar::default_effect_Logistic : ExprPar::default_effect_Thermo;
@@ -44,7 +47,7 @@ ExprPar::ExprPar( int _nFactors, int _nSeqs ) : factorIntMat(), factorSynMat()
     acc_scale = ExprPar::default_acc_scale;
 }
 	
-ExprPar::ExprPar( const vector< double >& _maxBindingWts, const Matrix& _factorIntMat, const Matrix& _factorSynMat, const vector< double >& _txpEffects, const vector< double >& _repEffects, const vector < double >& _basalTxps, int _nSeqs, double _acc_scale) : maxBindingWts( _maxBindingWts ), factorIntMat( _factorIntMat ), factorSynMat( _factorSynMat ), txpEffects( _txpEffects ), repEffects( _repEffects ), basalTxps( _basalTxps ), nSeqs( _nSeqs  ), acc_scale(_acc_scale)
+ExprPar::ExprPar( const vector< double >& _maxBindingWts, const Matrix& _factorIntMat, const Matrix& _factorSynMat, const Matrix& _factorSkewMat, const vector< double >& _txpEffects, const vector< double >& _repEffects, const vector < double >& _basalTxps, int _nSeqs, double _acc_scale) : maxBindingWts( _maxBindingWts ), factorIntMat( _factorIntMat ), factorSynMat( _factorSynMat ), factorSkewMat( _factorSkewMat ), txpEffects( _txpEffects ), repEffects( _repEffects ), basalTxps( _basalTxps ), nSeqs( _nSeqs  ), acc_scale(_acc_scale)
 {
     if ( !factorIntMat.isEmpty() ) assert( factorIntMat.nRows() == maxBindingWts.size() && factorIntMat.isSquare() ); 	
     if ( !factorSynMat.isEmpty() ) assert( factorSynMat.nRows() == maxBindingWts.size() && factorSynMat.isSquare() ); 	
@@ -57,7 +60,7 @@ ExprPar::ExprPar( const vector< double >& _maxBindingWts, const Matrix& _factorI
 	}
 }
 
-ExprPar::ExprPar( const vector< double >& pars, const IntMatrix& coopMat, const IntMatrix& SynMat, const vector< bool >& actIndicators, const vector< bool >& repIndicators, int _nSeqs ) : factorIntMat(), factorSynMat()
+ExprPar::ExprPar( const vector< double >& pars, const IntMatrix& coopMat, const IntMatrix& SynMat, const vector< bool >& actIndicators, const vector< bool >& repIndicators, int _nSeqs ) : factorIntMat(), factorSynMat(), factorSkewMat()
 {	
     int _nFactors = actIndicators.size();
     assert( coopMat.isSquare() && coopMat.nRows() == _nFactors );
@@ -108,6 +111,23 @@ ExprPar::ExprPar( const vector< double >& pars, const IntMatrix& coopMat, const 
             factorSynMat( i, j ) = factorSynMat( j, i );
         }
     }       
+
+    // set the skew matrix
+    factorSkewMat.setDimensions( _nFactors, _nFactors );
+    for ( int i = 0; i < _nFactors; i++ ) {
+        for ( int j = 0; j <= i; j++ ) {
+            if ( coopMat( i, j ) ) {
+                double skew = searchOption == CONSTRAINED ? inverse_infty_transform( pars[counter++], min_skew, max_skew) : pars[counter++];
+                factorSkewMat( i, j ) = skew;  
+            }
+            else factorSkewMat( i, j ) = ExprPar::default_skew;
+        }
+    }
+    for ( int i = 0; i < _nFactors; i++ ) {
+        for ( int j = i + 1; j < _nFactors; j++ ) {
+            factorSkewMat( i, j ) = factorSkewMat( j, i );
+        }
+    }  
 
     // set the transcriptional effects
     for ( int i = 0; i < _nFactors; i++ ) {
@@ -194,11 +214,14 @@ double ExprPar::parameter_L2_norm_interactions() const
 	double L2_norm_coop = 0;
     for ( int i = 0; i < nFactors(); i++ ) {
         for ( int j = 0; j <= i; j++ ) {
-//			L2_norm_coop += pow(factorIntMat(i, j)/ max_interaction, 2);
+			#if NEGATIVE_COOP
 			if(factorIntMat( i, j ) >= 1)
 				L2_norm_coop += pow((factorIntMat(i, j) - 1)/ max_interaction, 2);
 			else
 				L2_norm_coop +=  pow(min_interaction / factorIntMat( i, j ), 2);
+			#else
+			L2_norm_coop += pow(factorIntMat(i, j)/ max_interaction, 2);
+			#endif // NEGATIVE_COOP
         }	
 	}
 
@@ -219,6 +242,16 @@ double ExprPar::parameter_L2_norm_interactions() const
 	return L2_norm_coop + L2_norm_syn;
 }
 
+double ExprPar::parameter_L1_norm_skew() const
+{
+	double L1_norm_skew = 0;
+    for ( int i = 0; i < nFactors(); i++ ) {
+        for ( int j = 0; j <= i; j++ ) {
+			L1_norm_skew += fabs(factorSkewMat(i, j));
+		}
+	}
+    return L1_norm_skew;
+}
 
 double ExprPar::parameter_L1_norm() const
 {
@@ -245,11 +278,14 @@ double ExprPar::parameter_L1_norm_interactions() const
 	int Nparameter = 0;
     for ( int i = 0; i < nFactors(); i++ ) {
         for ( int j = 0; j <= i; j++ ) {
-//			L1_norm_coop +=  factorIntMat(i, j) / max_interaction;
+			#if NEGATIVE_COOP
 			if(factorIntMat( i, j ) >= 1)
 				L1_norm_coop +=  (factorIntMat(i, j) - 1) / max_interaction;
 			else
 				L1_norm_coop +=  min_interaction / factorIntMat( i, j );
+			#else
+			L1_norm_coop += factorIntMat(i, j)/ max_interaction;
+			#endif // NEGATIVE_COOP
         }	
 	}
 	L1_norm_coop /= nFactors();
@@ -275,7 +311,7 @@ void ExprPar::getFreePars( vector< double >& pars, const IntMatrix& coopMat, con
     assert( SynMat.isSquare() && SynMat.nRows() == nFactors() );  
     assert( actIndicators.size() == nFactors() && repIndicators.size() == nFactors() );
     pars.clear();
-		
+
     // write maxBindingWts
     if ( estBindingOption ) {
         for ( int i = 0; i < nFactors(); i++ ) {
@@ -308,6 +344,19 @@ void ExprPar::getFreePars( vector< double >& pars, const IntMatrix& coopMat, con
         }	       
     }
 
+    #if ORIENTATION
+    // write the skew matrix
+    if ( modelOption != LOGISTIC ) {
+        for ( int i = 0; i < nFactors(); i++ ) {
+            for ( int j = 0; j <= i; j++ ) {
+                if ( coopMat( i, j ) ) {
+                    double skew = searchOption == CONSTRAINED ? infty_transform( factorSkewMat( i, j ), min_skew, max_skew) : factorSkewMat( i, j ); 
+                   pars.push_back( skew );
+                }
+            }
+        }	       
+    }
+    #endif // ORIENTATION
 	
     // write the transcriptional effects
     for ( int i = 0; i < nFactors(); i++ ) {
@@ -388,7 +437,7 @@ void ExprPar::print( ostream& os, const vector< string >& motifNames, const vect
     os << "Cooperativity Factor:"  << endl;
     for ( int i = 0; i < nFactors(); i++ ) {
         for ( int j = 0; j <= i; j++ ) {
-            if ( coopMat( i, j ) ) os << motifNames[i] << "\t" << motifNames[j] << "\t" << factorIntMat( i, j ) << endl;			
+            if ( coopMat( i, j ) ) os << motifNames[i] << "\t" << motifNames[j] << "\t" << factorIntMat( i, j ) << "\t" << factorSkewMat(i, j) << endl;			
         }
     }
     os << "Synergy Factor:"  << endl;
@@ -442,28 +491,37 @@ int ExprPar::load( const string& file )
     }
 
     fin >> symbol >> eqSign;
+	string line;
     if (symbol != "Cooperativity" || eqSign != "Factor:") return RET_ERROR;
-
     // read the cooperative interactions
     string factor1, factor2;
-    double coopVal;
-    while ( fin >> factor1 >> factor2 >> coopVal ) {
-        if( !factorIdxMap.count( factor1 ) || !factorIdxMap.count( factor2 ) ) return RET_ERROR;
+    double coopVal, skewVal;
+	getline(fin, line);
+	while( getline(fin, line) ){
+		if( line == "Synergy Factor:") break;
+	    istringstream iss(line);
+		iss >> factor1 >> factor2 >> coopVal >> skewVal;
+		if( !factorIdxMap.count( factor1 ) || !factorIdxMap.count( factor2 ) ) return RET_ERROR;
         int idx1 = factorIdxMap[factor1];
         int idx2 = factorIdxMap[factor2];
         factorIntMat( idx1, idx2 ) = coopVal;
         factorIntMat( idx2, idx1 ) = coopVal;
+        factorSkewMat( idx1, idx2 ) = skewVal;
+        factorSkewMat( idx2, idx1 ) = skewVal;
     }
 
     // read the synergy interactions
     double SynVal;
-    while ( fin >> factor1 >> factor2 >> SynVal ) {
+	while (getline(fin, line)){
+	    istringstream iss(line);
+		iss >> factor1 >> factor2 >> SynVal;
         if( !factorIdxMap.count( factor1 ) || !factorIdxMap.count( factor2 ) ) return RET_ERROR;
         int idx1 = factorIdxMap[factor1];
         int idx2 = factorIdxMap[factor2];
         factorSynMat( idx1, idx2 ) = SynVal;
         factorSynMat( idx2, idx1 ) = SynVal;
     }
+
 
     fin.close();
     return fin ? RET_ERROR : 0;
@@ -516,22 +574,32 @@ int ExprPar::load( const string& file, const vector <string>& seqNames, const ve
 	double basalTxp_val = atof( value.c_str() );
 	basalTxps[ 0 ] =  basalTxp_val ;
     }
+
     fin >> symbol >> eqSign;
+	string line;
     if (symbol != "Cooperativity" || eqSign != "Factor:") return RET_ERROR;
     // read the cooperative interactions
     string factor1, factor2;
-    double coopVal;
-    while ( fin >> factor1 >> factor2 >> coopVal ) {
-        if( !factorIdxMap.count( factor1 ) || !factorIdxMap.count( factor2 ) ) return RET_ERROR;
+    double coopVal, skewVal;
+	getline(fin, line);
+	while( getline(fin, line) ){
+		if( line == "Synergy Factor:") break;
+	    istringstream iss(line);
+		iss >> factor1 >> factor2 >> coopVal >> skewVal;
+		if( !factorIdxMap.count( factor1 ) || !factorIdxMap.count( factor2 ) ) return RET_ERROR;
         int idx1 = factorIdxMap[factor1];
         int idx2 = factorIdxMap[factor2];
         factorIntMat( idx1, idx2 ) = coopVal;
         factorIntMat( idx2, idx1 ) = coopVal;
+        factorSkewMat( idx1, idx2 ) = skewVal;
+        factorSkewMat( idx2, idx1 ) = skewVal;
     }
 
     // read the synergy interactions
     double SynVal;
-    while ( fin >> factor1 >> factor2 >> SynVal ) {
+	while (getline(fin, line)){
+	    istringstream iss(line);
+		iss >> factor1 >> factor2 >> SynVal;
         if( !factorIdxMap.count( factor1 ) || !factorIdxMap.count( factor2 ) ) return RET_ERROR;
         int idx1 = factorIdxMap[factor1];
         int idx2 = factorIdxMap[factor2];
@@ -655,6 +723,20 @@ void ExprPar::constrain_parameters()
         }
     }
 
+    // constrain the skew matrix 
+    for ( int i = 0; i < nFactors(); i++ ) {
+        for ( int j = 0; j <= i; j++ ) {
+            if ( factorSkewMat( i, j ) < ExprPar::min_skew * ( 1.0 + ExprPar::delta ) ) { 
+                factorSkewMat( i, j ) = ExprPar::min_skew; 
+                factorSkewMat( j, i ) = factorSkewMat( i, j ); 
+            }
+            if ( factorSkewMat( i, j ) > ExprPar::max_skew * ( 1.0 - ExprPar::delta ) ) {
+                factorSkewMat( i, j ) = ExprPar::max_skew;
+                factorSkewMat( j, i ) = factorSkewMat( i, j ); 
+            }
+        }
+    }
+
     // constrain transcriptional effects
     for ( int i = 0; i < nFactors(); i++ ) {
         if ( modelOption == LOGISTIC ) {
@@ -706,6 +788,7 @@ double ExprPar::interaction_penalty = 1;
 double ExprPar::default_weight = 1.0;
 double ExprPar::default_interaction = 1.0;
 double ExprPar::default_synergy = 1.0;
+double ExprPar::default_skew = 0.0;
 double ExprPar::default_effect_Logistic = 0.0;
 double ExprPar::default_effect_Thermo = 1.0;
 double ExprPar::default_repression = 1.0E-2;
@@ -753,8 +836,10 @@ double ExprPar::min_weight = 0.001;
 double ExprPar::max_weight = 1000;		
 double ExprPar::min_interaction = 0.001;	
 double ExprPar::max_interaction = 1000;
-double ExprPar::min_synergy = 0.01;	
-double ExprPar::max_synergy = 100;
+double ExprPar::min_synergy = 0.001;	
+double ExprPar::max_synergy = 1000;
+double ExprPar::min_skew = -10;	
+double ExprPar::max_skew = 10;
 double ExprPar::min_effect_Thermo = 0.0001;	
 double ExprPar::max_effect_Thermo = 10000;
 double ExprPar::min_repression = 1.0E-3;
@@ -1471,17 +1556,35 @@ double ExprFunc::compFactorInt( const Site& a, const Site& b ) const
     assert( dist >= 0 );
 	double spacingTerm = 1;
 	if(FactorIntOption == BINARY) 
+		#if NEGATIVE_COOP 
+	    spacingTerm = ( dist < coopDistThr ? maxInt : 1.0 );
+		#else
 	    spacingTerm = ( dist < coopDistThr ? maxInt + 1 : 1.0 );
+		#endif //NEGATIVE_COOP  
 	else if(FactorIntOption == LINEAR){
 		double d = float(dist)/float(coopDistThr);
+		#if NEGATIVE_COOP 
 	    spacingTerm = ( dist < coopDistThr ? maxInt  * (1 - d) + d : 1.0 );
+		#else
+	    spacingTerm = ( dist < coopDistThr ? maxInt  * (1 - d) + 1 : 1.0 );
+		#endif //NEGATIVE_COOP  
 	}
 	else if(FactorIntOption == GAUSSIAN){
 		double d = float(dist)/float(coopDistThr);
+		#if NEGATIVE_COOP 
 	    spacingTerm = ( dist < coopDistThr ? (maxInt - 1) * exp( - 4.5 * ( d * d ) ) + 1: 1.0 );	// Sigma is one third of coopDistThr
+		#else
+	    spacingTerm = ( dist < coopDistThr ? maxInt * exp( - 4.5 * ( d * d ) ) + 1: 1.0 );	// Sigma is one third of coopDistThr
+		#endif //NEGATIVE_COOP  
 	}
+
     #if ORIENTATION
-    double orientationTerm = ( a.strand == b.strand ) ? 1.0 : orientationEffect;
+    double x = 3 * float(dist)/float(coopDistThr); // Sigma is one third of coopDistThr
+    double orientationTerm = 1; 
+    if( a.strand == b.strand )
+        orientationTerm = 1 + erf(par.factorSkewMat(a.factorIdx, b.factorIdx) * x);
+    else
+        orientationTerm = 1 + erf( - par.factorSkewMat(a.factorIdx, b.factorIdx) * x);
     return spacingTerm * orientationTerm;
     #else
     return spacingTerm;
@@ -1506,12 +1609,7 @@ double ExprFunc::compFactorInt( int t_1, int t_2, int _dist ) const
 		double d = float(dist)/float(coopDistThr);
 	    spacingTerm = ( dist < coopDistThr ? maxInt * exp( - 4.5 * ( d * d ) ) + 1: 1.0 );	// Sigma is one third of coopDistThr
 	}
-    #if ORIENTATION
-    double orientationTerm = ( a.strand == b.strand ) ? 1.0 : orientationEffect;
-    return spacingTerm * orientationTerm;
-    #else
     return spacingTerm;
-    #endif //ORIENTATION
 }
 
 
@@ -1527,7 +1625,8 @@ double ExprFunc::compFactorSyn( const Site& a, const Site& b ) const
     unsigned dist = abs( a.start - b.start );
     assert( dist >= 0 );
 	double spacingTerm = 1;
-    spacingTerm = ( dist < SynDistThr ? maxSyn + 1 : 1.0 );
+	double d = float(dist)/float(SynDistThr);
+    spacingTerm = ( dist < SynDistThr ? (maxSyn - 1) * exp( - 4.5 * ( d * d ) ) + 1 : 1.0 );
 
     return spacingTerm;
 }
@@ -1609,7 +1708,7 @@ double ExprPredictor::objFunc( const ExprPar& par )
 		    vector< double > observedExprs (nConds(), 1);
 		    vector < vector < double > > concs (nConds(), vector <double> (factorExprData.nRows(), 0) );
 		    
-			#pragma omp parallel for schedule(dynamic)
+			//#pragma omp parallel for schedule(dynamic)
 			for (int j = 0; j < nConds(); j++ ) {		
 				concs[j] = factorExprData.getCol( j );
 				predictedEfficiency[j] = func->predictExpr_scalefree( seqLengths[ i ], concs[j], i );	
@@ -1631,7 +1730,7 @@ double ExprPredictor::objFunc( const ExprPar& par )
 		    vector< double > observedExprs (nConds(), 1);
 		    vector < vector < double > > concs (nConds(), vector <double> (factorExprData.nRows(), 0) );
 		    
-			#pragma omp parallel for schedule(dynamic)
+			//#pragma omp parallel for schedule(dynamic)
 			for (int j = 0; j < nConds(); j++ ) {		
 				concs[j] = factorExprData.getCol( j );
 				predictedExprs[j] = func->predictExpr( seqLengths[ i ], concs[j], i );	
@@ -1680,7 +1779,7 @@ double ExprPredictor::objFunc( const ExprPar& par, int crm )
     vector< double > observedExprs (nConds(), 1);
     vector < vector < double > > concs (nConds(), vector <double> (factorExprData.nRows(), 0) );
         
-	#pragma omp parallel for schedule(dynamic)
+	//#pragma omp parallel for schedule(dynamic)
 	for (int j = 0; j < nConds(); j++ ) {		
 		concs[j] = factorExprData.getCol( j );
 		predictedExprs[j] = func->predictExpr(seqLengths[ crm ], concs[j], crm);	
@@ -2157,8 +2256,12 @@ double ExprPredictor::comp_impact_coop( const ExprPar& par, int tf )
 	ExprPar par_deleted = par;
 	ExprPar par_full = par;
 	par_full.par_penalty = 0;
-	par_deleted.par_penalty = 0;
+	par_deleted.par_penalty = 0;    
+    # if NEGATIVE_COOP
 	vector<double > zero_vector (nFactors(),1);
+    #else
+	vector<double > zero_vector (nFactors(),ExprPar::min_interaction);
+    #endif //NEGATIVE_COOP
 	par_deleted.factorIntMat.setRow( tf, zero_vector );
 	par_deleted.factorIntMat.setCol( tf, zero_vector );
 	double obj_deleted = objFunc(par_deleted);
@@ -2209,7 +2312,11 @@ double ExprPredictor::comp_impact_coop( const ExprPar& par, int tf, int crm )
 	ExprPar par_full = par;
 	par_full.par_penalty = 0;
 	par_deleted.par_penalty = 0;
+    # if NEGATIVE_COOP
+	vector<double > zero_vector (nFactors(),1);
+    #else
 	vector<double > zero_vector (nFactors(),ExprPar::min_interaction);
+    #endif //NEGATIVE_COOP
 	par_deleted.factorIntMat.setRow( tf, zero_vector );
 	par_deleted.factorIntMat.setCol( tf, zero_vector );
 	double obj_deleted = objFunc(par_deleted, crm);
@@ -2228,7 +2335,11 @@ double ExprPredictor::comp_impact_coop_pair( const ExprPar& par, int tf1, int tf
 	ExprPar par_full = par;
 	par_full.par_penalty = 0;
 	par_deleted.par_penalty = 0;
-	par_deleted.factorIntMat( tf1, tf2 ) = 1;//ExprPar::min_interaction;
+	#if NEGATIVE_COOP 
+	par_deleted.factorIntMat( tf1, tf2 ) = 1;
+	#else
+	par_deleted.factorIntMat( tf1, tf2 ) = ExprPar::min_interaction;
+	#endif //NEGATIVE_COOP  
 	double obj_deleted = objFunc(par_deleted);
 	double obj_full = objFunc(par_full);	
 	double impact = obj_full - obj_deleted;
@@ -2236,6 +2347,28 @@ double ExprPredictor::comp_impact_coop_pair( const ExprPar& par, int tf1, int tf
 	if (objOption == SSE)	return	impact;	// SSE gets minimised
 	else return -impact;	
 }
+
+
+double ExprPredictor::comp_impact_synergy_pair( const ExprPar& par, int tf1, int tf2 ) 
+{
+	// Calculate the objecttive function without cooperativity between tf1 and tf2
+	ExprPar par_deleted = par;
+	ExprPar par_full = par;
+	par_full.par_penalty = 0;
+	par_deleted.par_penalty = 0;
+	#if NEGATIVE_COOP 
+	par_deleted.factorSynMat( tf1, tf2 ) = 1;
+	#else
+	par_deleted.factorSynMat( tf1, tf2 ) = ExprPar::min_interaction;
+	#endif //NEGATIVE_COOP  
+	double obj_deleted = objFunc(par_deleted);
+	double obj_full = objFunc(par_full);	
+	double impact = obj_full - obj_deleted;
+
+	if (objOption == SSE)	return	impact;	// SSE gets minimised
+	else return -impact;	
+}
+
 
 double ExprPredictor::compAvgCorr( const ExprPar& par ) 
 {
@@ -2322,7 +2455,7 @@ double ExprPredictor::compAvgCrossCorr( const ExprPar& par )
         
     // Initiate the sites for func
 	func->set_sites(seqSites[ i ]);
-    #pragma omp parallel for schedule(dynamic)
+    //#pragma omp parallel for schedule(dynamic)
     for (int j = 0; j < nConds(); j++ ) {
 
 			
@@ -2682,6 +2815,7 @@ libcmaes::FitFunc obj_func_wrapper = [](const double *x, const int N)
 	all_pars.clear();
 	int free_par_counter = 0;
 	int fix_par_counter = 0;
+
 	for( int index = 0; index < global_predictor->indicator_bool.size(); index ++ ){
 		if( global_predictor->indicator_bool[index]){
 			all_pars.push_back( x[ free_par_counter ++ ]  );
@@ -2724,8 +2858,10 @@ int ExprPredictor::cmaes_minimize(ExprPar& par_result, double& obj_result, doubl
 	cmaparams.set_ftolerance(tolerance);	
 	cmaparams.set_algo(aCMAES);
 	cmaparams.set_max_iter(nCMAESIters);
+	cmaparams.set_mt_feval(true);
 	global_pointer = (void*)this;
 
+    #if MONITOR_PARAMS
 	string fname;
 	for(int idx = 1; idx < 1000; idx ++){
 		fname = "monitor_params_"+to_string(idx)+".dat";
@@ -2734,7 +2870,7 @@ int ExprPredictor::cmaes_minimize(ExprPar& par_result, double& obj_result, doubl
 	}
 
 	cmaparams.set_fplot(fname);
-
+    #endif //MONITOR_PARAMS
 	libcmaes::CMASolutions cmasols = libcmaes::cmaes<>(obj_func_wrapper, cmaparams, select_time);    
 
 

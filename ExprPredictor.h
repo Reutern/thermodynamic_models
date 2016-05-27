@@ -15,11 +15,11 @@
 class ExprPar {
 public:
     // constructors 
-    ExprPar() : factorIntMat(), factorSynMat() {}
+    ExprPar() : factorIntMat(), factorSynMat(), factorSkewMat() {}
     ExprPar( int _nFactors, int _nSeqs );		// default values of parameters
-    ExprPar( const vector< double >& _maxBindingWts, const Matrix& _factorIntMat, const Matrix& _factorSynMat, const vector< double >& _txpEffects, const vector< double >& _repEffects, const vector < double >&  _basalTxps, int _nSeqs, double _acc_scale);
+    ExprPar( const vector< double >& _maxBindingWts, const Matrix& _factorIntMat, const Matrix& _factorSynMat, const Matrix& _factorSkewMat, const vector< double >& _txpEffects, const vector< double >& _repEffects, const vector < double >&  _basalTxps, int _nSeqs, double _acc_scale);
     ExprPar( const vector< double >& pars, const IntMatrix& coopMat, const IntMatrix& SynMat, const vector< bool >& actIndicators, const vector< bool >& repIndicators, int _nSeqs );	// construct from a "flat" vector of free parameters (assuming they are in the correct/uniform scale)
-    void copy( const ExprPar& other ) { maxBindingWts = other.maxBindingWts; factorIntMat = other.factorIntMat; factorSynMat = other.factorSynMat; txpEffects = other.txpEffects; repEffects = other.repEffects; basalTxps = other.basalTxps; nSeqs = basalTxps.size(); acc_scale = other.acc_scale;}
+    void copy( const ExprPar& other ) { maxBindingWts = other.maxBindingWts; factorIntMat = other.factorIntMat; factorSynMat = other.factorSynMat; factorSkewMat = other.factorSkewMat; txpEffects = other.txpEffects; repEffects = other.repEffects; basalTxps = other.basalTxps; nSeqs = basalTxps.size(); acc_scale = other.acc_scale;}
     ExprPar( const ExprPar& other ) { copy( other ); }
 
     // assignment
@@ -33,6 +33,7 @@ public:
 	double parameter_L1_norm() const;
 	double parameter_L2_norm_interactions() const;
 	double parameter_L1_norm_interactions() const;
+	double parameter_L1_norm_skew() const;
 	
     // get the free parameters (in the correct/uniform scale)
     void getFreePars( vector< double >& pars, const IntMatrix& coopMat, const IntMatrix& SynMat, const vector< bool >& actIndicators, const vector< bool >& repIndicators ) const; 
@@ -54,6 +55,7 @@ public:
     vector< double > maxBindingWts;			// binding weight of the strongest site for each TF: K(S_max) [TF_max]
     Matrix factorIntMat; 		// (maximum) interactions between pairs of factors: omega(f,f')
     Matrix factorSynMat; 		// Synergy interaction terms
+    Matrix factorSkewMat; 		// Synergy interaction terms
     vector< double > txpEffects;    // transcriptional effects: alpha for Direct and Quenching model, exp(alpha) for Logistic model (so that the same default values can be used). Equal to 1 if a TF is not an activator under the Quenching model
     vector< double > repEffects;    // repression effects: beta under ChrMod models (the equlibrium constant of nucleosome association with chromatin). Equal to 0 if a TF is not a repressor. 
     vector < double > basalTxps;        // basal transcription: q_p for Direct and Quenching model, exp(alpha_0) for Logistic model (so that the same default value can be used)
@@ -73,6 +75,7 @@ public:
     static double default_weight;	// default binding weight
     static double default_interaction;		// default factor interaction
     static double default_synergy;		// default factor synergy
+    static double default_skew;		// default interaction skew
     static double default_effect_Logistic;   // default transcriptional effect under Logistic model
     static double default_effect_Thermo;     // default transcriptional effect under thermo. models
     static double default_repression;   // default repression
@@ -86,6 +89,8 @@ public:
     static double max_interaction;	    // max. interaction
     static double min_synergy;	    // min. synergy
     static double max_synergy;	    // max. synergy
+    static double min_skew;	    // min. skew
+    static double max_skew;	    // max. skew
     static double min_effect_Logistic;   // min. transcriptional effect under Logistic model
     static double max_effect_Logistic;   // max. transcriptional effect under Logistic model
 //     static double min_effect_Direct;   // min. transcriptional effect under Direct model
@@ -254,6 +259,7 @@ public:
     double comp_impact( const ExprPar& par, int tf, int crm );		// The impact of the parameter on one crm
     double comp_impact_coop( const ExprPar& par, int tf, int crm );		// The impact of all cooperativity parameters with tf involved on one crm
     double comp_impact_coop_pair( const ExprPar& par, int tf1, int tf2 );		// The impact of the cooperativity parameter
+    double comp_impact_synergy_pair( const ExprPar& par, int tf1, int tf2 );		// The impact of the synergy parameter
 
     // test the model, perfOption = 0: RMSE
 // 	double test( const vector< Sequence  >& testSeqs, const Matrix& testExprData, Matrix& predictions ) const;    

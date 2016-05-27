@@ -148,7 +148,7 @@ double OccPredictor::compFactorInt( const Site& a, const Site& b ) const
 	    spacingTerm = ( dist < coopDistThr ? maxInt * exp( - 4.5 * ( d * d ) ) + 1: 1.0 );	// Sigma is one third of coopDistThr
 	}
     #if ORIENTATION
-    double orientationTerm = ( a.strand == b.strand ) ? 1.0 : orientationEffect;
+    double orientationTerm = ( a.strand == b.strand ) ? 1.0 : 1;
     return spacingTerm * orientationTerm;
     #else
     return spacingTerm;
@@ -168,11 +168,7 @@ double OccPredictor::compFactorInt( int t_1, int t_2, int _dist  ) const
     double spacingTerm = ( dist < coopDistThr ? maxInt : 1.0 );
     #endif // FactorIntFunc
 
-    #if ORIENTATION
-    double orientationTerm = ( a.strand == b.strand ) ? 1.0 : orientationEffect;
-    return spacingTerm * orientationTerm;
-    #else
     return spacingTerm;
-    #endif //ORIENTATION
+
 }
 

@@ -15,7 +15,7 @@ int main( int argc, char* argv[] )
     string seqFile, test_seqFile, accFile, test_accFile, annFile, exprFile, test_exprFile, motifFile, factorExprFile, coopFile, SynFile, factorInfoFile, repressionFile, parFile, print_parFile;
     string outFile, occFile, impactFile;     // output files
     int coopDistThr = 150;
-    int SynDistThr = 50;
+    int SynDistThr = 150;
     int repressionDistThr = 0;
     int maxContact = 1;
 	double hyperparameter = 1;
@@ -96,6 +96,8 @@ int main( int argc, char* argv[] )
         else if ( !strcmp( "-et", argv[i] ) ) {}
            // eTF = atof( argv[ ++i ] );    
     }
+
+
     if (seqFile.empty() || exprFile.empty() || motifFile.empty() || factorExprFile.empty() || outFile.empty() || 
 	   ( ( ExprPredictor::modelOption == QUENCHING || ExprPredictor::modelOption == CHRMOD_UNLIMITED || ExprPredictor::modelOption == CHRMOD_LIMITED ) 
 	   &&  factorInfoFile.empty() ) || ( ExprPredictor::modelOption == QUENCHING && repressionFile.empty() ) ) {
@@ -337,6 +339,12 @@ int main( int argc, char* argv[] )
 		for( int index = 0; index < num_of_Syn_pairs; index++ ){
 			indicator_bool.push_back( true );
 		}
+        #if ORIENTATION
+		for( int index = 0; index < num_of_coop_pairs; index++ ){
+			indicator_bool.push_back( true );
+		}
+        #endif // ORIENTATION
+
 		if( ExprPredictor::one_qbtm_per_crm ){
 			for( int index = 0; index < nSeqs; index++ ){
 				indicator_bool.push_back( false );
@@ -362,9 +370,20 @@ int main( int argc, char* argv[] )
     cout << "Objective_Function = " << getObjOptionStr( ExprPredictor::objOption ) << endl;
     cout << "Penalty_Function = " << getPenaltyOptionStr( ExprPredictor::PenaltyOption ) << endl;
 	cout << "lambda = " << hyperparameter << "\tlambda coop = " << hyperparameter_interactions << endl;
-    if ( !coopFile.empty() ) {
+    if ( !coopFile.empty() or !SynFile.empty() ) {
         cout << "Interaction_Model = " << getIntOptionStr( FactorIntOption ) << endl;
-        cout << "Interaction_Distance_Threshold = " << coopDistThr << endl;
+        #if NEGATIVE_COOP
+        cout << "Negative Cooperativity allowed!" << endl;
+        #else
+        cout << "Only positive Cooperativity allowed!" << endl;
+        #endif // NEGATIVE_COOP
+        #if ORIENTATION
+        cout << "Orientation bias allowed!" << endl;
+        #else
+        cout << "Only symmetric Cooperativity" << endl;
+        #endif // ORIENTATION
+        cout << "Cooperativity_Distance_Threshold = " << coopDistThr << endl;
+        cout << "Synergy_Distance_Threshold = " << SynDistThr << endl;
     }
     cout << "Search_Option = " << getSearchOptionStr( ExprPar::searchOption ) << endl;
     cout << "Num_Random_Starts = " << ExprPredictor::nRandStarts << endl;
@@ -597,7 +616,7 @@ int main( int argc, char* argv[] )
 		impact_stream << endl;
     }
 
-	impact_stream << "TF/TF";
+	impact_stream << "Coop";
     for(int tf = 0; tf < nFactors; tf++ ){
 		impact_stream << "\t" << motifNames[tf];}
 		impact_stream << endl;
@@ -611,6 +630,22 @@ int main( int argc, char* argv[] )
 			}
 			impact_stream << endl;
     	}
+
+	impact_stream << "Synergy";
+    for(int tf = 0; tf < nFactors; tf++ ){
+		impact_stream << "\t" << motifNames[tf];}
+		impact_stream << endl;
+    	for(int tf_1 = 0; tf_1 < nFactors; tf_1++){
+			impact_stream << motifNames[tf_1];
+			for(int tf_2 = 0; tf_2 < nFactors; tf_2++){
+				double impact = 0;			
+				if(tf_2 >= tf_1 and SynMat(tf_1, tf_2) == 1 )				
+					impact = predictor_CV->comp_impact_synergy_pair(par_impact, tf_1, tf_2);
+				impact_stream << "\t" << impact;
+			}
+			impact_stream << endl;
+    	}
+
     impact_stream.close();
     cout << "Impact saved" << endl;
 

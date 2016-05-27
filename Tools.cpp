@@ -7,7 +7,7 @@
 
 bool fexists(const std::string& filename) {
   ifstream ifile(filename.c_str());
-  return ifile;
+  return ifile.is_open();
 }
 const log_add_table table( -10.0, 0, 500 );		// global variable
 

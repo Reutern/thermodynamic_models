@@ -176,7 +176,7 @@ int readSequences( const string& file, const string& accfile, vector< Sequence >
     
     // read sequences: FASTA format
     if ( format == FASTA ) {
-		bool rlin = getline( fin, line );
+		bool rlin = static_cast<bool> (getline( fin, line ));
 
         while ( rlin ) {
 	        // add the sequence and start a new sequence if the line starts with >
@@ -191,13 +191,13 @@ int readSequences( const string& file, const string& accfile, vector< Sequence >
                 string name; 
                 ss >> name;
                 names.push_back( name );
-				rlin = getline( fin, line );
+				rlin = static_cast<bool>(getline( fin, line ));
             } else { 
 				string line_tmp;
 			    do{
             		if ( line[ 0 ] == '>' ) { break; }
 					line_tmp += line;
-					rlin = getline( fin, line );
+					rlin = static_cast<bool> (getline( fin, line ));
                  } while( rlin ); 
 
 		         // check if the line contains content
