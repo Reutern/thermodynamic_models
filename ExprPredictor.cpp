@@ -24,7 +24,7 @@ ExprPar::ExprPar( int _nFactors, int _nSeqs ) : factorIntMat(), factorSynMat(), 
     factorSynMat.setAll( ExprPar::default_synergy );   
 
     factorSkewMat.setDimensions( _nFactors, _nFactors );
-    factorSkewMat.setAll( ExprPar::default_synergy );       
+    factorSkewMat.setAll( ExprPar::default_skew );       
 
     for ( int i = 0; i < _nFactors; i++ ) {
         double defaultEffect = modelOption == LOGISTIC ? ExprPar::default_effect_Logistic : ExprPar::default_effect_Thermo;
