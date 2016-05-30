@@ -1550,10 +1550,21 @@ double ExprFunc::compFactorInt( const Site& a, const Site& b ) const
 {
 	if(par.factorIntMat(a.factorIdx, b.factorIdx) == 1.0)
 		return 1.0;
- 
+
     double maxInt = par.factorIntMat(a.factorIdx, b.factorIdx);
-   unsigned dist = abs( a.start - b.start );
+    unsigned dist = abs( a.start - b.start );
     assert( dist >= 0 );
+
+    double orientationTerm = 1; 
+    #if ORIENTATION
+    double x = 3 * float(dist)/float(coopDistThr); // Sigma is one third of coopDistThr
+    if( a.strand == b.strand )
+        orientationTerm = 1 + erf(par.factorSkewMat(a.factorIdx, b.factorIdx) * x );
+    else
+        orientationTerm = 1 + erf( - par.factorSkewMat(a.factorIdx, b.factorIdx) * x);
+    #endif //ORIENTATION
+
+
 	double spacingTerm = 1;
 	if(FactorIntOption == BINARY) 
 		#if NEGATIVE_COOP 
@@ -1572,23 +1583,13 @@ double ExprFunc::compFactorInt( const Site& a, const Site& b ) const
 	else if(FactorIntOption == GAUSSIAN){
 		double d = float(dist)/float(coopDistThr);
 		#if NEGATIVE_COOP 
-	    spacingTerm = ( dist < coopDistThr ? (maxInt - 1) * exp( - 4.5 * ( d * d ) ) + 1: 1.0 );	// Sigma is one third of coopDistThr
+	    spacingTerm = ( dist < coopDistThr ? (maxInt - 1) * orientationTerm * exp( - 4.5 * ( d * d ) ) + 1: 1.0 );	// Sigma is one third of coopDistThr
 		#else
-	    spacingTerm = ( dist < coopDistThr ? maxInt * exp( - 4.5 * ( d * d ) ) + 1: 1.0 );	// Sigma is one third of coopDistThr
+	    spacingTerm = ( dist < coopDistThr ? maxInt * orientationTerm * exp( - 4.5 * ( d * d ) ) + 1: 1.0 );	// Sigma is one third of coopDistThr
 		#endif //NEGATIVE_COOP  
 	}
 
-    #if ORIENTATION
-    double x = 3 * float(dist)/float(coopDistThr); // Sigma is one third of coopDistThr
-    double orientationTerm = 1; 
-    if( a.strand == b.strand )
-        orientationTerm = 1 + erf(par.factorSkewMat(a.factorIdx, b.factorIdx) * x);
-    else
-        orientationTerm = 1 + erf( - par.factorSkewMat(a.factorIdx, b.factorIdx) * x);
-    return spacingTerm * orientationTerm;
-    #else
     return spacingTerm;
-    #endif //ORIENTATION
 }
 
 // The interaction function for TOSCA
@@ -1759,6 +1760,8 @@ double ExprPredictor::objFunc( const ExprPar& par )
 	if (PenaltyOption == L2) 
 		penalty = par.par_penalty * par.parameter_L2_norm() + par.interaction_penalty * par.parameter_L2_norm_interactions();
 
+    penalty += 0.01 * par.parameter_L1_norm_skew();
+
     if (objOption == SSE)	return obj_sse - penalty;
     else if (objOption == CORR)	return -obj_corr + penalty;
     else if (objOption == PGP)	return -obj_pgp + penalty;
@@ -1800,6 +1803,8 @@ double ExprPredictor::objFunc( const ExprPar& par, int crm )
 		penalty = par.par_penalty * par.parameter_L1_norm() + par.interaction_penalty * par.parameter_L1_norm_interactions();
 	if (PenaltyOption == L2) 
 		penalty = par.par_penalty * par.parameter_L2_norm() + par.interaction_penalty * par.parameter_L2_norm_interactions();
+
+    penalty += 0.01 * par.parameter_L1_norm_skew();
 
     if (objOption == SSE)	return obj_sse - penalty;
     else if (objOption == CORR)	return -obj_corr + penalty;
@@ -2272,6 +2277,7 @@ double ExprPredictor::comp_impact_coop( const ExprPar& par, int tf )
 	else return -impact;
 }
 
+
 double ExprPredictor::comp_impact_acc( const ExprPar& par ) 
 {
 	// Calculate the objecttive function without accessibility
@@ -2340,6 +2346,22 @@ double ExprPredictor::comp_impact_coop_pair( const ExprPar& par, int tf1, int tf
 	#else
 	par_deleted.factorIntMat( tf1, tf2 ) = ExprPar::min_interaction;
 	#endif //NEGATIVE_COOP  
+	double obj_deleted = objFunc(par_deleted);
+	double obj_full = objFunc(par_full);	
+	double impact = obj_full - obj_deleted;
+
+	if (objOption == SSE)	return	impact;	// SSE gets minimised
+	else return -impact;	
+}
+
+double ExprPredictor::comp_impact_skew_pair( const ExprPar& par, int tf1, int tf2 ) 
+{
+	// Calculate the objecttive function without cooperativity between tf1 and tf2
+	ExprPar par_deleted = par;
+	ExprPar par_full = par;
+	par_full.par_penalty = 0;
+	par_deleted.par_penalty = 0;
+	par_deleted.factorSkewMat( tf1, tf2 ) = 0;
 	double obj_deleted = objFunc(par_deleted);
 	double obj_full = objFunc(par_full);	
 	double impact = obj_full - obj_deleted;

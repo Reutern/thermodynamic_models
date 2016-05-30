@@ -119,7 +119,7 @@ int main( int argc, char* argv[] )
     ExprPredictor::min_delta_f_Corr = 1.0E-10;
     ExprPredictor::min_delta_f_PGP = 1.0E-10;
     ExprPredictor::nSimplexIters = 2000;
-    ExprPredictor::nCMAESIters = 1;
+    ExprPredictor::nCMAESIters = 10000;
     ExprPredictor::nGradientIters = 200;
     ExprPredictor::cmaes_sigma = sigma;   // sigma parameter for CMA-ES
 
@@ -639,8 +639,8 @@ int main( int argc, char* argv[] )
 			impact_stream << motifNames[tf_1];
 			for(int tf_2 = 0; tf_2 < nFactors; tf_2++){
 				double impact = 0;			
-				if(tf_2 >= tf_1 and SynMat(tf_1, tf_2) == 1 )				
-					impact = predictor_CV->comp_impact_synergy_pair(par_impact, tf_1, tf_2);
+				if(tf_2 >= tf_1 and coopMat(tf_1, tf_2) == 1 )				
+					impact = predictor_CV->comp_impact_skew_pair(par_impact, tf_1, tf_2);
 				impact_stream << "\t" << impact;
 			}
 			impact_stream << endl;

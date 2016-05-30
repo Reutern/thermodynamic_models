@@ -259,6 +259,7 @@ public:
     double comp_impact( const ExprPar& par, int tf, int crm );		// The impact of the parameter on one crm
     double comp_impact_coop( const ExprPar& par, int tf, int crm );		// The impact of all cooperativity parameters with tf involved on one crm
     double comp_impact_coop_pair( const ExprPar& par, int tf1, int tf2 );		// The impact of the cooperativity parameter
+    double comp_impact_skew_pair( const ExprPar& par, int tf1, int tf2 );
     double comp_impact_synergy_pair( const ExprPar& par, int tf1, int tf2 );		// The impact of the synergy parameter
 
     // test the model, perfOption = 0: RMSE
