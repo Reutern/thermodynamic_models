@@ -114,6 +114,7 @@ ExprPar::ExprPar( const vector< double >& pars, const IntMatrix& coopMat, const 
 
     // set the skew matrix
     factorSkewMat.setDimensions( _nFactors, _nFactors );
+    #if ORIENTATION
     for ( int i = 0; i < _nFactors; i++ ) {
         for ( int j = 0; j <= i; j++ ) {
             if ( coopMat( i, j ) ) {
@@ -128,6 +129,7 @@ ExprPar::ExprPar( const vector< double >& pars, const IntMatrix& coopMat, const 
             factorSkewMat( i, j ) = factorSkewMat( j, i );
         }
     }  
+    #endif // ORIENTATION
 
     // set the transcriptional effects
     for ( int i = 0; i < _nFactors; i++ ) {
@@ -190,22 +192,29 @@ ExprPar::ExprPar( const vector< double >& pars, const IntMatrix& coopMat, const 
 
 }
 
-double ExprPar::parameter_L2_norm() const
+double ExprPar::weight_L2_norm() const
 {
 	double L2_weights = 0;
+    for ( int i = 0; i < nFactors(); i++ ) {
+		L2_weights += pow( maxBindingWts[ i ] / max_weight,2 );
+	}
+	return L2_weights;
+}
+
+
+double ExprPar::effect_L2_norm() const
+{
 	double L2_effects = 0;
 
     for ( int i = 0; i < nFactors(); i++ ) {
-
-		L2_weights += pow( maxBindingWts[ i ] / max_weight,2 )/nFactors();
 		if(txpEffects[i] >= 1)
-			L2_effects += pow( (txpEffects[i] -1) / ( max_effect_Thermo -1 ), 2) / nFactors();
+			L2_effects += pow( (txpEffects[i] -1) / ( max_effect_Thermo -1 ), 2);
 		else
-			L2_effects += pow( min_effect_Thermo / txpEffects[i], 2) / nFactors();
+			L2_effects += pow( min_effect_Thermo / txpEffects[i], 2);
 	}
 
 
-	return L2_weights + L2_effects;
+	return L2_effects;
 }
 
 
@@ -225,7 +234,6 @@ double ExprPar::parameter_L2_norm_interactions() const
         }	
 	}
 
-	L2_norm_coop /= nFactors();
 
 	double L2_norm_syn = 0;
     for ( int i = 0; i < nFactors(); i++ ) {
@@ -237,7 +245,6 @@ double ExprPar::parameter_L2_norm_interactions() const
 		}
 	}
 
-	L2_norm_syn /= nFactors();
 
 	return L2_norm_coop + L2_norm_syn;
 }
@@ -253,22 +260,29 @@ double ExprPar::parameter_L1_norm_skew() const
     return L1_norm_skew;
 }
 
-double ExprPar::parameter_L1_norm() const
+double ExprPar::weight_L1_norm() const
 {
 	double L1_weights = 0;
-	double L1_effects = 0;
-
     for ( int i = 0; i < nFactors(); i++ ) {
+		L1_weights +=  maxBindingWts[ i ] / max_weight;
+    }
 
-		L1_weights +=  maxBindingWts[ i ] / max_weight / nFactors();
+	return L1_weights;
+}
+
+
+double ExprPar::effect_L1_norm() const
+{
+	double L1_effects = 0;
+    for ( int i = 0; i < nFactors(); i++ ) {
 		if(txpEffects[i] >= 1)
-			L1_effects +=  (txpEffects[i] -1) / ( max_effect_Thermo -1 ) / nFactors();
+			L1_effects +=  (txpEffects[i] -1) / ( max_effect_Thermo -1 );
 		else
-			L1_effects +=  min_effect_Thermo / txpEffects[i] / nFactors();
+			L1_effects +=  min_effect_Thermo / txpEffects[i];
 
 	}
 
-	return L1_weights + L1_effects;
+	return L1_effects;
 }
 
 
@@ -288,7 +302,6 @@ double ExprPar::parameter_L1_norm_interactions() const
 			#endif // NEGATIVE_COOP
         }	
 	}
-	L1_norm_coop /= nFactors();
 
 	double L1_norm_syn = 0;
     for ( int i = 0; i < nFactors(); i++ ) {
@@ -299,7 +312,6 @@ double ExprPar::parameter_L1_norm_interactions() const
 				L1_norm_syn +=  min_synergy / factorSynMat( i, j );
 		}
 	}
-	L1_norm_syn /= nFactors();
 
 	return L1_norm_coop + L1_norm_syn;
 }
@@ -723,6 +735,7 @@ void ExprPar::constrain_parameters()
         }
     }
 
+    #if ORIENTATION
     // constrain the skew matrix 
     for ( int i = 0; i < nFactors(); i++ ) {
         for ( int j = 0; j <= i; j++ ) {
@@ -736,6 +749,7 @@ void ExprPar::constrain_parameters()
             }
         }
     }
+    #endif // ORIENTATION
 
     // constrain transcriptional effects
     for ( int i = 0; i < nFactors(); i++ ) {
@@ -783,7 +797,8 @@ int ExprPar::estBindingOption = 1;  // 1. estimate binding parameters; 0. not es
 
 double ExprPar::delta = 0.0001;
 double ExprPar::default_acc_scale = 1;
-double ExprPar::par_penalty = 1;
+double ExprPar::weight_penalty = 0.05;
+double ExprPar::effect_penalty = 0.05;
 double ExprPar::interaction_penalty = 1;
 double ExprPar::default_weight = 1.0;
 double ExprPar::default_interaction = 1.0;
@@ -1755,12 +1770,13 @@ double ExprPredictor::objFunc( const ExprPar& par )
     obj_pgp = pgp_score / nSeqs();
 	double penalty = 0;
 	if (PenaltyOption == L1) 
-
-		penalty = par.par_penalty * par.parameter_L1_norm() + par.interaction_penalty * par.parameter_L1_norm_interactions();
+		penalty = par.weight_penalty * par.weight_L1_norm() + par.effect_penalty * par.effect_L1_norm() + par.interaction_penalty * par.parameter_L1_norm_interactions();
 	if (PenaltyOption == L2) 
-		penalty = par.par_penalty * par.parameter_L2_norm() + par.interaction_penalty * par.parameter_L2_norm_interactions();
+		penalty = par.weight_penalty * par.weight_L2_norm() + par.effect_penalty * par.effect_L2_norm() + par.interaction_penalty * par.parameter_L2_norm_interactions();
 
-    penalty += 0.01 * par.parameter_L1_norm_skew();
+    #if ORIENTATION
+    penalty += 0.001 * par.parameter_L1_norm_skew();
+    #endif //ORIENTATION
 
     if (objOption == SSE)	return obj_sse - penalty;
     else if (objOption == CORR)	return -obj_corr + penalty;
@@ -1800,11 +1816,13 @@ double ExprPredictor::objFunc( const ExprPar& par, int crm )
     obj_pgp = pgp_score;
 	double penalty = 0;
 	if (PenaltyOption == L1) 
-		penalty = par.par_penalty * par.parameter_L1_norm() + par.interaction_penalty * par.parameter_L1_norm_interactions();
+		penalty = par.weight_penalty * par.weight_L1_norm() + par.effect_penalty * par.effect_L1_norm() + par.interaction_penalty * par.parameter_L1_norm_interactions();
 	if (PenaltyOption == L2) 
-		penalty = par.par_penalty * par.parameter_L2_norm() + par.interaction_penalty * par.parameter_L2_norm_interactions();
+		penalty = par.weight_penalty * par.weight_L2_norm() + par.effect_penalty * par.effect_L2_norm() + par.interaction_penalty * par.parameter_L2_norm_interactions();
 
+    #if ORIENTATION
     penalty += 0.01 * par.parameter_L1_norm_skew();
+    #endif //ORIENTATION
 
     if (objOption == SSE)	return obj_sse - penalty;
     else if (objOption == CORR)	return -obj_corr + penalty;
@@ -2243,8 +2261,8 @@ double ExprPredictor::comp_impact( const ExprPar& par, int tf )
 	// Calculate the objecttive function with the factor tf basicly deleted
 	ExprPar par_deleted = par;
 	ExprPar par_full = par;
-	par_full.par_penalty = 0;
-	par_deleted.par_penalty = 0;
+	par_full.weight_penalty = 0;
+	par_deleted.weight_penalty = 0;
 	par_deleted.maxBindingWts[tf] = ExprPar::min_weight;
 	par_deleted.txpEffects[tf] = 1.0;
 	double obj_deleted = objFunc(par_deleted);
@@ -2260,8 +2278,8 @@ double ExprPredictor::comp_impact_coop( const ExprPar& par, int tf )
 	// Calculate the objecttive function without cooperativity between tf1 and tf2
 	ExprPar par_deleted = par;
 	ExprPar par_full = par;
-	par_full.par_penalty = 0;
-	par_deleted.par_penalty = 0;    
+	par_full.weight_penalty = 0;
+	par_deleted.weight_penalty = 0;    
     # if NEGATIVE_COOP
 	vector<double > zero_vector (nFactors(),1);
     #else
@@ -2283,8 +2301,8 @@ double ExprPredictor::comp_impact_acc( const ExprPar& par )
 	// Calculate the objecttive function without accessibility
 	ExprPar par_deleted = par;
 	ExprPar par_full = par;
-	par_full.par_penalty = 0;
-	par_deleted.par_penalty = 0;
+	par_full.weight_penalty = 0;
+	par_deleted.weight_penalty = 0;
 	par_deleted.acc_scale = ExprPar::min_acc_scale;
 	double obj_deleted = objFunc(par_deleted);
 	double obj_full = objFunc(par_full);	
@@ -2299,8 +2317,8 @@ double ExprPredictor::comp_impact( const ExprPar& par, int tf, int crm )
 	// Calculate the objecttive function with the factor tf basicly deleted
 	ExprPar par_deleted = par;
 	ExprPar par_full = par;
-	par_full.par_penalty = 0;
-	par_deleted.par_penalty = 0;
+	par_full.weight_penalty = 0;
+	par_deleted.weight_penalty = 0;
 	par_deleted.maxBindingWts[tf] = ExprPar::min_weight;
 	par_deleted.txpEffects[tf] = 1.0;
 	double obj_deleted = objFunc(par_deleted, crm);
@@ -2316,8 +2334,8 @@ double ExprPredictor::comp_impact_coop( const ExprPar& par, int tf, int crm )
 	// Calculate the objecttive function without cooperativity between tf1 and tf2
 	ExprPar par_deleted = par;
 	ExprPar par_full = par;
-	par_full.par_penalty = 0;
-	par_deleted.par_penalty = 0;
+	par_full.weight_penalty = 0;
+	par_deleted.weight_penalty = 0;
     # if NEGATIVE_COOP
 	vector<double > zero_vector (nFactors(),1);
     #else
@@ -2339,8 +2357,8 @@ double ExprPredictor::comp_impact_coop_pair( const ExprPar& par, int tf1, int tf
 	// Calculate the objecttive function without cooperativity between tf1 and tf2
 	ExprPar par_deleted = par;
 	ExprPar par_full = par;
-	par_full.par_penalty = 0;
-	par_deleted.par_penalty = 0;
+	par_full.weight_penalty = 0;
+	par_deleted.weight_penalty = 0;
 	#if NEGATIVE_COOP 
 	par_deleted.factorIntMat( tf1, tf2 ) = 1;
 	#else
@@ -2359,8 +2377,8 @@ double ExprPredictor::comp_impact_skew_pair( const ExprPar& par, int tf1, int tf
 	// Calculate the objecttive function without cooperativity between tf1 and tf2
 	ExprPar par_deleted = par;
 	ExprPar par_full = par;
-	par_full.par_penalty = 0;
-	par_deleted.par_penalty = 0;
+	par_full.weight_penalty = 0;
+	par_deleted.weight_penalty = 0;
 	par_deleted.factorSkewMat( tf1, tf2 ) = 0;
 	double obj_deleted = objFunc(par_deleted);
 	double obj_full = objFunc(par_full);	
@@ -2376,8 +2394,8 @@ double ExprPredictor::comp_impact_synergy_pair( const ExprPar& par, int tf1, int
 	// Calculate the objecttive function without cooperativity between tf1 and tf2
 	ExprPar par_deleted = par;
 	ExprPar par_full = par;
-	par_full.par_penalty = 0;
-	par_deleted.par_penalty = 0;
+	par_full.weight_penalty = 0;
+	par_deleted.weight_penalty = 0;
 	#if NEGATIVE_COOP 
 	par_deleted.factorSynMat( tf1, tf2 ) = 1;
 	#else
@@ -2830,7 +2848,6 @@ libcmaes::ProgressFunc<libcmaes::CMAParameters<>,libcmaes::CMASolutions> select_
 
 libcmaes::FitFunc obj_func_wrapper = [](const double *x, const int N)
 {
-
     ExprPredictor* global_predictor = (ExprPredictor*)global_pointer;
 
 	vector < double > all_pars;
@@ -2838,7 +2855,9 @@ libcmaes::FitFunc obj_func_wrapper = [](const double *x, const int N)
 	int free_par_counter = 0;
 	int fix_par_counter = 0;
 
+
 	for( int index = 0; index < global_predictor->indicator_bool.size(); index ++ ){
+
 		if( global_predictor->indicator_bool[index]){
 			all_pars.push_back( x[ free_par_counter ++ ]  );
 		}
@@ -2874,7 +2893,6 @@ int ExprPredictor::cmaes_minimize(ExprPar& par_result, double& obj_result, doubl
 	
 	pars.clear();
 	pars = free_pars;
-
 	libcmaes::CMAParameters<> cmaparams(pars, sigma);
 	cout << "Number offspring: " << cmaparams.lambda() << endl;
 	cmaparams.set_ftolerance(tolerance);	
@@ -2893,9 +2911,10 @@ int ExprPredictor::cmaes_minimize(ExprPar& par_result, double& obj_result, doubl
 
 	cmaparams.set_fplot(fname);
     #endif //MONITOR_PARAMS
+
 	libcmaes::CMASolutions cmasols = libcmaes::cmaes<>(obj_func_wrapper, cmaparams, select_time);    
 
-
+    
 	libcmaes::Candidate best_candidate = cmasols.get_best_seen_candidate();
 	free_pars = best_candidate.get_x();
 	pars.clear();

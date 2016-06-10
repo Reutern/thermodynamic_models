@@ -29,8 +29,10 @@ public:
     int nFactors() const { return maxBindingWts.size(); }
 
 	// parameter norm
-	double parameter_L2_norm() const;
-	double parameter_L1_norm() const;
+	double weight_L2_norm() const;
+	double weight_L1_norm() const;
+	double effect_L2_norm() const;
+	double effect_L1_norm() const;
 	double parameter_L2_norm_interactions() const;
 	double parameter_L1_norm_interactions() const;
 	double parameter_L1_norm_skew() const;
@@ -61,7 +63,8 @@ public:
     vector < double > basalTxps;        // basal transcription: q_p for Direct and Quenching model, exp(alpha_0) for Logistic model (so that the same default value can be used)
 	//double expRatio; 		// constant factor of measurement to prediction 
     double acc_scale;
-	static double par_penalty;
+	static double weight_penalty;
+	static double effect_penalty;
 	static double interaction_penalty;
 
 	int nSeqs;

@@ -18,7 +18,8 @@ int main( int argc, char* argv[] )
     int SynDistThr = 150;
     int repressionDistThr = 0;
     int maxContact = 1;
-	double hyperparameter = 1;
+	double hyperparameter_weight = 0.05;
+    double hyperparameter_effect = 0.05;
 	double hyperparameter_interactions = 1;
 	double sigma = 0.01;
 	vector<double> eTF (20,0.6);
@@ -84,8 +85,10 @@ int main( int argc, char* argv[] )
             free_fix_indicator_filename = argv[++i];
         else if ( !strcmp( "-if", argv[i] ) )
             impactFile = argv[++i];    
-        else if ( !strcmp( "-hy", argv[i] ) )
-            hyperparameter = atof( argv[++i] );   
+        else if ( !strcmp( "-hye", argv[i] ) )
+            hyperparameter_effect = atof( argv[++i] );   
+        else if ( !strcmp( "-hyw", argv[i] ) )
+            hyperparameter_weight = atof( argv[++i] );   
         else if ( !strcmp( "-hyc", argv[i] ) )
             hyperparameter_interactions = atof( argv[++i] );    
         else if ( !strcmp( "-oq", argv[i] ) ){
@@ -101,7 +104,7 @@ int main( int argc, char* argv[] )
     if (seqFile.empty() || exprFile.empty() || motifFile.empty() || factorExprFile.empty() || outFile.empty() || 
 	   ( ( ExprPredictor::modelOption == QUENCHING || ExprPredictor::modelOption == CHRMOD_UNLIMITED || ExprPredictor::modelOption == CHRMOD_LIMITED ) 
 	   &&  factorInfoFile.empty() ) || ( ExprPredictor::modelOption == QUENCHING && repressionFile.empty() ) ) {
-    	cerr << "Usage: " << argv[ 0 ] << " -s seqFile -ts test_seqFile -e exprFile -te test_exprFile -m motifFile -f factorExprFile -fo outFile [-a annFile -o modelOption -c coopFile  -c SynFile -i	factorInfoFile -r repressionFile -oo objOption -mc maxContact -p parFile -pp print_parFile -rt repressionDistThr -na nAlternations -ct coopDistThr -ct SynDistThr -hy hyperparameter -sigma cmaes_sigma]" << endl;
+    	cerr << "Usage: " << argv[ 0 ] << " -s seqFile -ts test_seqFile -e exprFile -te test_exprFile -m motifFile -f factorExprFile -fo outFile [-a annFile -o modelOption -c coopFile  -c SynFile -i	factorInfoFile -r repressionFile -oo objOption -mc maxContact -p parFile -pp print_parFile -rt repressionDistThr -na nAlternations -ct coopDistThr -ct SynDistThr -hyw hyperparameter weight -hye hyperparameter effect -sigma cmaes_sigma]" << endl;
         cerr << "modelOption: Logistic, Direct, Quenching, ChrMod_Unlimited, ChrMod_Limited" << endl;
         exit( 1 );
     }           
@@ -111,7 +114,8 @@ int main( int argc, char* argv[] )
     FactorIntType FactorIntOption = FactorIntFunc;     // type of interaction function
     ExprPar::searchOption = CONSTRAINED;      // search option: unconstrained; constrained. 
     ExprPar::estBindingOption = 1;
-	ExprPar::par_penalty = hyperparameter;
+	ExprPar::weight_penalty = hyperparameter_weight;
+	ExprPar::effect_penalty = hyperparameter_effect;
 	ExprPar::interaction_penalty = hyperparameter_interactions;
 
     ExprPredictor::nRandStarts = 0;
@@ -369,7 +373,9 @@ int main( int argc, char* argv[] )
     }
     cout << "Objective_Function = " << getObjOptionStr( ExprPredictor::objOption ) << endl;
     cout << "Penalty_Function = " << getPenaltyOptionStr( ExprPredictor::PenaltyOption ) << endl;
-	cout << "lambda = " << hyperparameter << "\tlambda coop = " << hyperparameter_interactions << endl;
+	cout << "lambda weight = " << hyperparameter_weight << endl;
+	cout << "lambda effect = " << hyperparameter_effect << endl;
+    cout << "\tlambda coop = " << hyperparameter_interactions << endl;
     if ( !coopFile.empty() or !SynFile.empty() ) {
         cout << "Interaction_Model = " << getIntOptionStr( FactorIntOption ) << endl;
         #if NEGATIVE_COOP
@@ -639,8 +645,8 @@ int main( int argc, char* argv[] )
 			impact_stream << motifNames[tf_1];
 			for(int tf_2 = 0; tf_2 < nFactors; tf_2++){
 				double impact = 0;			
-				if(tf_2 >= tf_1 and coopMat(tf_1, tf_2) == 1 )				
-					impact = predictor_CV->comp_impact_skew_pair(par_impact, tf_1, tf_2);
+				if(tf_2 >= tf_1 and SynMat(tf_1, tf_2) == 1 )				
+					impact = predictor_CV->comp_impact_synergy_pair(par_impact, tf_1, tf_2);
 				impact_stream << "\t" << impact;
 			}
 			impact_stream << endl;
