@@ -1716,7 +1716,7 @@ double ExprPredictor::objFunc( const ExprPar& par )
     timeval start, end;
     gettimeofday(&start, 0);
     #endif // TIMER
-	if(one_qbtm_per_crm){        
+	if(one_qbtm_per_crm){  
 		for ( int i = 0; i < nSeqs(); i++ ) {
 			// Initiate the sites for func
 			func->set_sites(seqSites[ i ]);        
@@ -1843,7 +1843,7 @@ int ExprPredictor::train( const ExprPar& par_init )
     if ( nAlternations == 0 ) return 0;
 
     ExprPar par_result;
-    double obj_result;
+    double obj_result = 100;
     for ( int i = 0; i < nAlternations; i++ ) {
         ExprPar par_tmp;
         double obj_tmp = 0;
@@ -2836,15 +2836,15 @@ libcmaes::ProgressFunc<libcmaes::CMAParameters<>,libcmaes::CMASolutions> select_
 {
 	#if FILE_OUTPUT
 	if (cmasols.niter() % 100 == 0){
-		double current_score = - cmasols.best_candidate().get_fvalue();
-		double best_score = - cmasols.get_best_seen_candidate().get_fvalue();		 	
+		double current_score = cmasols.best_candidate().get_fvalue();
+		double best_score = cmasols.get_best_seen_candidate().get_fvalue();		 	
 		printf( "\r %i \t current score = %8.5f \t best score = %8.5f", cmasols.niter(), current_score, best_score);
 		fflush(stdout);
 	}
 	#else
 	if (cmasols.niter() % 1 == 0){
-		double current_score = - cmasols.best_candidate().get_fvalue();
-		double best_score = - cmasols.get_best_seen_candidate().get_fvalue();		 	
+		double current_score = cmasols.best_candidate().get_fvalue();
+		double best_score = cmasols.get_best_seen_candidate().get_fvalue();		 	
 		printf( "\r %i \t current score = %8.5f \t best score = %8.5f", cmasols.niter(), current_score, best_score);
 		fflush(stdout);
 	}
