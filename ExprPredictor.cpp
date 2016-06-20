@@ -1778,7 +1778,7 @@ double ExprPredictor::objFunc( const ExprPar& par )
     penalty += 0.001 * par.parameter_L1_norm_skew();
     #endif //ORIENTATION
 
-    if (objOption == SSE)	return obj_sse - penalty;
+    if (objOption == SSE)	return obj_sse + penalty;
     else if (objOption == CORR)	return -obj_corr + penalty;
     else if (objOption == PGP)	return -obj_pgp + penalty;
     return 0;
@@ -1824,7 +1824,7 @@ double ExprPredictor::objFunc( const ExprPar& par, int crm )
     penalty += 0.01 * par.parameter_L1_norm_skew();
     #endif //ORIENTATION
 
-    if (objOption == SSE)	return obj_sse - penalty;
+    if (objOption == SSE)	return obj_sse + penalty;
     else if (objOption == CORR)	return -obj_corr + penalty;
     else if (objOption == PGP)	return -obj_pgp + penalty;
     return 0;
@@ -1841,32 +1841,39 @@ int ExprPredictor::train( const ExprPar& par_init )
 		par_model.constrain_parameters(); 
 	    }//par_model.adjust(); }
     if ( nAlternations == 0 ) return 0;
+
     ExprPar par_result;
     double obj_result;
-
     for ( int i = 0; i < nAlternations; i++ ) {
+        ExprPar par_tmp;
+        double obj_tmp = 0;
+        par_curr = par_init;	// The working parameter, which get saved in case of an emergancy
+        par_model = par_init;	// Initialise the model parameter
 		if(optimizationOption == CMAES){
 			double tolerance = 1e-4;
 			cout << "CMA-ES minimization (sigma = " << cmaes_sigma << "):" << endl; 
-			cmaes_minimize(par_result, obj_result, cmaes_sigma, tolerance);
+			cmaes_minimize(par_tmp, obj_tmp, cmaes_sigma, tolerance);
+            cout << endl;
 		}
 		else if(optimizationOption == Simplex){
 			cout << "Simplex minimization " << i + 1 << " of " << nAlternations << ":" << endl; 
-			simplex_minimize(par_result, obj_result);
+			simplex_minimize(par_tmp, obj_tmp);
 		}
 		else if(optimizationOption == BFGS){
 			cout << "Gradient minimization step " << i + 1 << " of " << nAlternations << ":" << endl; 
-			gradient_minimize(par_result, obj_result);
+			gradient_minimize(par_tmp, obj_tmp);
 		}
 		if(one_qbtm_per_crm){
 			par_result.basalTxps = par_model.basalTxps;
 		}
-		if(obj_result <= obj_model){ 
-			par_model = par_result;
-			obj_model = obj_result;
+		if(obj_tmp <= obj_result){ 
+			par_result = par_tmp;
+			obj_result = obj_tmp;
 			save_param();
 			}
-
+    par_model = par_result;
+    obj_model = obj_result;
+    
     }
 	
     return 0;	
