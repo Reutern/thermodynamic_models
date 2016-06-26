@@ -123,7 +123,7 @@ int main( int argc, char* argv[] )
     ExprPredictor::min_delta_f_Corr = 1.0E-10;
     ExprPredictor::min_delta_f_PGP = 1.0E-10;
     ExprPredictor::nSimplexIters = 2000;
-    ExprPredictor::nCMAESIters = 10;
+    ExprPredictor::nCMAESIters = 10000;
     ExprPredictor::nGradientIters = 200;
     ExprPredictor::cmaes_sigma = sigma;   // sigma parameter for CMA-ES
 

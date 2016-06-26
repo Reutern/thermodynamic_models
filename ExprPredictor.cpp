@@ -480,10 +480,12 @@ int ExprPar::load( const string& file )
     }
     
     string symbol, eqSign, value;
-
     #if ACCESSIBILITY
     fin >> symbol >> eqSign >> value;
-    if (symbol != "Accessibility" || eqSign != "=") return RET_ERROR;
+    if (symbol != "Accessibility" || eqSign != "="){
+        cout << "Cannot read Accessibility" << endl;
+        return RET_ERROR;
+    }    
     acc_scale = atof( value.c_str() );
     #endif // ACCESSIBILITY
 
@@ -497,7 +499,10 @@ int ExprPar::load( const string& file )
     }
     else{
 	fin >> symbol >> eqSign >> value;
-	if ( symbol != "basal_transcription" || eqSign != "=" ) return RET_ERROR;
+	if ( symbol != "basal_transcription" || eqSign != "=" ){
+        cout << "Cannot read basal transcription rate" << endl;
+        return RET_ERROR;
+    }    
 	double basalTxp_val = atof( value.c_str() );
 	basalTxps[ 0 ] =  basalTxp_val ;
     }
@@ -1845,27 +1850,44 @@ int ExprPredictor::train( const ExprPar& par_init )
     ExprPar par_result;
     double obj_result = 100;
     for ( int i = 0; i < nAlternations; i++ ) {
+        #if FULL_RESTART
         ExprPar par_tmp;
         double obj_tmp = 0;
         par_curr = par_init;	// The working parameter, which get saved in case of an emergancy
         par_model = par_init;	// Initialise the model parameter
+        #endif // FULL_RESTART
 		if(optimizationOption == CMAES){
 			double tolerance = 1e-4;
 			cout << "CMA-ES minimization (sigma = " << cmaes_sigma << "):" << endl; 
-			cmaes_minimize(par_tmp, obj_tmp, cmaes_sigma, tolerance);
+            #if FULL_RESTART          
+            cmaes_minimize(par_tmp, obj_tmp, cmaes_sigma, tolerance);
+            #else
+            cmaes_minimize(par_result, obj_result, cmaes_sigma, tolerance);
+            #endif // FULL_RESTART
             cout << endl;
 		}
 		else if(optimizationOption == Simplex){
 			cout << "Simplex minimization " << i + 1 << " of " << nAlternations << ":" << endl; 
+            #if FULL_RESTART          
 			simplex_minimize(par_tmp, obj_tmp);
+            #else
+			simplex_minimize(par_result, obj_result);
+            #endif // FULL_RESTART
+
 		}
 		else if(optimizationOption == BFGS){
 			cout << "Gradient minimization step " << i + 1 << " of " << nAlternations << ":" << endl; 
+            #if FULL_RESTART          
 			gradient_minimize(par_tmp, obj_tmp);
+            #else
+			gradient_minimize(par_result, obj_result);
+            #endif // FULL_RESTART
+
 		}
 		if(one_qbtm_per_crm){
 			par_result.basalTxps = par_model.basalTxps;
 		}
+        #if FULL_RESTART          
 		if(obj_tmp <= obj_result){ 
 			par_result = par_tmp;
 			obj_result = obj_tmp;
@@ -1873,7 +1895,14 @@ int ExprPredictor::train( const ExprPar& par_init )
 			}
     par_model = par_result;
     obj_model = obj_result;
-    
+        #else
+ 	    if(obj_result <= obj_model){ 
+            par_model = par_result;
+            obj_model = obj_result;
+			save_param();
+			}
+        #endif // FULL_RESTART    
+   
     }
 	
     return 0;	
@@ -2321,6 +2350,19 @@ double ExprPredictor::comp_impact_acc( const ExprPar& par )
 
 double ExprPredictor::comp_impact( const ExprPar& par, int tf, int crm ) 
 {
+    // Check wether tf has binding sites in crm
+    SiteVec sites = seqSites[crm];
+    bool no_sites = true;
+    for(auto site = sites.begin(); site!= sites.end(); ++site){
+        if(site->factorIdx == tf){
+            no_sites = false;
+            break; 
+        }
+    }
+    if(no_sites){
+        return 0;
+    }    
+
 	// Calculate the objecttive function with the factor tf basicly deleted
 	ExprPar par_deleted = par;
 	ExprPar par_full = par;
@@ -2338,6 +2380,18 @@ double ExprPredictor::comp_impact( const ExprPar& par, int tf, int crm )
 
 double ExprPredictor::comp_impact_coop( const ExprPar& par, int tf, int crm ) 
 {
+    // Check wether tf has binding sites in crm
+    SiteVec sites = seqSites[crm];
+    bool no_sites = true;
+    for(auto site = sites.begin(); site!= sites.end(); ++site){
+        if(site->factorIdx == tf){
+            no_sites = false;
+            break; 
+        }
+    }
+    if(no_sites){
+        return 0;
+    }    
 	// Calculate the objecttive function without cooperativity between tf1 and tf2
 	ExprPar par_deleted = par;
 	ExprPar par_full = par;
