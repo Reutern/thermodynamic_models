@@ -218,8 +218,8 @@ inline bool siteOverlap( const Site& a, const Site& b, const vector< Motif >& mo
 typedef vector< Site > SiteVec;		
 
 // read sites (of potentially multiple sequences)
-int readSites( const string& file, const map< string, int >& factorIdxMap, vector< SiteVec >& sites, vector< string >& names, bool readEnergy = false );
-int readSites( const string& file, const map< string, int >& factorIdxMap, vector< SiteVec >& sites, bool readEnergy = false );
+int readSites( const string& file, const map< string, int >& factorIdxMap, vector< SiteVec >& sites, vector< string >& names);
+int readSites( const string& file, const map< string, int >& factorIdxMap, vector< SiteVec >& sites );
 
 /* SeqAnnotator class: annotate a given sequence by extracting its TFBSs */
 class SeqAnnotator {

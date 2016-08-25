@@ -2,6 +2,23 @@
 #include "SeqAnnotator.h"
 #include "param.h" 
 
+vector<double> energy_balance {0,
+0,
+0,
+0.630233,
+0,
+0.459308,
+1.26417,
+0,
+2.43632,
+1.26638,
+0.185422,
+0.681974,
+0,
+1.16636,
+1.79246,
+2.27374};
+
 
 bool isNt( int a )
 {
@@ -539,7 +556,7 @@ ostream& operator<<( ostream& os, const Site& site )
 }
 
 
-int readSites( const string& file, const map< string, int >& factorIdxMap, vector< SiteVec >& sites, vector< string >& names, bool readEnergy )
+int readSites( const string& file, const map< string, int >& factorIdxMap, vector< SiteVec >& sites, vector< string >& names)
 {
     ifstream fin( file.c_str() );
     if ( !fin ) {
@@ -571,11 +588,10 @@ int readSites( const string& file, const map< string, int >& factorIdxMap, vecto
             string factor;
             double energy = 0;
             stringstream ss( line );
-            ss >> start >> strandChar >> factor;
-            if ( readEnergy ) ss >> energy; 
+            ss >> start >> strandChar >> factor >> energy; 
             bool strand = strandChar == '+' ? 1 : 0;
             map<string, int>::const_iterator iter = factorIdxMap.find( factor );
-            currVec.push_back( Site( start - 1, strand, iter->second , energy, 1.0 ) );		// TODO: read in accessibility
+            currVec.push_back( Site( start, strand, iter->second , energy, 1.0 ) );		// TODO: read in accessibility
         }
     }
 
@@ -584,10 +600,10 @@ int readSites( const string& file, const map< string, int >& factorIdxMap, vecto
     return 0;
 }
 
-int readSites( const string& file, const map< string, int >& factorIdxMap, vector< SiteVec >& sites, bool readEnergy )
+int readSites( const string& file, const map< string, int >& factorIdxMap, vector< SiteVec >& sites)
 {
     vector< string > names;
-    return readSites( file, factorIdxMap, sites, names, readEnergy );
+    return readSites( file, factorIdxMap, sites, names);
 }
 
 
@@ -599,37 +615,44 @@ int SeqAnnotator::annot( const Sequence& seq, SiteVec& sites ) const
     	// scan the sequence for the sites of all motifs
     	for ( int i = 0; i < seq.size(); i++ ) {
         // test for each motif
-		for ( int k = 0; k < motifs.size(); k++ ) {
-            		int l = motifs[ k ].length();
-            		if ( i + l > seq.size() ) continue;
-           	 	double energy;
-			double access;
-            
-            		// positive strand
-            		Sequence elem( seq, i, l, 1 );
-					access = elem.get_accessibility();
-            		energy = motifs[ k ].energy( elem );
-			if ( energy <=  energyThrFactors[ k ] * motifs[ k ].getMaxLLR() ) {		// accessibility is incorporated in the decision if something is a bninding site
-				//cout << "Energy Diff for motif: " << k << " = " << energy << "\t";
-				//cout << elem << Site( i, 1, k,  energy ) << endl;	            
-		    		sites.push_back( Site( i, 1, k, energy, access ) );
-            		}	
-            
-            		// negative strand
-            		Sequence rcElem( seq, i, l, 0 );
-            		energy = motifs[ k ].energy( rcElem );
-			access = rcElem.get_accessibility();
-			if ( energy <= energyThrFactors[ k ] * motifs[k].getMaxLLR() ) {		// accessibility is incorporated in the decision if something is a binding site
-				//cout << "Energy Diff for motif: " << k << " = " << energy << "\t";
-		 	    	//cout << rcElem << Site( i, 0, k,  energy ) << endl;			
-                		sites.push_back( Site( i, 0, k, energy, access ) );
-            		}				
+		    for ( int k = 0; k < motifs.size(); k++ ) {
+                int l = motifs[ k ].length();
+            	if ( i + l > seq.size() ) continue;
+               	double energy;
+			    double access;
+                
+                // positive strand
+                Sequence elem( seq, i, l, 1 );
+			    access = elem.get_accessibility();
+                energy = motifs[ k ].energy( elem );
+			    if ( energy <=  energyThrFactors[ k ] * motifs[ k ].getMaxLLR() ) {		// accessibility is incorporated in the decision if something is a bninding site
+				    //cout << "Energy Diff for motif: " << k << " = " << energy << "\t";
+				    //cout << elem << Site( i, 1, k,  energy ) << endl;	      
+                    #if APPLY_ENERGY_BALANCE  
+                    energy = energy - energy_balance[k]; 
+                    #endif //APPLY_ENERGY_BALANCE
+		            sites.push_back( Site( i, 1, k, energy, access ) );
+                }	
+                
+                // negative strand
+                Sequence rcElem( seq, i, l, 0 );
+                energy = motifs[ k ].energy( rcElem );
+			    access = rcElem.get_accessibility();
+			    if ( energy <= energyThrFactors[ k ] * motifs[k].getMaxLLR() ) {		// accessibility is incorporated in the decision if something is a binding site
+				    //cout << "Energy Diff for motif: " << k << " = " << energy << "\t";
+		     	   	//cout << rcElem << Site( i, 0, k,  energy ) << endl;		
+                    #if APPLY_ENERGY_BALANCE  
+                    energy = energy - energy_balance[k]; 
+                    #endif //APPLY_ENERGY_BALANCE	
+                	sites.push_back( Site( i, 0, k, energy, access ) );
+                }				
         	}	
     	}
     
  	//cout << "end annotation" << endl;
     	return sites.size();
 }
+
 
 int SeqAnnotator::compEnergy( const Sequence& seq, SiteVec& sites ) const
 {

@@ -22,6 +22,14 @@ int main( int argc, char* argv[] )
     double hyperparameter_effect = 0.05;
 	double hyperparameter_interactions = 1;
 	double sigma = 0.01;
+    ExprPredictor::nRandStarts = 0;
+    ExprPredictor::min_delta_f_SSE = 1.0E-10;
+    ExprPredictor::min_delta_f_Corr = 1.0E-10;
+    ExprPredictor::min_delta_f_PGP = 1.0E-10;
+    ExprPredictor::nSimplexIters = 2000;
+    ExprPredictor::nCMAESIters = 10000;
+    ExprPredictor::nGradientIters = 200;
+
 	vector<double> eTF (20,0.6);
 
 
@@ -124,13 +132,6 @@ int main( int argc, char* argv[] )
 	ExprPar::effect_penalty = hyperparameter_effect;
 	ExprPar::interaction_penalty = hyperparameter_interactions;
 
-    ExprPredictor::nRandStarts = 0;
-    ExprPredictor::min_delta_f_SSE = 1.0E-10;
-    ExprPredictor::min_delta_f_Corr = 1.0E-10;
-    ExprPredictor::min_delta_f_PGP = 1.0E-10;
-    ExprPredictor::nSimplexIters = 2000;
-    ExprPredictor::nCMAESIters = 10000;
-    ExprPredictor::nGradientIters = 200;
     ExprPredictor::cmaes_sigma = sigma;   // sigma parameter for CMA-ES
 
     int rval;
@@ -207,9 +208,10 @@ int main( int argc, char* argv[] )
 
         }
     } else {    // read the site representation and compute the energy of sites
-        rval = readSites( annFile, factorIdxMap, seqSites, true );
+        rval = readSites( annFile, factorIdxMap, seqSites);
         assert( rval != RET_ERROR );
         for ( int i = 0; i < nSeqs; i++ ) {
+    		seqSites[i].insert( seqSites[i].begin(), Site() );  // start with a pseudo-site at position 0 
             ann.compEnergy( seqs[i], seqSites[i] );
             seqLengths[i] = seqs[i].size();
         }
@@ -430,6 +432,23 @@ int main( int argc, char* argv[] )
 
     cout << average_number << endl;
     #endif // PRINT_STATISTICS
+    /*
+    cout << "Minimum and maximum energies reproted:" << endl;
+    for(int tf = 0; tf < nFactors; tf++){
+        double min_energy = 100;
+        double max_energy = 0;
+        for(int seqs_idx = 0; seqs_idx < nSeqs; seqs_idx++){
+    		for( int idx = 1; idx < seqSites[seqs_idx].size() ; idx++ ){
+                if(seqSites[seqs_idx][idx].factorIdx == tf){
+                    double energy_tmp = seqSites[seqs_idx][idx].energy;
+                    if(energy_tmp < min_energy) min_energy = energy_tmp;
+                    if(energy_tmp > max_energy) max_energy = energy_tmp;
+                }
+            }
+        }
+        cout << motifNames[ tf ] << " \t " << min_energy << "\t" << max_energy << endl;
+    } 
+    */
 
     #if SAVE_ENERGIES
     cout << "Save site energies" << endl;
@@ -439,16 +458,19 @@ int main( int argc, char* argv[] )
 		site_energies << seqNames[seqs_idx] << "\t Nsites=" << seqSites[seqs_idx].size()-1 << "\t len=" << seqLengths[seqs_idx] << endl;
         for(int sites_idx = 1; sites_idx < seqSites[seqs_idx].size(); sites_idx++){
 			int idx = seqSites[seqs_idx][sites_idx].factorIdx;	
+			double energy_tmp = seqSites[seqs_idx][sites_idx].energy;
 			#if ACCESSIBILITY
 			double weight_tmp = (1-seqSites[seqs_idx][sites_idx].accessibility )* seqSites[seqs_idx][sites_idx].wtRatio;
 			#else
 			double weight_tmp = seqSites[seqs_idx][sites_idx].wtRatio;
 			#endif // ACCESSIBILITY
+            if(motifNames[idx] == "hkb"){
 			site_energies << seqSites[seqs_idx][sites_idx].start << "\t"
 						  << seqSites[seqs_idx][sites_idx].start + static_cast<int> (motifs[idx].length()) << "\t" 
 						  << seqSites[seqs_idx][sites_idx].strand << "\t"
 						  << motifNames[idx] << "\t" 
-						  << weight_tmp << "\t" << endl;
+						  << weight_tmp << "\t"
+                          << energy_tmp << endl;}
 		}
     }
     // Write site energies to site_energies.txt	
@@ -560,7 +582,7 @@ int main( int argc, char* argv[] )
             	test_seqLengths[i] = test_seqs[i].size();
         }
     } else {    // read the site representation and compute the energy of sites
-        rval = readSites( annFile, factorIdxMap, test_seqSites, true );
+        rval = readSites( annFile, factorIdxMap, test_seqSites );
         assert( rval != RET_ERROR );
         for ( int i = 0; i < nSeqs; i++ ) {
             ann.compEnergy( test_seqs[i], test_seqSites[i] );
