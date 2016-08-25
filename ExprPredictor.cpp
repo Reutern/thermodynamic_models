@@ -1568,10 +1568,10 @@ double ExprFunc::compPartFuncOnChrMod_Limited(const vector< double >& factorConc
 // The interaction function for direct model
 double ExprFunc::compFactorInt( const Site& a, const Site& b ) const
 {
-	if(par.factorIntMat(a.factorIdx, b.factorIdx) == 1.0)
-		return 1.0;
+//	if(par.factorIntMat(a.factorIdx, b.factorIdx) == 1.0)
+//		return 1.0;
 
-    double maxInt = par.factorIntMat(a.factorIdx, b.factorIdx);
+    double maxInt = par.factorIntMat(a.factorIdx, b.factorIdx);    
     unsigned dist = abs( a.start - b.start );
     assert( dist >= 0 );
 
@@ -1642,12 +1642,32 @@ double ExprFunc::compFactorSyn( const Site& a, const Site& b ) const
 		return 1.0;
 
     double maxSyn = par.factorSynMat(a.factorIdx, b.factorIdx);
-
     unsigned dist = abs( a.start - b.start );
-    assert( dist >= 0 );
+
+
 	double spacingTerm = 1;
-	double d = float(dist)/float(SynDistThr);
-    spacingTerm = ( dist < SynDistThr ? (maxSyn - 1) * exp( - 4.5 * ( d * d ) ) + 1 : 1.0 );
+	if(FactorIntOption == BINARY) 
+		#if NEGATIVE_COOP 
+	    spacingTerm = ( dist < SynDistThr ? maxSyn : 1.0 );
+		#else
+	    spacingTerm = ( dist < SynDistThr ? maxSyn + 1 : 1.0 );
+		#endif //NEGATIVE_COOP  
+	else if(FactorIntOption == LINEAR){
+	    double d = float(dist)/float(SynDistThr);
+		#if NEGATIVE_COOP 
+	    spacingTerm = ( dist < SynDistThr ? maxSyn  * (1 - d) + d : 1.0 );
+		#else
+	    spacingTerm = ( dist < SynDistThr ? maxSyn  * (1 - d) + 1 : 1.0 );
+		#endif //NEGATIVE_COOP  
+	}
+	else if(FactorIntOption == GAUSSIAN){
+	    double d = float(dist)/float(SynDistThr);
+		#if NEGATIVE_COOP 
+	    spacingTerm = ( dist < SynDistThr ? (maxSyn - 1) * exp( - 4.5 * ( d * d ) ) + 1: 1.0 );	// Sigma is one third of coopDistThr
+		#else
+	    spacingTerm = ( dist < SynDistThr ? maxSyn * exp( - 4.5 * ( d * d ) ) + 1: 1.0 );	// Sigma is one third of coopDistThr
+		#endif //NEGATIVE_COOP  
+	}
 
     return spacingTerm;
 }
@@ -1967,10 +1987,11 @@ int ExprPredictor::predict( const SiteVec& targetSites, int targetSeqLength, vec
     ExprFunc* func = createExprFunc( par_model );
     func->set_sites(targetSites);
 	
-	vector< double > predictedEfficiency (nConds(), -1);
+
     vector< double > observedExprs = exprData.getRow( seq_num );
     vector < vector < double > > concs (nConds(), vector <double> (factorExprData.nRows(), 0) );
-	if(one_qbtm_per_crm){        
+	if(one_qbtm_per_crm){  
+    	vector< double > predictedEfficiency (nConds(), -1);      
 		#pragma omp parallel for schedule(dynamic)
 		for (int j = 0; j < nConds(); j++ ) {		
 			concs[j] = factorExprData.getCol( j );

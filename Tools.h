@@ -98,6 +98,8 @@ public:
     void setAll( double x ) { gsl_matrix_set_all( data, x ); }
     void setRow( int row, const vector< double >& v );
     void setCol( int col, const vector< double >& v );
+    void addRow( const vector< double >& v );
+    void addCol( const vector< double >& v );
     void setRows( const vector< double >& v );
     void setCols( const vector< double >& v );
     

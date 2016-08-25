@@ -96,6 +96,12 @@ int main( int argc, char* argv[] )
 			ExprPar::one_qbtm_per_crm = true;
 			ExprFunc::one_qbtm_per_crm = true;
 		}
+        else if ( !strcmp( "-test", argv[i] ) ){
+            ExprPredictor::nAlternations = 1;
+            ExprPredictor::nSimplexIters = 1;
+            ExprPredictor::nCMAESIters = 1;
+            ExprPredictor::nGradientIters = 1;
+        }
         else if ( !strcmp( "-et", argv[i] ) ) {}
            // eTF = atof( argv[ ++i ] );    
     }
@@ -402,8 +408,7 @@ int main( int argc, char* argv[] )
     cout << "Statistics: " << endl; 
     cout << "Factors "<< nFactors << "\t " << "Sequences " << nSeqs <<  endl;
     for(int motif_idx = 0; motif_idx < nFactors; motif_idx++){
-   		weights_file << motifNames[ motif_idx ] << " \t ";}
-	weights_file << "\n";
+   		cout << motifNames[ motif_idx ] << " \t ";}
     cout << "Sum\t Name\t Length" << endl;
     double average_number = 0;
     for(int seqs_idx = 0; seqs_idx < nSeqs; seqs_idx++){

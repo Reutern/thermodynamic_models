@@ -212,6 +212,22 @@ void Matrix::setCol( int col, const vector< double >& v )
             
 }
 
+// Matrix: add row
+void Matrix::addRow( const vector< double >& v )
+{
+    data->size1++;
+    for ( int j = 0; j < data->size2; j++ ) 
+        setElement( data->size1, j, v[ j ] );	
+}
+
+// Matrix: add column
+void Matrix::addCol( const vector< double >& v )
+{
+    data->size2++;
+    for ( int i = 0; i < data->size1; i++ ) 
+        setElement( i, data->size2, v[ i ] );	       
+}
+
 // Matrix: set all rows
 void Matrix::setRows( const vector< double >& v )
 {
