@@ -12,7 +12,7 @@
 ExprPar::ExprPar( int _nFactors, int _nSeqs ) : factorIntMat(), factorSynMat(), factorSkewMat()
 {	
     assert( _nFactors > 0 );
-	
+	overlap = true;
     for ( int i = 0; i < _nFactors; i++ ) {
         maxBindingWts.push_back( ExprPar::default_weight );	
     }	
@@ -25,6 +25,10 @@ ExprPar::ExprPar( int _nFactors, int _nSeqs ) : factorIntMat(), factorSynMat(), 
 
     factorSkewMat.setDimensions( _nFactors, _nFactors );
     factorSkewMat.setAll( ExprPar::default_skew );       
+
+    for ( int i = 0; i < _nFactors; i++ ) {
+        IntRange.push_back( 50 );	
+    }	
 
     for ( int i = 0; i < _nFactors; i++ ) {
         double defaultEffect = modelOption == LOGISTIC ? ExprPar::default_effect_Logistic : ExprPar::default_effect_Thermo;
@@ -47,8 +51,9 @@ ExprPar::ExprPar( int _nFactors, int _nSeqs ) : factorIntMat(), factorSynMat(), 
     acc_scale = ExprPar::default_acc_scale;
 }
 	
-ExprPar::ExprPar( const vector< double >& _maxBindingWts, const Matrix& _factorIntMat, const Matrix& _factorSynMat, const Matrix& _factorSkewMat, const vector< double >& _txpEffects, const vector< double >& _repEffects, const vector < double >& _basalTxps, int _nSeqs, double _acc_scale) : maxBindingWts( _maxBindingWts ), factorIntMat( _factorIntMat ), factorSynMat( _factorSynMat ), factorSkewMat( _factorSkewMat ), txpEffects( _txpEffects ), repEffects( _repEffects ), basalTxps( _basalTxps ), nSeqs( _nSeqs  ), acc_scale(_acc_scale)
+ExprPar::ExprPar( const vector< double >& _maxBindingWts, const Matrix& _factorIntMat, const Matrix& _factorSynMat, const Matrix& _factorSkewMat, const vector< double >& _IntRange, const vector< double >& _txpEffects, const vector< double >& _repEffects, const vector < double >& _basalTxps, int _nSeqs, double _acc_scale) : maxBindingWts( _maxBindingWts ), factorIntMat( _factorIntMat ), factorSynMat( _factorSynMat ), factorSkewMat( _factorSkewMat ), IntRange(_IntRange), txpEffects( _txpEffects ), repEffects( _repEffects ), basalTxps( _basalTxps ), nSeqs( _nSeqs  ), acc_scale(_acc_scale)
 {
+	overlap = true;
     if ( !factorIntMat.isEmpty() ) assert( factorIntMat.nRows() == maxBindingWts.size() && factorIntMat.isSquare() ); 	
     if ( !factorSynMat.isEmpty() ) assert( factorSynMat.nRows() == maxBindingWts.size() && factorSynMat.isSquare() ); 	
     assert( txpEffects.size() == maxBindingWts.size() && repEffects.size() == maxBindingWts.size() );
@@ -61,7 +66,8 @@ ExprPar::ExprPar( const vector< double >& _maxBindingWts, const Matrix& _factorI
 }
 
 ExprPar::ExprPar( const vector< double >& pars, const IntMatrix& coopMat, const IntMatrix& SynMat, const vector< bool >& actIndicators, const vector< bool >& repIndicators, int _nSeqs ) : factorIntMat(), factorSynMat(), factorSkewMat()
-{	
+{		
+    overlap = true;
     int _nFactors = actIndicators.size();
     assert( coopMat.isSquare() && coopMat.nRows() == _nFactors );
     assert( SynMat.isSquare() && SynMat.nRows() == _nFactors );
@@ -114,6 +120,7 @@ ExprPar::ExprPar( const vector< double >& pars, const IntMatrix& coopMat, const 
 
     // set the skew matrix
     factorSkewMat.setDimensions( _nFactors, _nFactors );
+    factorSkewMat.setAll( ExprPar::default_skew );       
     #if ORIENTATION
     for ( int i = 0; i < _nFactors; i++ ) {
         for ( int j = 0; j <= i; j++ ) {
@@ -130,6 +137,18 @@ ExprPar::ExprPar( const vector< double >& pars, const IntMatrix& coopMat, const 
         }
     }  
     #endif // ORIENTATION
+
+	#if TRAIN_RANGE
+    // set the interaction range 
+    if ( estBindingOption ) {
+        for ( int i = 0; i < _nFactors; i++ ) {
+            double range_tmp = searchOption == CONSTRAINED ? exp( inverse_infty_transform( pars[counter++], log( 1 ), log( 150 ) ) ) : exp( pars[counter++] );
+            IntRange.push_back( range_tmp );
+        }
+    } else {
+        for ( int i = 0; i < _nFactors; i++ ) IntRange.push_back( 50 );
+    }
+	#endif // TRAIN_RANGE
 
     // set the transcriptional effects
     for ( int i = 0; i < _nFactors; i++ ) {
@@ -245,8 +264,14 @@ double ExprPar::parameter_L2_norm_interactions() const
 		}
 	}
 
+	#if TRAIN_RANGE
+	double range_norm = 0;
+    for ( int i = 0; i < nFactors(); i++ ) {
+		range_norm += pow(IntRange[i] / 1500.0, 2);	
+	}	
+	#endif // TRAIN_RANGE
 
-	return L2_norm_coop + L2_norm_syn;
+	return L2_norm_coop + L2_norm_syn + range_norm;
 }
 
 double ExprPar::parameter_L1_norm_skew() const
@@ -254,7 +279,7 @@ double ExprPar::parameter_L1_norm_skew() const
 	double L1_norm_skew = 0;
     for ( int i = 0; i < nFactors(); i++ ) {
         for ( int j = 0; j <= i; j++ ) {
-			L1_norm_skew += fabs(factorSkewMat(i, j));
+			L1_norm_skew += fabs(factorSkewMat(i, j))/ max_skew;
 		}
 	}
     return L1_norm_skew;
@@ -313,7 +338,13 @@ double ExprPar::parameter_L1_norm_interactions() const
 		}
 	}
 
-	return L1_norm_coop + L1_norm_syn;
+	#if TRAIN_RANGE
+	double range_norm = 0;
+    for ( int i = 0; i < nFactors(); i++ ) {
+		range_norm += IntRange[i] / 1500.0;	
+	}	
+	#endif // TRAIN_RANGE
+	return L1_norm_coop + L1_norm_syn + range_norm;
 }
 
 
@@ -370,6 +401,14 @@ void ExprPar::getFreePars( vector< double >& pars, const IntMatrix& coopMat, con
     }
     #endif // ORIENTATION
 	
+	#if TRAIN_RANGE
+    // write IntRange
+    for ( int i = 0; i < nFactors(); i++ ) {
+        double range_tmp = searchOption == CONSTRAINED ? infty_transform( log( IntRange[ i ] ), log( 1 ), log( 150 ) ) : log( IntRange[i] );
+        pars.push_back( range_tmp );
+    }
+	#endif // TRAIN_RANGE
+
     // write the transcriptional effects
     for ( int i = 0; i < nFactors(); i++ ) {
         if ( modelOption == LOGISTIC ) {
@@ -446,12 +485,13 @@ void ExprPar::print( ostream& os, const vector< string >& motifNames, const vect
 	}	
     }
     // print the interaction interactions
-    os << "Cooperativity Factor:"  << endl;
+    os << "Cooperativity Factor:"  << endl;				// TODO: if structure for orientation and Range 
     for ( int i = 0; i < nFactors(); i++ ) {
         for ( int j = 0; j <= i; j++ ) {
-            if ( coopMat( i, j ) ) os << motifNames[i] << "\t" << motifNames[j] << "\t" << factorIntMat( i, j ) << "\t" << factorSkewMat(i, j) << endl;			
+            if ( coopMat( i, j ) ) os << motifNames[i] << "\t" << motifNames[j] << "\t" << factorIntMat( i, j ) << "\t" << factorSkewMat(i, j) << "\t"<< IntRange[i] << endl;			
         }
     }
+
     os << "Synergy Factor:"  << endl;
     for ( int i = 0; i < nFactors(); i++ ) {
         for ( int j = 0; j <= i; j++ ) {
@@ -512,12 +552,12 @@ int ExprPar::load( const string& file )
     if (symbol != "Cooperativity" || eqSign != "Factor:") return RET_ERROR;
     // read the cooperative interactions
     string factor1, factor2;
-    double coopVal, skewVal;
+    double coopVal, skewVal, rangeVal;
 	getline(fin, line);
 	while( getline(fin, line) ){
 		if( line == "Synergy Factor:") break;
 	    istringstream iss(line);
-		iss >> factor1 >> factor2 >> coopVal >> skewVal;
+		iss >> factor1 >> factor2 >> coopVal >> skewVal >> rangeVal;
 		if( !factorIdxMap.count( factor1 ) || !factorIdxMap.count( factor2 ) ) return RET_ERROR;
         int idx1 = factorIdxMap[factor1];
         int idx2 = factorIdxMap[factor2];
@@ -525,6 +565,7 @@ int ExprPar::load( const string& file )
         factorIntMat( idx2, idx1 ) = coopVal;
         factorSkewMat( idx1, idx2 ) = skewVal;
         factorSkewMat( idx2, idx1 ) = skewVal;
+		IntRange[idx1] = rangeVal;
     }
 
     // read the synergy interactions
@@ -597,12 +638,12 @@ int ExprPar::load( const string& file, const vector <string>& seqNames, const ve
     if (symbol != "Cooperativity" || eqSign != "Factor:") return RET_ERROR;
     // read the cooperative interactions
     string factor1, factor2;
-    double coopVal, skewVal;
+    double coopVal, skewVal, rangeVal;
 	getline(fin, line);
 	while( getline(fin, line) ){
 		if( line == "Synergy Factor:") break;
 	    istringstream iss(line);
-		iss >> factor1 >> factor2 >> coopVal >> skewVal;
+		iss >> factor1 >> factor2 >> coopVal >> skewVal >> rangeVal;
 		if( !factorIdxMap.count( factor1 ) || !factorIdxMap.count( factor2 ) ) return RET_ERROR;
         int idx1 = factorIdxMap[factor1];
         int idx2 = factorIdxMap[factor2];
@@ -610,6 +651,7 @@ int ExprPar::load( const string& file, const vector <string>& seqNames, const ve
         factorIntMat( idx2, idx1 ) = coopVal;
         factorSkewMat( idx1, idx2 ) = skewVal;
         factorSkewMat( idx2, idx1 ) = skewVal;
+		IntRange[idx1] = rangeVal;
     }
 
     // read the synergy interactions
@@ -890,7 +932,8 @@ void ExprFunc::set_sites( SiteVec _sites )
 
     // Determin the boundaries
     _boundaries[0] = 0;
-    int range = max(coopDistThr, repressionDistThr);
+	int maxRange = int(*max_element(begin(par.IntRange), end(par.IntRange)));
+    int range = max(maxRange, repressionDistThr);
     for (int k = 1; k < n; k++) {
     	int l; 
 		for (l = 1; l < k; l++) {
@@ -1161,10 +1204,10 @@ double ExprFunc::compPartFuncOff(const vector< double >& factorConcs) const
     for ( int i = 1; i <= n; i++ ) {
 	double sum = Zt[boundaries[i]]; 
         for ( int j = boundaries[i] + 1; j < i; j++ ) {
-                if ( siteOverlap( sites[ i ], sites[ j ], motifs ) ) continue;
+                if ( siteOverlap( sites[ i ], sites[ j ], motifs ) && par.overlap) continue;
                 sum += compFactorInt( sites[ i ], sites[ j ] ) * Z[ j ];	
         }
-        Z[i] =   bindingWts[ i ] * factorConcs[sites[ i ].factorIdx] * sum;
+        Z[i] = bindingWts[ i ] * factorConcs[sites[ i ].factorIdx] * sum;
         Zt[i] = Z[i] + Zt[i - 1];
     }       
     return Zt[n];
@@ -1378,7 +1421,7 @@ double ExprFunc::compPartFuncOnDirect(const vector< double >& factorConcs) const
     for ( int i = 1; i <= n; i++ ) {
         double sum = Zt[boundaries[i]];
         for ( int j = boundaries[i] + 1; j < i; j++ ) {
-            if ( siteOverlap( sites[ i ], sites[ j ], motifs ) ) continue;
+            if ( siteOverlap( sites[ i ], sites[ j ], motifs ) && par.overlap ) continue;
             	sum += compFactorSyn( sites[ i ], sites[ j ] ) * compFactorInt( sites[ i ], sites[ j ] ) * Z[ j ];
         }
         Z[i] =  bindingWts[ i ] * factorConcs[sites[ i ].factorIdx] * par.txpEffects[ sites[i].factorIdx ] * sum;
@@ -1568,8 +1611,8 @@ double ExprFunc::compPartFuncOnChrMod_Limited(const vector< double >& factorConc
 // The interaction function for direct model
 double ExprFunc::compFactorInt( const Site& a, const Site& b ) const
 {
-//	if(par.factorIntMat(a.factorIdx, b.factorIdx) == 1.0)
-//		return 1.0;
+	if(par.factorIntMat(a.factorIdx, b.factorIdx) == 1.0)
+		return 1.0;
 
     double maxInt = par.factorIntMat(a.factorIdx, b.factorIdx);    
     unsigned dist = abs( a.start - b.start );
@@ -1584,31 +1627,34 @@ double ExprFunc::compFactorInt( const Site& a, const Site& b ) const
         orientationTerm = 1 + erf( - par.factorSkewMat(a.factorIdx, b.factorIdx) * x);
     #endif //ORIENTATION
 
+	int range = coopDistThr;
+	#if TRAIN_RANGE
+	range = par.IntRange[a.factorIdx];
+	#endif // TRAIN_RANGE
 
 	double spacingTerm = 1;
 	if(FactorIntOption == BINARY) 
 		#if NEGATIVE_COOP 
-	    spacingTerm = ( dist < coopDistThr ? maxInt : 1.0 );
+	    spacingTerm = ( dist < range ? maxInt : 1.0 );
 		#else
-	    spacingTerm = ( dist < coopDistThr ? maxInt + 1 : 1.0 );
+	    spacingTerm = ( dist < range ? maxInt + 1 : 1.0 );
 		#endif //NEGATIVE_COOP  
 	else if(FactorIntOption == LINEAR){
-		double d = float(dist)/float(coopDistThr);
+		double d = float(dist)/float(range);
 		#if NEGATIVE_COOP 
-	    spacingTerm = ( dist < coopDistThr ? maxInt  * (1 - d) + d : 1.0 );
+	    spacingTerm = ( dist < range ? maxInt  * (1 - d) + d : 1.0 );
 		#else
-	    spacingTerm = ( dist < coopDistThr ? maxInt  * (1 - d) + 1 : 1.0 );
+	    spacingTerm = ( dist < range ? maxInt  * (1 - d) + 1 : 1.0 );
 		#endif //NEGATIVE_COOP  
 	}
 	else if(FactorIntOption == GAUSSIAN){
-		double d = float(dist)/float(coopDistThr);
+		double d = float(dist)/float(range);
 		#if NEGATIVE_COOP 
-	    spacingTerm = ( dist < coopDistThr ? (maxInt - 1) * orientationTerm * exp( - 4.5 * ( d * d ) ) + 1: 1.0 );	// Sigma is one third of coopDistThr
+	    spacingTerm = ( dist < range ? (maxInt - 1) * orientationTerm * exp( - 4.5 * ( d * d ) ) + 1: 1.0 );	// Sigma is one third of coopDistThr
 		#else
-	    spacingTerm = ( dist < coopDistThr ? maxInt * orientationTerm * exp( - 4.5 * ( d * d ) ) + 1: 1.0 );	// Sigma is one third of coopDistThr
+	    spacingTerm = ( dist < range ? maxInt * orientationTerm * exp( - 4.5 * ( d * d ) ) + 1: 1.0 );	// Sigma is one third of coopDistThr
 		#endif //NEGATIVE_COOP  
 	}
-
     return spacingTerm;
 }
 
@@ -1730,7 +1776,7 @@ ExprPredictor::ExprPredictor( const vector< SiteVec >& _seqSites, const vector< 
     ExprPar::estBindingOption = estBindingOption;
 }
 
-double ExprPredictor::objFunc( const ExprPar& par ) 
+double ExprPredictor::objFunc( const ExprPar& par) 
 {
 
     ExprFunc* func = createExprFunc( par );
@@ -1749,7 +1795,7 @@ double ExprPredictor::objFunc( const ExprPar& par )
 		    vector< double > observedExprs (nConds(), 1);
 		    vector < vector < double > > concs (nConds(), vector <double> (factorExprData.nRows(), 0) );
 		    
-			//#pragma omp parallel for schedule(dynamic)
+			#pragma omp parallel for schedule(dynamic)
 			for (int j = 0; j < nConds(); j++ ) {		
 				concs[j] = factorExprData.getCol( j );
 				predictedEfficiency[j] = func->predictExpr_scalefree( seqLengths[ i ], concs[j], i );	
@@ -1771,7 +1817,7 @@ double ExprPredictor::objFunc( const ExprPar& par )
 		    vector< double > observedExprs (nConds(), 1);
 		    vector < vector < double > > concs (nConds(), vector <double> (factorExprData.nRows(), 0) );
 		    
-			//#pragma omp parallel for schedule(dynamic)
+			#pragma omp parallel for schedule(dynamic)
 			for (int j = 0; j < nConds(); j++ ) {		
 				concs[j] = factorExprData.getCol( j );
 				predictedExprs[j] = func->predictExpr( seqLengths[ i ], concs[j], i );	
@@ -1800,7 +1846,7 @@ double ExprPredictor::objFunc( const ExprPar& par )
 		penalty = par.weight_penalty * par.weight_L2_norm() + par.effect_penalty * par.effect_L2_norm() + par.interaction_penalty * par.parameter_L2_norm_interactions();
 
     #if ORIENTATION
-    penalty += 0.001 * par.parameter_L1_norm_skew();
+    penalty += par.interaction_penalty * par.parameter_L1_norm_skew();
     #endif //ORIENTATION
 
     if (objOption == SSE)	return obj_sse + penalty;
@@ -1823,7 +1869,7 @@ double ExprPredictor::objFunc( const ExprPar& par, int crm )
     vector< double > observedExprs (nConds(), 1);
     vector < vector < double > > concs (nConds(), vector <double> (factorExprData.nRows(), 0) );
         
-	//#pragma omp parallel for schedule(dynamic)
+	#pragma omp parallel for schedule(dynamic)
 	for (int j = 0; j < nConds(); j++ ) {		
 		concs[j] = factorExprData.getCol( j );
 		predictedExprs[j] = func->predictExpr(seqLengths[ crm ], concs[j], crm);	
@@ -1846,7 +1892,7 @@ double ExprPredictor::objFunc( const ExprPar& par, int crm )
 		penalty = par.weight_penalty * par.weight_L2_norm() + par.effect_penalty * par.effect_L2_norm() + par.interaction_penalty * par.parameter_L2_norm_interactions();
 
     #if ORIENTATION
-    penalty += 0.01 * par.parameter_L1_norm_skew();
+    penalty += par.interaction_penalty * par.parameter_L1_norm_skew();
     #endif //ORIENTATION
 
     if (objOption == SSE)	return obj_sse + penalty;
@@ -1864,7 +1910,7 @@ int ExprPredictor::train( const ExprPar& par_init )
 
     if ( nAlternations > 0 && ExprPar::searchOption == CONSTRAINED ){ 
 		par_model.constrain_parameters(); 
-	    }//par_model.adjust(); }
+	    } 
     if ( nAlternations == 0 ) return 0;
 
     ExprPar par_result;
@@ -1893,7 +1939,8 @@ int ExprPredictor::train( const ExprPar& par_init )
             #else
 			simplex_minimize(par_result, obj_result);
             #endif // FULL_RESTART
-
+            par_model.adjust();
+            cout << endl;
 		}
 		else if(optimizationOption == BFGS){
 			cout << "Gradient minimization step " << i + 1 << " of " << nAlternations << ":" << endl; 
@@ -2084,7 +2131,7 @@ int ExprPredictor::nRandStarts = 5;
 double ExprPredictor::min_delta_f_SSE = 1.0E-8;
 double ExprPredictor::min_delta_f_Corr = 1.0E-8;
 double ExprPredictor::min_delta_f_PGP = 1.0E-8;
-int ExprPredictor::nSimplexIters = 20;
+int ExprPredictor::nSimplexIters = 20000;
 int ExprPredictor::nCMAESIters = 10000;
 int ExprPredictor::nGradientIters = 5000;
 double ExprPredictor::cmaes_sigma = 0.1;
@@ -2313,13 +2360,43 @@ int indices_of_crm_in_gene[] = {
 	5, 11, 17, 23, 29
 };
 
+
+double ExprPredictor::comp_impact_overlap( const ExprPar& par )
+{
+	ExprPar par_deleted = par;
+    par_deleted.overlap = false; 
+	ExprPar par_full = par;
+	double obj_deleted = objFunc(par_deleted);
+	double obj_full = objFunc(par_full);	
+	double impact = (obj_full - obj_deleted);
+
+	if (objOption == SSE) return -impact;	// SSE gets minimised
+	else return impact;
+}
+
+double ExprPredictor::comp_impact_range( const ExprPar& par )
+{
+	double obj_full = objFunc(par);	
+   // set_coopDistThr(50);
+	double obj_deleted = objFunc(par);
+ //   set_coopDistThr(100);
+	double impact = (obj_full - obj_deleted);
+
+	if (objOption == SSE) return -impact;	// SSE gets minimised
+	else return impact;
+}
+
 double ExprPredictor::comp_impact( const ExprPar& par, int tf ) 
 {
 	// Calculate the objecttive function with the factor tf basicly deleted
 	ExprPar par_deleted = par;
 	ExprPar par_full = par;
 	par_full.weight_penalty = 0;
-	par_deleted.weight_penalty = 0;
+	par_deleted.weight_penalty = 0;    
+	par_full.effect_penalty = 0;
+	par_deleted.effect_penalty = 0;    
+	par_full.interaction_penalty = 0;
+	par_deleted.interaction_penalty = 0;
 	par_deleted.maxBindingWts[tf] = ExprPar::min_weight;
 	par_deleted.txpEffects[tf] = 1.0;
 	double obj_deleted = objFunc(par_deleted);
@@ -2330,6 +2407,7 @@ double ExprPredictor::comp_impact( const ExprPar& par, int tf )
 	else return impact;
 }
 
+
 double ExprPredictor::comp_impact_coop( const ExprPar& par, int tf ) 
 {
 	// Calculate the objecttive function without cooperativity between tf1 and tf2
@@ -2337,6 +2415,10 @@ double ExprPredictor::comp_impact_coop( const ExprPar& par, int tf )
 	ExprPar par_full = par;
 	par_full.weight_penalty = 0;
 	par_deleted.weight_penalty = 0;    
+	par_full.effect_penalty = 0;
+	par_deleted.effect_penalty = 0;    
+	par_full.interaction_penalty = 0;
+	par_deleted.interaction_penalty = 0;    
     # if NEGATIVE_COOP
 	vector<double > zero_vector (nFactors(),1);
     #else
@@ -2359,7 +2441,11 @@ double ExprPredictor::comp_impact_acc( const ExprPar& par )
 	ExprPar par_deleted = par;
 	ExprPar par_full = par;
 	par_full.weight_penalty = 0;
-	par_deleted.weight_penalty = 0;
+	par_deleted.weight_penalty = 0;    
+	par_full.effect_penalty = 0;
+	par_deleted.effect_penalty = 0;    
+	par_full.interaction_penalty = 0;
+	par_deleted.interaction_penalty = 0;
 	par_deleted.acc_scale = ExprPar::min_acc_scale;
 	double obj_deleted = objFunc(par_deleted);
 	double obj_full = objFunc(par_full);	
@@ -2388,7 +2474,11 @@ double ExprPredictor::comp_impact( const ExprPar& par, int tf, int crm )
 	ExprPar par_deleted = par;
 	ExprPar par_full = par;
 	par_full.weight_penalty = 0;
-	par_deleted.weight_penalty = 0;
+	par_deleted.weight_penalty = 0;    
+	par_full.effect_penalty = 0;
+	par_deleted.effect_penalty = 0;    
+	par_full.interaction_penalty = 0;
+	par_deleted.interaction_penalty = 0;
 	par_deleted.maxBindingWts[tf] = ExprPar::min_weight;
 	par_deleted.txpEffects[tf] = 1.0;
 	double obj_deleted = objFunc(par_deleted, crm);
@@ -2417,7 +2507,11 @@ double ExprPredictor::comp_impact_coop( const ExprPar& par, int tf, int crm )
 	ExprPar par_deleted = par;
 	ExprPar par_full = par;
 	par_full.weight_penalty = 0;
-	par_deleted.weight_penalty = 0;
+	par_deleted.weight_penalty = 0;    
+	par_full.effect_penalty = 0;
+	par_deleted.effect_penalty = 0;    
+	par_full.interaction_penalty = 0;
+	par_deleted.interaction_penalty = 0;
     # if NEGATIVE_COOP
 	vector<double > zero_vector (nFactors(),1);
     #else
@@ -2440,7 +2534,11 @@ double ExprPredictor::comp_impact_coop_pair( const ExprPar& par, int tf1, int tf
 	ExprPar par_deleted = par;
 	ExprPar par_full = par;
 	par_full.weight_penalty = 0;
-	par_deleted.weight_penalty = 0;
+	par_deleted.weight_penalty = 0;    
+	par_full.effect_penalty = 0;
+	par_deleted.effect_penalty = 0;    
+	par_full.interaction_penalty = 0;
+	par_deleted.interaction_penalty = 0;
 	#if NEGATIVE_COOP 
 	par_deleted.factorIntMat( tf1, tf2 ) = 1;
 	#else
@@ -2460,7 +2558,11 @@ double ExprPredictor::comp_impact_skew_pair( const ExprPar& par, int tf1, int tf
 	ExprPar par_deleted = par;
 	ExprPar par_full = par;
 	par_full.weight_penalty = 0;
-	par_deleted.weight_penalty = 0;
+	par_deleted.weight_penalty = 0;    
+	par_full.effect_penalty = 0;
+	par_deleted.effect_penalty = 0;    
+	par_full.interaction_penalty = 0;
+	par_deleted.interaction_penalty = 0;
 	par_deleted.factorSkewMat( tf1, tf2 ) = 0;
 	double obj_deleted = objFunc(par_deleted);
 	double obj_full = objFunc(par_full);	
@@ -2477,7 +2579,11 @@ double ExprPredictor::comp_impact_synergy_pair( const ExprPar& par, int tf1, int
 	ExprPar par_deleted = par;
 	ExprPar par_full = par;
 	par_full.weight_penalty = 0;
-	par_deleted.weight_penalty = 0;
+	par_deleted.weight_penalty = 0;    
+	par_full.effect_penalty = 0;
+	par_deleted.effect_penalty = 0;    
+	par_full.interaction_penalty = 0;
+	par_deleted.interaction_penalty = 0;
 	#if NEGATIVE_COOP 
 	par_deleted.factorSynMat( tf1, tf2 ) = 1;
 	#else

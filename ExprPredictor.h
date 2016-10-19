@@ -15,11 +15,11 @@
 class ExprPar {
 public:
     // constructors 
-    ExprPar() : factorIntMat(), factorSynMat(), factorSkewMat() {}
+    ExprPar() : factorIntMat(), factorSynMat(), factorSkewMat() {overlap = true;}
     ExprPar( int _nFactors, int _nSeqs );		// default values of parameters
-    ExprPar( const vector< double >& _maxBindingWts, const Matrix& _factorIntMat, const Matrix& _factorSynMat, const Matrix& _factorSkewMat, const vector< double >& _txpEffects, const vector< double >& _repEffects, const vector < double >&  _basalTxps, int _nSeqs, double _acc_scale);
+    ExprPar( const vector< double >& _maxBindingWts, const Matrix& _factorIntMat, const Matrix& _factorSynMat, const Matrix& _factorSkewMat, const vector <double>& _IntRange, const vector< double >& _txpEffects, const vector< double >& _repEffects, const vector < double >&  _basalTxps, int _nSeqs, double _acc_scale);
     ExprPar( const vector< double >& pars, const IntMatrix& coopMat, const IntMatrix& SynMat, const vector< bool >& actIndicators, const vector< bool >& repIndicators, int _nSeqs );	// construct from a "flat" vector of free parameters (assuming they are in the correct/uniform scale)
-    void copy( const ExprPar& other ) { maxBindingWts = other.maxBindingWts; factorIntMat = other.factorIntMat; factorSynMat = other.factorSynMat; factorSkewMat = other.factorSkewMat; txpEffects = other.txpEffects; repEffects = other.repEffects; basalTxps = other.basalTxps; nSeqs = basalTxps.size(); acc_scale = other.acc_scale;}
+    void copy( const ExprPar& other ) { maxBindingWts = other.maxBindingWts; factorIntMat = other.factorIntMat; factorSynMat = other.factorSynMat; factorSkewMat = other.factorSkewMat; IntRange = other.IntRange; txpEffects = other.txpEffects; repEffects = other.repEffects; basalTxps = other.basalTxps; nSeqs = basalTxps.size(); acc_scale = other.acc_scale; overlap = other.overlap;}
     ExprPar( const ExprPar& other ) { copy( other ); }
 
     // assignment
@@ -54,10 +54,12 @@ public:
     void constrain_parameters();
 
     // parameters
+    bool overlap;
     vector< double > maxBindingWts;			// binding weight of the strongest site for each TF: K(S_max) [TF_max]
     Matrix factorIntMat; 		// (maximum) interactions between pairs of factors: omega(f,f')
     Matrix factorSynMat; 		// Synergy interaction terms
     Matrix factorSkewMat; 		// Synergy interaction terms
+    vector< double > IntRange;			// the range of the homotypic interaction
     vector< double > txpEffects;    // transcriptional effects: alpha for Direct and Quenching model, exp(alpha) for Logistic model (so that the same default values can be used). Equal to 1 if a TF is not an activator under the Quenching model
     vector< double > repEffects;    // repression effects: beta under ChrMod models (the equlibrium constant of nucleosome association with chromatin). Equal to 0 if a TF is not a repressor. 
     vector < double > basalTxps;        // basal transcription: q_p for Direct and Quenching model, exp(alpha_0) for Logistic model (so that the same default value can be used)
@@ -243,10 +245,11 @@ public:
     const ExprPar& getPar() { return par_model; }
     const void setPar(ExprPar& par) { par_model = par; }
     double getObj() const { return obj_model; }
-    
+    double set_coopDistThr(int _coopDistThr) {coopDistThr = _coopDistThr;}    
+
     // the objective function to be minimized
-    double objFunc( const ExprPar& par ) ;
-    double objFunc( const ExprPar& par, int crm ) ;
+    double objFunc( const ExprPar& par );
+    double objFunc( const ExprPar& par, int crm );
     // training the model
     int train( const ExprPar& par_init ); 	// training with the initial values given
     int train( const ExprPar& par_init, const gsl_rng* rng );   // training with the initial values and allowing random starts
@@ -255,7 +258,8 @@ public:
 
     // predict expression values of a sequence (across the same conditions)
     int predict( const SiteVec& targetSites, int targetSeqLength, vector< double >& targetExprs, int seq_num ); 
-
+    double comp_impact_overlap( const ExprPar& par );
+    double comp_impact_range( const ExprPar& par );
     double comp_impact( const ExprPar& par, int tf );		// The impact of the parameter
     double comp_impact_coop( const ExprPar& par, int tf );		// The impact of all cooperativity parameters with tf involved
     double comp_impact_acc( const ExprPar& par );		// The impact of the accessibility

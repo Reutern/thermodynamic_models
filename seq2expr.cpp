@@ -26,14 +26,16 @@ int main( int argc, char* argv[] )
     ExprPredictor::min_delta_f_SSE = 1.0E-10;
     ExprPredictor::min_delta_f_Corr = 1.0E-10;
     ExprPredictor::min_delta_f_PGP = 1.0E-10;
-    ExprPredictor::nSimplexIters = 2000;
+    ExprPredictor::nSimplexIters = 20000;
     ExprPredictor::nCMAESIters = 10000;
     ExprPredictor::nGradientIters = 200;
 
 	vector<double> eTF (20,0.6);
-
+    eTF[0] = 0.4;
+    eTF[1] = 0.4;
 
 	string free_fix_indicator_filename;
+    FactorIntType FactorIntOption = FactorIntFunc;     // type of interaction function
 	ExprPredictor::one_qbtm_per_crm = ONE_QBTM;
 	ExprPar::one_qbtm_per_crm = ONE_QBTM;
 	ExprFunc::one_qbtm_per_crm = ONE_QBTM;
@@ -107,11 +109,15 @@ int main( int argc, char* argv[] )
         else if ( !strcmp( "-test", argv[i] ) ){
             ExprPredictor::nAlternations = 1;
             ExprPredictor::nSimplexIters = 1;
-            ExprPredictor::nCMAESIters = 1;
+            ExprPredictor::nCMAESIters = 10;
             ExprPredictor::nGradientIters = 1;
         }
-        else if ( !strcmp( "-et", argv[i] ) ) {}
-           // eTF = atof( argv[ ++i ] );    
+        else if ( !strcmp( "-int", argv[i] ) )
+            FactorIntOption = getIntOption(argv[++i]);    
+        else if ( !strcmp( "-et", argv[i] ) ) {
+            double eTF_tmp = atof( argv[ ++i ] );
+            fill(eTF.begin(), eTF.end(), eTF_tmp);    
+            }
     }
 
 
@@ -125,7 +131,7 @@ int main( int argc, char* argv[] )
 
     // additional control parameters
     double gcContent = 0.5;
-    FactorIntType FactorIntOption = FactorIntFunc;     // type of interaction function
+
     ExprPar::searchOption = CONSTRAINED;      // search option: unconstrained; constrained. 
     ExprPar::estBindingOption = 1;
 	ExprPar::weight_penalty = hyperparameter_weight;
@@ -351,6 +357,12 @@ int main( int argc, char* argv[] )
 		for( int index = 0; index < num_of_Syn_pairs; index++ ){
 			indicator_bool.push_back( true );
 		}
+		#if TRAIN_RANGE
+		for( int index = 0; index < nFactors; index++ ){
+			indicator_bool.push_back( true );
+		}
+		#endif // TRAIN_RANGE
+
         #if ORIENTATION
 		for( int index = 0; index < num_of_coop_pairs; index++ ){
 			indicator_bool.push_back( true );
@@ -417,6 +429,7 @@ int main( int argc, char* argv[] )
 		weights_file << seqNames[seqs_idx] << " \t ";
 		average_number += seqSites[seqs_idx].size()/nSeqs;
 		vector<double> weight_count (nFactors,0);
+		vector<double> sites_count (nFactors,0);  
 		for( int idx = 1; idx < seqSites[seqs_idx].size() ; idx++ ){
 				#if ACCESSIBILITY
 				double weight_tmp = (1-seqSites[seqs_idx][idx].accessibility )* seqSites[seqs_idx][idx].wtRatio;
@@ -424,6 +437,7 @@ int main( int argc, char* argv[] )
 				double weight_tmp = seqSites[seqs_idx][idx].wtRatio;
 				#endif // ACCESSIBILITY
 				weight_count[seqSites[seqs_idx][idx].factorIdx] = weight_count[seqSites[seqs_idx][idx].factorIdx] + weight_tmp;
+                sites_count[seqSites[seqs_idx][idx].factorIdx] += 1;
 		}
 		for( int l = 0; l < nFactors; l++){
 			cout << weight_count[l]  << " \t "; }	
@@ -453,9 +467,9 @@ int main( int argc, char* argv[] )
     #if SAVE_ENERGIES
     cout << "Save site energies" << endl;
     ofstream site_energies;
-    site_energies.open ("../data/sites/site_weights.txt");
+    site_energies.open ("../data/extended/expr_correlation/sites.txt");
     for(int seqs_idx = 0; seqs_idx < nSeqs; seqs_idx++){
-		site_energies << seqNames[seqs_idx] << "\t Nsites=" << seqSites[seqs_idx].size()-1 << "\t len=" << seqLengths[seqs_idx] << endl;
+		site_energies << seqNames[seqs_idx] << "\t" << seqSites[seqs_idx].size()-1 << "\t" << seqLengths[seqs_idx] << endl;
         for(int sites_idx = 1; sites_idx < seqSites[seqs_idx].size(); sites_idx++){
 			int idx = seqSites[seqs_idx][sites_idx].factorIdx;	
 			double energy_tmp = seqSites[seqs_idx][sites_idx].energy;
@@ -464,13 +478,11 @@ int main( int argc, char* argv[] )
 			#else
 			double weight_tmp = seqSites[seqs_idx][sites_idx].wtRatio;
 			#endif // ACCESSIBILITY
-            if(motifNames[idx] == "hkb"){
 			site_energies << seqSites[seqs_idx][sites_idx].start << "\t"
 						  << seqSites[seqs_idx][sites_idx].start + static_cast<int> (motifs[idx].length()) << "\t" 
 						  << seqSites[seqs_idx][sites_idx].strand << "\t"
 						  << motifNames[idx] << "\t" 
-						  << weight_tmp << "\t"
-                          << energy_tmp << endl;}
+						  << weight_tmp*weight_tmp << endl;
 		}
     }
     // Write site energies to site_energies.txt	
@@ -526,7 +538,6 @@ int main( int argc, char* argv[] )
 	#if ACCESSIBILITY
 	double impact_acc = predictor->comp_impact_acc(par);
 	cout << "Impact accessibility: " << impact_acc << endl;
-	
 	#endif // ACCESSIBILITY
 
 
@@ -537,7 +548,7 @@ int main( int argc, char* argv[] )
 		fflush(stdout);
 
     	// Initialise the occupancy predictor
-    	OccPredictor* occpred = new OccPredictor( seqSites[seq_idx], motifs, factorExprData, coopMat, SynMat, coopDistThr, SynDistThr, par_init );
+    	OccPredictor* occpred = new OccPredictor( seqSites[seq_idx], motifs, factorExprData, coopMat, coopDistThr, par_init );
 		Occout << seqNames[seq_idx] << "\t" << seqSites[seq_idx].size() - 1 << "\t" << seqLengths[seq_idx] << "\t" << "strand" << endl ; 
 
     	for(int site_idx = 1; site_idx < seqSites[seq_idx].size(); site_idx++){
@@ -632,76 +643,84 @@ int main( int argc, char* argv[] )
     cout << "Performance on test set: SSE = " << obj_sse << "\t" << "Corr = " << obj_corr << endl;
 
 	#if PRINT_IMPACT
-    cout << "Save impact" << endl;
-	ExprPar par_impact = predictor_CV->getPar();
-    ofstream impact_stream;
-    impact_stream.open (impactFile);
-	impact_stream << "CRM";
-    for(int tf = 0; tf < nFactors; tf++ ){
-		impact_stream << "\t" << motifNames[tf];}
-	impact_stream << endl;
-    for(int seqs_idx = 0; seqs_idx < test_nSeqs; seqs_idx++){
-		impact_stream << test_seqNames[seqs_idx];
+    if(!impactFile.empty()){
+        cout << "Save impact" << endl;
+	    ExprPar par_impact = predictor_CV->getPar();
+        ofstream impact_stream;
+        impact_stream.open (impactFile);
+	    impact_stream << "CRM";
         for(int tf = 0; tf < nFactors; tf++ ){
-			double impact = predictor_CV->comp_impact(par_impact,tf,seqs_idx);
-			impact_stream << "\t" << impact;
-		}
-		impact_stream << endl;
+		    impact_stream << "\t" << motifNames[tf];}
+	    impact_stream << endl;
+        for(int seqs_idx = 0; seqs_idx < test_nSeqs; seqs_idx++){
+		    impact_stream << test_seqNames[seqs_idx];
+            for(int tf = 0; tf < nFactors; tf++ ){
+			    double impact = predictor_CV->comp_impact(par_impact,tf,seqs_idx);
+			    impact_stream << "\t" << impact;
+		    }
+		    impact_stream << endl;
+        }
+        double impact = predictor_CV->comp_impact_overlap(par_impact);
+        cout << "Calculate impact of overlap " << impact << endl;
+
+    //    cout << "Calculate impact of range" << endl;
+    ///    impact = predictor_CV->comp_impact_range(par_impact);
+    //    cout << "RI " << impact << endl;
+	    impact_stream << "Coop";
+        for(int tf = 0; tf < nFactors; tf++ ){
+		    impact_stream << "\t" << motifNames[tf];}
+		    impact_stream << endl;
+        	for(int tf_1 = 0; tf_1 < nFactors; tf_1++){
+			    impact_stream << motifNames[tf_1];
+			    for(int tf_2 = 0; tf_2 < nFactors; tf_2++){
+				    double impact = 0;			
+				    if(tf_2 >= tf_1 and coopMat(tf_1, tf_2) == 1 )				
+					    impact = predictor_CV->comp_impact_coop_pair(par_impact, tf_1, tf_2);
+				    impact_stream << "\t" << impact;
+			    }
+			    impact_stream << endl;
+        	}
+
+	    impact_stream << "Synergy";
+        for(int tf = 0; tf < nFactors; tf++ ){
+		    impact_stream << "\t" << motifNames[tf];}
+		    impact_stream << endl;
+        	for(int tf_1 = 0; tf_1 < nFactors; tf_1++){
+			    impact_stream << motifNames[tf_1];
+			    for(int tf_2 = 0; tf_2 < nFactors; tf_2++){
+				    double impact = 0;			
+				    if(tf_2 == tf_1)//if(tf_2 >= tf_1 and SynMat(tf_1, tf_2) == 1 )				
+					    impact = predictor_CV->comp_impact_skew_pair(par_impact, tf_1, tf_2);
+				    impact_stream << "\t" << impact;
+			    }
+			    impact_stream << endl;
+        	}
+
+        impact_stream.close();
+        cout << "Impact saved" << endl;
     }
+    if(0){
+        // print the impact
+        cout << "Impact of the TF:" << endl; 
+        for(int tf = 0; tf < nFactors; tf++ ){
 
-	impact_stream << "Coop";
-    for(int tf = 0; tf < nFactors; tf++ ){
-		impact_stream << "\t" << motifNames[tf];}
-		impact_stream << endl;
-    	for(int tf_1 = 0; tf_1 < nFactors; tf_1++){
-			impact_stream << motifNames[tf_1];
-			for(int tf_2 = 0; tf_2 < nFactors; tf_2++){
-				double impact = 0;			
-				if(tf_2 >= tf_1 and coopMat(tf_1, tf_2) == 1 )				
-					impact = predictor_CV->comp_impact_coop_pair(par_impact, tf_1, tf_2);
-				impact_stream << "\t" << impact;
-			}
-			impact_stream << endl;
-    	}
+	    double totalweight = 0;
+	    for(int seqs_idx = 0; seqs_idx < nSeqs; seqs_idx++){
+		    for( int idx = 1; idx <= seqSites[seqs_idx].size(); idx++ ){
+			    if(seqSites[seqs_idx][idx].factorIdx != tf)  continue;
+			    totalweight += seqSites[seqs_idx][idx].wtRatio;
+		    }
+	    }
 
-	impact_stream << "Synergy";
-    for(int tf = 0; tf < nFactors; tf++ ){
-		impact_stream << "\t" << motifNames[tf];}
-		impact_stream << endl;
-    	for(int tf_1 = 0; tf_1 < nFactors; tf_1++){
-			impact_stream << motifNames[tf_1];
-			for(int tf_2 = 0; tf_2 < nFactors; tf_2++){
-				double impact = 0;			
-				if(tf_2 >= tf_1 and SynMat(tf_1, tf_2) == 1 )				
-					impact = predictor_CV->comp_impact_synergy_pair(par_impact, tf_1, tf_2);
-				impact_stream << "\t" << impact;
-			}
-			impact_stream << endl;
-    	}
+	    // effect * binding energy * total weight
+	    double impact = max(par.txpEffects[tf] , 1/par.txpEffects[tf]) * par.maxBindingWts[tf] * totalweight;
+	    double log_impact = log10( abs( impact ) ); 
 
-    impact_stream.close();
-    cout << "Impact saved" << endl;
-
-    // print the impact
-    cout << "Impact of the TF:" << endl; 
-    for(int tf = 0; tf < nFactors; tf++ ){
-
-	double totalweight = 0;
-	for(int seqs_idx = 0; seqs_idx < nSeqs; seqs_idx++){
-		for( int idx = 1; idx <= seqSites[seqs_idx].size(); idx++ ){
-			if(seqSites[seqs_idx][idx].factorIdx != tf)  continue;
-			totalweight += seqSites[seqs_idx][idx].wtRatio;
-		}
-	}
-
-	// effect * binding energy * total weight
-	double impact = max(par.txpEffects[tf] , 1/par.txpEffects[tf]) * par.maxBindingWts[tf] * totalweight;
-	double log_impact = log10( abs( impact ) ); 
-
-	double impact_new = predictor_CV->comp_impact(par,tf) * 100;
-	double impact_coop = predictor_CV->comp_impact_coop(par,tf) *100;
-	printf ("%s \t %4.2f \t %4.1f %% \t %4.1f %% \n", motifNames[tf].c_str(), log_impact, impact_new, impact_coop);
-	//cout << motifNames[tf] << "\t" << log_impact << "\t" << impact_new << "\t" << impact_coop << endl;
+	    double impact_new = predictor_CV->comp_impact(par,tf) * 100;
+	    double impact_coop = predictor_CV->comp_impact_coop(par,tf) *100;
+	    printf ("%s \t %4.2f \t %4.1f %% \t %4.1f %% \n", motifNames[tf].c_str(), log_impact, impact_new, impact_coop);
+	    //cout << motifNames[tf] << "\t" << log_impact << "\t" << impact_new << "\t" << impact_coop << endl;
+        }   
     }
 	#endif // PRINT_IMPACT
 
