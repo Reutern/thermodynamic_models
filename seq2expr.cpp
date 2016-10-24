@@ -14,8 +14,8 @@ int main( int argc, char* argv[] )
     // command line processing
     string seqFile, test_seqFile, accFile, test_accFile, annFile, exprFile, test_exprFile, motifFile, factorExprFile, coopFile, SynFile, factorInfoFile, repressionFile, parFile, print_parFile;
     string outFile, occFile, impactFile;     // output files
-    int coopDistThr = 150;
-    int SynDistThr = 150;
+    int coopDistThr = 0;
+    int SynDistThr = 0;
     int repressionDistThr = 0;
     int maxContact = 1;
 	double hyperparameter_weight = 0.05;
@@ -31,8 +31,6 @@ int main( int argc, char* argv[] )
     ExprPredictor::nGradientIters = 200;
 
 	vector<double> eTF (20,0.6);
-    eTF[0] = 0.4;
-    eTF[1] = 0.4;
 
 	string free_fix_indicator_filename;
     FactorIntType FactorIntOption = FactorIntFunc;     // type of interaction function
@@ -660,9 +658,12 @@ int main( int argc, char* argv[] )
 		    }
 		    impact_stream << endl;
         }
-        double impact = predictor_CV->comp_impact_overlap(par_impact);
-        cout << "Calculate impact of overlap " << impact << endl;
-
+        double impact = 0; 
+        cout << "Calculate impact of overlap:" << endl;
+        for(int dist = 0; dist < 15; dist++ ){
+			impact = predictor_CV->comp_impact_overlap(par_impact, dist);
+			cout << dist << "\t" << impact << endl;
+		}
     //    cout << "Calculate impact of range" << endl;
     ///    impact = predictor_CV->comp_impact_range(par_impact);
     //    cout << "RI " << impact << endl;
@@ -699,7 +700,7 @@ int main( int argc, char* argv[] )
         impact_stream.close();
         cout << "Impact saved" << endl;
     }
-    if(0){
+    if(true){
         // print the impact
         cout << "Impact of the TF:" << endl; 
         for(int tf = 0; tf < nFactors; tf++ ){

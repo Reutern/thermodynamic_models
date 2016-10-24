@@ -70,7 +70,9 @@ double OccPredictor::compPartFunc_total(const vector< double >& factorConcs) con
     for ( int i = 1; i <= n; i++ ) {
 	double sum = Zt[boundaries[i]];
         for ( int j = boundaries[i] + 1; j < i; j++ ) {
-                if ( siteOverlap( sites[ i ], sites[ j ], motifs ) ) continue;
+				int dist_a = motifs[sites[i].factorIdx].length();
+				int dist_b = motifs[sites[j].factorIdx].length();
+                if ( siteOverlap( sites[ i ], sites[ j ], dist_a, dist_b)) continue;
                 sum += compFactorInt( sites[ i ], sites[ j ] ) * Z[ j ];	
         }
         Z[i] = bindingWts[i] * factorConcs[sites[i].factorIdx] * sum;
@@ -94,7 +96,9 @@ double OccPredictor::compPartFunc(const vector< double >& factorConcs, int centr
 
     // recurrence 
     for ( int i = 1; i <= n; i++ ) {
-		if( siteOverlap( sites[ i ], sites[ centre ], motifs ) && i != centre){
+		int dist_a = motifs[sites[i].factorIdx].length();
+		int dist_b = motifs[sites[centre].factorIdx].length();
+		if( siteOverlap( sites[ i ], sites[ centre ], dist_a, dist_b) && i != centre){
 			Z[i] = 0;		// sites overlapping the central position can never bind
 			Zt[i] = Zt[i-1];	// they carry the sum of the previous site	
 			continue;
@@ -112,7 +116,9 @@ double OccPredictor::compPartFunc(const vector< double >& factorConcs, int centr
 			sum = Zt[boundary];
 		}
 	    for ( int j = boundary + 1; j < i; j++ ) {
-            if ( siteOverlap( sites[ i ], sites[ j ], motifs ) ) continue;
+			int dist_a = motifs[sites[i].factorIdx].length();
+			int dist_b = motifs[sites[j].factorIdx].length();
+            if ( siteOverlap( sites[ i ], sites[ j ], dist_a, dist_b ) ) continue;
             sum += compFactorInt( sites[ i ], sites[ j ] ) * Z[ j ];	
 	    }
 

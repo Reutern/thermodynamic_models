@@ -206,10 +206,10 @@ public:
 };
 
 // test if two sites overlap
-inline bool siteOverlap( const Site& a, const Site& b, const vector< Motif >& motifs )
+inline bool siteOverlap( const Site& a, const Site& b, int dist_a, int dist_b )
 {
-    if ( a.start + motifs[ a.factorIdx ].length() <= b.start ) return false;
-    if ( b.start + motifs[ b.factorIdx ].length() <= a.start ) return false;
+    if ( a.start + dist_a <= b.start ) return false;
+    if ( b.start + dist_b <= a.start ) return false;
     
     return true;	
 }

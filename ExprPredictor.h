@@ -15,7 +15,7 @@
 class ExprPar {
 public:
     // constructors 
-    ExprPar() : factorIntMat(), factorSynMat(), factorSkewMat() {overlap = true;}
+    ExprPar() : factorIntMat(), factorSynMat(), factorSkewMat() {overlap = 0;}
     ExprPar( int _nFactors, int _nSeqs );		// default values of parameters
     ExprPar( const vector< double >& _maxBindingWts, const Matrix& _factorIntMat, const Matrix& _factorSynMat, const Matrix& _factorSkewMat, const vector <double>& _IntRange, const vector< double >& _txpEffects, const vector< double >& _repEffects, const vector < double >&  _basalTxps, int _nSeqs, double _acc_scale);
     ExprPar( const vector< double >& pars, const IntMatrix& coopMat, const IntMatrix& SynMat, const vector< bool >& actIndicators, const vector< bool >& repIndicators, int _nSeqs );	// construct from a "flat" vector of free parameters (assuming they are in the correct/uniform scale)
@@ -54,7 +54,7 @@ public:
     void constrain_parameters();
 
     // parameters
-    bool overlap;
+    int overlap;
     vector< double > maxBindingWts;			// binding weight of the strongest site for each TF: K(S_max) [TF_max]
     Matrix factorIntMat; 		// (maximum) interactions between pairs of factors: omega(f,f')
     Matrix factorSynMat; 		// Synergy interaction terms
@@ -258,7 +258,7 @@ public:
 
     // predict expression values of a sequence (across the same conditions)
     int predict( const SiteVec& targetSites, int targetSeqLength, vector< double >& targetExprs, int seq_num ); 
-    double comp_impact_overlap( const ExprPar& par );
+    double comp_impact_overlap( const ExprPar& par, int dist );
     double comp_impact_range( const ExprPar& par );
     double comp_impact( const ExprPar& par, int tf );		// The impact of the parameter
     double comp_impact_coop( const ExprPar& par, int tf );		// The impact of all cooperativity parameters with tf involved

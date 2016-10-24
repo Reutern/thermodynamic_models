@@ -12,7 +12,7 @@
 ExprPar::ExprPar( int _nFactors, int _nSeqs ) : factorIntMat(), factorSynMat(), factorSkewMat()
 {	
     assert( _nFactors > 0 );
-	overlap = true;
+	overlap = 0;
     for ( int i = 0; i < _nFactors; i++ ) {
         maxBindingWts.push_back( ExprPar::default_weight );	
     }	
@@ -27,7 +27,7 @@ ExprPar::ExprPar( int _nFactors, int _nSeqs ) : factorIntMat(), factorSynMat(), 
     factorSkewMat.setAll( ExprPar::default_skew );       
 
     for ( int i = 0; i < _nFactors; i++ ) {
-        IntRange.push_back( 50 );	
+        IntRange.push_back( 100 );	
     }	
 
     for ( int i = 0; i < _nFactors; i++ ) {
@@ -53,7 +53,7 @@ ExprPar::ExprPar( int _nFactors, int _nSeqs ) : factorIntMat(), factorSynMat(), 
 	
 ExprPar::ExprPar( const vector< double >& _maxBindingWts, const Matrix& _factorIntMat, const Matrix& _factorSynMat, const Matrix& _factorSkewMat, const vector< double >& _IntRange, const vector< double >& _txpEffects, const vector< double >& _repEffects, const vector < double >& _basalTxps, int _nSeqs, double _acc_scale) : maxBindingWts( _maxBindingWts ), factorIntMat( _factorIntMat ), factorSynMat( _factorSynMat ), factorSkewMat( _factorSkewMat ), IntRange(_IntRange), txpEffects( _txpEffects ), repEffects( _repEffects ), basalTxps( _basalTxps ), nSeqs( _nSeqs  ), acc_scale(_acc_scale)
 {
-	overlap = true;
+	overlap = 0;
     if ( !factorIntMat.isEmpty() ) assert( factorIntMat.nRows() == maxBindingWts.size() && factorIntMat.isSquare() ); 	
     if ( !factorSynMat.isEmpty() ) assert( factorSynMat.nRows() == maxBindingWts.size() && factorSynMat.isSquare() ); 	
     assert( txpEffects.size() == maxBindingWts.size() && repEffects.size() == maxBindingWts.size() );
@@ -67,7 +67,7 @@ ExprPar::ExprPar( const vector< double >& _maxBindingWts, const Matrix& _factorI
 
 ExprPar::ExprPar( const vector< double >& pars, const IntMatrix& coopMat, const IntMatrix& SynMat, const vector< bool >& actIndicators, const vector< bool >& repIndicators, int _nSeqs ) : factorIntMat(), factorSynMat(), factorSkewMat()
 {		
-    overlap = true;
+    overlap = 0;
     int _nFactors = actIndicators.size();
     assert( coopMat.isSquare() && coopMat.nRows() == _nFactors );
     assert( SynMat.isSquare() && SynMat.nRows() == _nFactors );
@@ -146,7 +146,7 @@ ExprPar::ExprPar( const vector< double >& pars, const IntMatrix& coopMat, const 
             IntRange.push_back( range_tmp );
         }
     } else {
-        for ( int i = 0; i < _nFactors; i++ ) IntRange.push_back( 50 );
+        for ( int i = 0; i < _nFactors; i++ ) IntRange.push_back( 100 );
     }
 	#endif // TRAIN_RANGE
 
@@ -264,8 +264,9 @@ double ExprPar::parameter_L2_norm_interactions() const
 		}
 	}
 
-	#if TRAIN_RANGE
+
 	double range_norm = 0;
+	#if TRAIN_RANGE
     for ( int i = 0; i < nFactors(); i++ ) {
 		range_norm += pow(IntRange[i] / 1500.0, 2);	
 	}	
@@ -338,8 +339,8 @@ double ExprPar::parameter_L1_norm_interactions() const
 		}
 	}
 
-	#if TRAIN_RANGE
 	double range_norm = 0;
+	#if TRAIN_RANGE
     for ( int i = 0; i < nFactors(); i++ ) {
 		range_norm += IntRange[i] / 1500.0;	
 	}	
@@ -549,7 +550,9 @@ int ExprPar::load( const string& file )
 
     fin >> symbol >> eqSign;
 	string line;
-    if (symbol != "Cooperativity" || eqSign != "Factor:") return RET_ERROR;
+    if (symbol != "Cooperativity" || eqSign != "Factor:"){
+		cout << "Cannot find Cooperativity" << endl;
+		return RET_ERROR;}
     // read the cooperative interactions
     string factor1, factor2;
     double coopVal, skewVal, rangeVal;
@@ -557,7 +560,11 @@ int ExprPar::load( const string& file )
 	while( getline(fin, line) ){
 		if( line == "Synergy Factor:") break;
 	    istringstream iss(line);
+		#if RANGE_TRAIN
 		iss >> factor1 >> factor2 >> coopVal >> skewVal >> rangeVal;
+		#else
+		iss >> factor1 >> factor2 >> coopVal >> skewVal;
+		#endif // RANGE_TRAIN
 		if( !factorIdxMap.count( factor1 ) || !factorIdxMap.count( factor2 ) ) return RET_ERROR;
         int idx1 = factorIdxMap[factor1];
         int idx2 = factorIdxMap[factor2];
@@ -565,7 +572,9 @@ int ExprPar::load( const string& file )
         factorIntMat( idx2, idx1 ) = coopVal;
         factorSkewMat( idx1, idx2 ) = skewVal;
         factorSkewMat( idx2, idx1 ) = skewVal;
+		#if RANGE_TRAIN
 		IntRange[idx1] = rangeVal;
+		#endif // RANGE_TRAIN
     }
 
     // read the synergy interactions
@@ -635,7 +644,9 @@ int ExprPar::load( const string& file, const vector <string>& seqNames, const ve
 
     fin >> symbol >> eqSign;
 	string line;
-    if (symbol != "Cooperativity" || eqSign != "Factor:") return RET_ERROR;
+    if (symbol != "Cooperativity" || eqSign != "Factor:"){
+		cout << "Cannot find Cooperativity" << endl;
+		return RET_ERROR;}
     // read the cooperative interactions
     string factor1, factor2;
     double coopVal, skewVal, rangeVal;
@@ -643,7 +654,11 @@ int ExprPar::load( const string& file, const vector <string>& seqNames, const ve
 	while( getline(fin, line) ){
 		if( line == "Synergy Factor:") break;
 	    istringstream iss(line);
+		#if RANGE_TRAIN
 		iss >> factor1 >> factor2 >> coopVal >> skewVal >> rangeVal;
+		#else
+		iss >> factor1 >> factor2 >> coopVal >> skewVal;
+		#endif // RANGE_TRAIN
 		if( !factorIdxMap.count( factor1 ) || !factorIdxMap.count( factor2 ) ) return RET_ERROR;
         int idx1 = factorIdxMap[factor1];
         int idx2 = factorIdxMap[factor2];
@@ -651,7 +666,9 @@ int ExprPar::load( const string& file, const vector <string>& seqNames, const ve
         factorIntMat( idx2, idx1 ) = coopVal;
         factorSkewMat( idx1, idx2 ) = skewVal;
         factorSkewMat( idx2, idx1 ) = skewVal;
+		#if RANGE_TRAIN
 		IntRange[idx1] = rangeVal;
+		#endif // RANGE_TRAIN
     }
 
     // read the synergy interactions
@@ -932,12 +949,22 @@ void ExprFunc::set_sites( SiteVec _sites )
 
     // Determin the boundaries
     _boundaries[0] = 0;
+	#if TRAIN_RANGE
 	int maxRange = int(*max_element(begin(par.IntRange), end(par.IntRange)));
+	#else
+	int maxRange = coopDistThr;
+	#endif // TRAIN_RANGE
     int range = max(maxRange, repressionDistThr);
     for (int k = 1; k < n; k++) {
     	int l; 
 		for (l = 1; l < k; l++) {
-	    	if ((sites[k].start - sites[l].start) <= range or siteOverlap( sites[k], sites[l], motifs )) {break;} 
+				int dist_a = motifs[sites[k].factorIdx].length();
+				int dist_b = motifs[sites[l].factorIdx].length();
+				if(par.overlap != 0){
+					dist_a -= par.overlap;
+					dist_b -= par.overlap;
+				}
+	    	if ((sites[k].start - sites[l].start) <= range or siteOverlap( sites[k], sites[l], dist_a, dist_b)) {break;} 
 		}
     	_boundaries[k] = l - 1;
     }	
@@ -1177,7 +1204,14 @@ void ExprFunc::compProb_scanning_mode(const vector< double >& factorConcs, vecto
 	double weight_competition = 0;
 	double weight_cooperativity = 1;
         for ( int j = max(i - 30,0); j < min(i + 30 , n); j++ ) {
-                if ( siteOverlap( sites[ i ], sites[ j ], motifs ) ) weight_competition += bindingWts[ j ] * factorConcs[sites[ j ].factorIdx];
+				int dist_a = motifs[sites[i].factorIdx].length();
+				int dist_b = motifs[sites[j].factorIdx].length();
+				if(par.overlap != 0){
+					dist_a -= par.overlap;
+					dist_b -= par.overlap;
+				}
+                if ( siteOverlap( sites[ i ], sites[ j ], dist_a, dist_b)) 
+					weight_competition += bindingWts[ j ] * factorConcs[sites[ j ].factorIdx];
 		else weight_cooperativity += (compFactorInt( sites[ i ], sites[ j ] )-1) *  bindingWts[ j ] * factorConcs[sites[ j ].factorIdx];
                 }
 	double weight = bindingWts[ i ] * factorConcs[sites[ i ].factorIdx];
@@ -1204,7 +1238,13 @@ double ExprFunc::compPartFuncOff(const vector< double >& factorConcs) const
     for ( int i = 1; i <= n; i++ ) {
 	double sum = Zt[boundaries[i]]; 
         for ( int j = boundaries[i] + 1; j < i; j++ ) {
-                if ( siteOverlap( sites[ i ], sites[ j ], motifs ) && par.overlap) continue;
+				int dist_a = motifs[sites[i].factorIdx].length();
+				int dist_b = motifs[sites[j].factorIdx].length();
+				if(par.overlap != 0){
+					dist_a -= par.overlap;
+					dist_b -= par.overlap;
+				}
+                if ( siteOverlap( sites[ i ], sites[ j ], dist_a, dist_b)) continue;
                 sum += compFactorInt( sites[ i ], sites[ j ] ) * Z[ j ];	
         }
         Z[i] = bindingWts[ i ] * factorConcs[sites[ i ].factorIdx] * sum;
@@ -1375,7 +1415,13 @@ double ExprFunc::compPartFuncOffChrMod(const vector< double >& factorConcs) cons
         double sum = Zt[boundaries[i]]; 
         double sum0 = sum, sum1 = sum;
         for ( int j = boundaries[i] + 1; j < i; j++ ) {
-            if ( siteOverlap( sites[ i ], sites[ j ], motifs ) ) continue;
+				int dist_a = motifs[sites[i].factorIdx].length();
+				int dist_b = motifs[sites[j].factorIdx].length();
+				if(par.overlap != 0){
+					dist_a -= par.overlap;
+					dist_b -= par.overlap;
+				}
+            if ( siteOverlap( sites[ i ], sites[ j ], dist_a, dist_b ) ) continue;
             int dist = sites[i].start - sites[j].start;
             
             // sum for Z0 
@@ -1421,7 +1467,13 @@ double ExprFunc::compPartFuncOnDirect(const vector< double >& factorConcs) const
     for ( int i = 1; i <= n; i++ ) {
         double sum = Zt[boundaries[i]];
         for ( int j = boundaries[i] + 1; j < i; j++ ) {
-            if ( siteOverlap( sites[ i ], sites[ j ], motifs ) && par.overlap ) continue;
+				int dist_a = motifs[sites[i].factorIdx].length();
+				int dist_b = motifs[sites[j].factorIdx].length();
+				if(par.overlap != 0){
+					dist_a -= par.overlap;
+					dist_b -= par.overlap;
+				}
+            if ( siteOverlap( sites[ i ], sites[ j ], dist_a, dist_b )) continue;
             	sum += compFactorSyn( sites[ i ], sites[ j ] ) * compFactorInt( sites[ i ], sites[ j ] ) * Z[ j ];
         }
         Z[i] =  bindingWts[ i ] * factorConcs[sites[ i ].factorIdx] * par.txpEffects[ sites[i].factorIdx ] * sum;
@@ -1442,7 +1494,13 @@ double ExprFunc::compPartFuncOnQuenching(const vector< double >& factorConcs) co
     for ( int i = 0; i <= n; i++ ) {
         double sum1 = 1, sum0 = 0;
         for ( int j = 1; j < i; j++ ) {
-            if ( siteOverlap( sites[ i ], sites[ j ], motifs ) ) continue;
+				int dist_a = motifs[sites[i].factorIdx].length();
+				int dist_b = motifs[sites[j].factorIdx].length();
+				if(par.overlap != 0){
+					dist_a -= par.overlap;
+					dist_b -= par.overlap;
+				}
+            if ( siteOverlap( sites[ i ], sites[ j ], dist_a, dist_b)) continue;
             bool R = testRepression( sites[j], sites[i] );
             double term = compFactorInt( sites[ i ], sites[ j ] ) * ( Z1[0][j] + Z0[0][j] );
             sum1 += ( 1 - R )* term;
@@ -1462,7 +1520,13 @@ double ExprFunc::compPartFuncOnQuenching(const vector< double >& factorConcs) co
             }
             double sum1 = 0, sum0 = 0;
             for ( int j = 1; j < i; j++ ) {
-                if ( siteOverlap( sites[ i ], sites[ j ], motifs ) ) continue;
+				int dist_a = motifs[sites[i].factorIdx].length();
+				int dist_b = motifs[sites[j].factorIdx].length();
+				if(par.overlap != 0){
+					dist_a -= par.overlap;
+					dist_b -= par.overlap;
+				}
+                if ( siteOverlap( sites[ i ], sites[ j ], dist_a, dist_b ) ) continue;
                 bool R = testRepression( sites[j], sites[i] );
                 double effect = actIndicators[sites[j].factorIdx] * ( 1 - testRepression( sites[i], sites[j] ) ) * Z1[k - 1][j] * par.txpEffects[sites[j].factorIdx];
                 double term = compFactorInt( sites[ i ], sites[ j ] ) * ( Z1[k][j] + Z0[k][j] + effect );
@@ -1514,7 +1578,13 @@ double ExprFunc::compPartFuncOnChrMod_Unlimited(const vector< double >& factorCo
         double sum0 = sum, sum1 = sum;
         for ( int j = boundaries[i] + 1; j < i; j++ ) {
             int dist = sites[i].start - sites[j].start;
-            if ( siteOverlap( sites[ i ], sites[ j ], motifs ) ) continue;
+				int dist_a = motifs[sites[i].factorIdx].length();
+				int dist_b = motifs[sites[j].factorIdx].length();
+				if(par.overlap != 0){
+					dist_a -= par.overlap;
+					dist_b -= par.overlap;
+				}
+            if ( siteOverlap( sites[ i ], sites[ j ], dist_a, dist_b ) ) continue;
 
             // sum for Z0
             sum0 += compFactorInt( sites[i], sites[j] ) * Z0[j];
@@ -1578,7 +1648,13 @@ double ExprFunc::compPartFuncOnChrMod_Limited(const vector< double >& factorConc
             double sum0 = Zt[boundaries[i]][k], sum0A = k > 0 ? Zt[boundaries[i]][k-1] : 0, sum1 = sum0;
             for ( int j = boundaries[i] + 1; j < i; j++ ) {
                 int dist = sites[i].start - sites[j].start;
-                if ( siteOverlap( sites[ i ], sites[ j ], motifs ) ) continue;
+				int dist_a = motifs[sites[i].factorIdx].length();
+				int dist_b = motifs[sites[j].factorIdx].length();
+				if(par.overlap != 0){
+					dist_a -= par.overlap;
+					dist_b -= par.overlap;
+				}
+                if ( siteOverlap( sites[ i ], sites[ j ], dist_a, dist_b)) continue;
 
                 // sum for Z0
                 sum0 += compFactorInt( sites[i], sites[j] ) * Z0[j][k];
@@ -2361,10 +2437,10 @@ int indices_of_crm_in_gene[] = {
 };
 
 
-double ExprPredictor::comp_impact_overlap( const ExprPar& par )
+double ExprPredictor::comp_impact_overlap( const ExprPar& par, int dist )
 {
 	ExprPar par_deleted = par;
-    par_deleted.overlap = false; 
+    par_deleted.overlap = dist; 
 	ExprPar par_full = par;
 	double obj_deleted = objFunc(par_deleted);
 	double obj_full = objFunc(par_full);	
@@ -2619,7 +2695,9 @@ double ExprPredictor::compAvgCorr( const ExprPar& par )
         for ( int k = 1; k < n; k++ ) {
 	       	int l; 
 			for ( l = k - 1; l >= 0; l-- ) {
-			    if ( ( seqSites[i][k].start - seqSites[i][l].start ) > range or siteOverlap(seqSites[i][k], seqSites[i][l], motifs ) ) break; 
+				int dist_a = motifs[seqSites[i][k].factorIdx].length();
+				int dist_b = motifs[seqSites[i][l].factorIdx].length();
+			    if ( ( seqSites[i][k].start - seqSites[i][l].start ) > range or siteOverlap(seqSites[i][k], seqSites[i][l], dist_a, dist_b)) break; 
 			}
 	   		_boundaries[k] = l ;
 	}	
