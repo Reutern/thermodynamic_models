@@ -13,7 +13,7 @@ int main( int argc, char* argv[] )
   
     // command line processing
     string seqFile, test_seqFile, accFile, test_accFile, annFile, exprFile, test_exprFile, motifFile, factorExprFile, coopFile, SynFile, factorInfoFile, repressionFile, parFile, print_parFile;
-    string outFile, occFile, impactFile;     // output files
+    string outFile, occFile, impactFile, koFile;     // output files
     int coopDistThr = 0;
     int SynDistThr = 0;
     int repressionDistThr = 0;
@@ -93,6 +93,8 @@ int main( int argc, char* argv[] )
             free_fix_indicator_filename = argv[++i];
         else if ( !strcmp( "-if", argv[i] ) )
             impactFile = argv[++i];    
+        else if ( !strcmp( "-ko", argv[i] ) )
+            koFile = argv[++i];    
         else if ( !strcmp( "-hye", argv[i] ) )
             hyperparameter_effect = atof( argv[++i] );   
         else if ( !strcmp( "-hyw", argv[i] ) )
@@ -110,8 +112,10 @@ int main( int argc, char* argv[] )
             ExprPredictor::nCMAESIters = 10;
             ExprPredictor::nGradientIters = 1;
         }
-        else if ( !strcmp( "-int", argv[i] ) )
+        else if ( !strcmp( "-int", argv[i] ) ){
             FactorIntOption = getIntOption(argv[++i]);    
+            ExprFunc::FactorIntOption = FactorIntOption;
+            }
         else if ( !strcmp( "-et", argv[i] ) ) {
             double eTF_tmp = atof( argv[ ++i ] );
             fill(eTF.begin(), eTF.end(), eTF_tmp);    
@@ -416,7 +420,7 @@ int main( int argc, char* argv[] )
     cout << endl;
 	#if PRINT_STATISTICS
     ofstream weights_file;
-    weights_file.open ("../data/weights_stark.txt");
+    weights_file.open ("../data/weights.txt");
     cout << "Statistics: " << endl; 
     cout << "Factors "<< nFactors << "\t " << "Sequences " << nSeqs <<  endl;
     for(int motif_idx = 0; motif_idx < nFactors; motif_idx++){
@@ -424,8 +428,8 @@ int main( int argc, char* argv[] )
     cout << "Sum\t Name\t Length" << endl;
     double average_number = 0;
     for(int seqs_idx = 0; seqs_idx < nSeqs; seqs_idx++){
-		weights_file << seqNames[seqs_idx] << " \t ";
-		average_number += seqSites[seqs_idx].size()/nSeqs;
+		//weights_file << seqNames[seqs_idx] << "\n";
+		//average_number += seqSites[seqs_idx].size();
 		vector<double> weight_count (nFactors,0);
 		vector<double> sites_count (nFactors,0);  
 		for( int idx = 1; idx < seqSites[seqs_idx].size() ; idx++ ){
@@ -434,15 +438,17 @@ int main( int argc, char* argv[] )
 				#else
 				double weight_tmp = seqSites[seqs_idx][idx].wtRatio;
 				#endif // ACCESSIBILITY
-				weight_count[seqSites[seqs_idx][idx].factorIdx] = weight_count[seqSites[seqs_idx][idx].factorIdx] + weight_tmp;
+				weight_count[seqSites[seqs_idx][idx].factorIdx] += weight_tmp;
+				average_number += weight_tmp;
+        		weights_file << weight_tmp << "\n";				
                 sites_count[seqSites[seqs_idx][idx].factorIdx] += 1;
 		}
 		for( int l = 0; l < nFactors; l++){
-			cout << weight_count[l]  << " \t "; }	
+			cout << sites_count[l]  << " \t "; }	
 		cout << seqSites[seqs_idx].size() - 1 << " \t " << seqNames[seqs_idx] << " \t " << seqLengths[seqs_idx] <<  endl;
 	}
 
-    cout << average_number << endl;
+    cout << average_number / nSeqs << endl;
     #endif // PRINT_STATISTICS
     /*
     cout << "Minimum and maximum energies reproted:" << endl;
@@ -462,41 +468,45 @@ int main( int argc, char* argv[] )
     } 
     */
 
-    #if SAVE_ENERGIES
-    cout << "Save site energies" << endl;
-    ofstream site_energies;
-    site_energies.open ("../data/extended/expr_correlation/sites.txt");
-    for(int seqs_idx = 0; seqs_idx < nSeqs; seqs_idx++){
-		site_energies << seqNames[seqs_idx] << "\t" << seqSites[seqs_idx].size()-1 << "\t" << seqLengths[seqs_idx] << endl;
-        for(int sites_idx = 1; sites_idx < seqSites[seqs_idx].size(); sites_idx++){
-			int idx = seqSites[seqs_idx][sites_idx].factorIdx;	
-			double energy_tmp = seqSites[seqs_idx][sites_idx].energy;
-			#if ACCESSIBILITY
-			double weight_tmp = (1-seqSites[seqs_idx][sites_idx].accessibility )* seqSites[seqs_idx][sites_idx].wtRatio;
-			#else
-			double weight_tmp = seqSites[seqs_idx][sites_idx].wtRatio;
-			#endif // ACCESSIBILITY
-			site_energies << seqSites[seqs_idx][sites_idx].start << "\t"
-						  << seqSites[seqs_idx][sites_idx].start + static_cast<int> (motifs[idx].length()) << "\t" 
-						  << seqSites[seqs_idx][sites_idx].strand << "\t"
-						  << motifNames[idx] << "\t" 
-						  << weight_tmp*weight_tmp << endl;
-		}
-    }
-    // Write site energies to site_energies.txt	
-    site_energies.close();
-    cout << "Site energies saved" << endl;
-    #endif //SAVE_ENERGIES
-
     // read the initial parameter values
     ExprPar par_init( nFactors, nSeqs );
     if ( !parFile.empty() ) {
-        rval = par_init.load( parFile, seqNames, motifNames);
+        rval = par_init.load(parFile, seqNames, motifNames);
         if ( rval == RET_ERROR ) {
             cerr << "Cannot read parameters from " << parFile << endl;
             exit( 1 );
         } 
     }
+
+    #if SAVE_ENERGIES
+    cout << "Save site energies" << endl;
+    ofstream site_energies;
+    site_energies.open ("../data/sites_hb+_etf06.txt");
+    for(int seqs_idx = 0; seqs_idx < nSeqs; seqs_idx++){
+		site_energies << seqNames[seqs_idx] << "\t" << seqSites[seqs_idx].size()-1 << "\t" << seqLengths[seqs_idx] <<"\tStrand" << endl;
+        for(int sites_idx = 1; sites_idx < seqSites[seqs_idx].size(); sites_idx++){
+			int idx = seqSites[seqs_idx][sites_idx].factorIdx;	
+			double energy_tmp = seqSites[seqs_idx][sites_idx].energy;
+			double weight_tmp = seqSites[seqs_idx][sites_idx].wtRatio;
+			site_energies << seqSites[seqs_idx][sites_idx].start << "\t"
+						  << idx << "\t" 
+						  //<< seqSites[seqs_idx][sites_idx].start + static_cast<int> (motifs[idx].length()) << "\t" 
+						  << weight_tmp << "\t"
+						  << seqSites[seqs_idx][sites_idx].strand
+						  #if ACCESSIBILITY
+                		  << "\t" << seqSites[seqs_idx][sites_idx].accessibility
+                 		  << "\t" << exp(  - par_init.acc_scale * ( 1 - seqSites[seqs_idx][sites_idx].accessibility))
+                 		  #endif // ACCESSIBILITY
+						  << endl;
+		}
+    }
+    
+    // Write site energies to site_energies.txt	
+    site_energies.close();
+    cout << "Site energies saved" << endl;
+    #endif //SAVE_ENERGIES
+
+
     // Initialise the predictor class
     ExprPredictor* predictor = new ExprPredictor( seqSites, seqLengths, exprData, motifs, factorExprData, coopMat, SynMat, actIndicators, maxContact, repIndicators, repressionMat, repressionDistThr, coopDistThr, SynDistThr, indicator_bool, motifNames, seqNames, seqs );
 
@@ -640,10 +650,59 @@ int main( int argc, char* argv[] )
     double obj_sse = sqrt( squaredErr / ( test_nSeqs * nConds ) ); 
     cout << "Performance on test set: SSE = " << obj_sse << "\t" << "Corr = " << obj_corr << endl;
 
+	#if KNOCK_OUT
+    if(!koFile.empty()){
+        cout << "Print knock-out analysis" << endl;
+        ofstream ko_stream;
+        ko_stream.open (koFile);
+        ko_stream << "Rows\t" << condNames << endl;
+        for (int i = 0; i < test_nSeqs; i++) {
+            predictor_CV->setPar(par);
+            vector< double > observedExprs = test_exprData.getRow( i );
+            ko_stream << test_seqNames[i] << "\t" << observedExprs << endl;      // observations
+            ko_stream << test_seqNames[i] << "_wt";
+            vector< double > targetExprs;
+            predictor_CV->predict( test_seqSites[i], test_seqLengths[i], targetExprs, i );
+            for (int j = 0; j < nConds; j++) ko_stream << "\t" << targetExprs[j];       // predictions
+            ko_stream << endl;
+            for(int tf = 0; tf < nFactors; tf++ ){
+                ko_stream << test_seqNames[i] << "_" << motifNames[tf];
+                ExprPar par_deleted = par;
+                par_deleted.maxBindingWts[tf] = 0.001;
+               	par_deleted.txpEffects[tf] = 1.0;
+               	predictor_CV->setPar(par_deleted);
+                predictor_CV->predict( test_seqSites[i], test_seqLengths[i], targetExprs, i );
+                for (int j = 0; j < nConds; j++) ko_stream << "\t" << targetExprs[j];       // predictions
+                ko_stream << endl;
+            }
+            vector<string> fragment_names;
+            fragment_names = {"I", "II", "III", "IV"}; 
+            for(int fragment = 0; fragment < 4; fragment++ ){
+                ko_stream << test_seqNames[i] << "_" << fragment_names[fragment];
+               	predictor_CV->setPar(par);
+               	SiteVec seqSites_deleted = test_seqSites[i];
+               	for(auto site = seqSites_deleted.begin(); site!= seqSites_deleted.end(); ++site){
+                    int tf_tmp = site->factorIdx;
+                    if( site->energy <= (fragment+1) * 0.125 * motifs[tf_tmp].getMaxLLR() && site->energy >=  fragment * 0.125 * motifs[tf_tmp].getMaxLLR())
+                        site->wtRatio = 0;
+                }
+                predictor_CV->predict( seqSites_deleted, test_seqLengths[i], targetExprs, i );
+                for (int j = 0; j < nConds; j++) ko_stream << "\t" << targetExprs[j];       // predictions
+                ko_stream << endl;
+            }
+
+        }	
+
+    }
+    
+   
+    #endif // KNOCK_OUT
+
+
 	#if PRINT_IMPACT
     if(!impactFile.empty()){
         cout << "Save impact" << endl;
-	    ExprPar par_impact = predictor_CV->getPar();
+	    ExprPar par_impact = par; //predictor_CV->getPar();
         ofstream impact_stream;
         impact_stream.open (impactFile);
 	    impact_stream << "CRM";
@@ -658,16 +717,23 @@ int main( int argc, char* argv[] )
 		    }
 		    impact_stream << endl;
         }
+        cout << "Calculate impact of binding sites:" << endl;
+        for(double thr_tmp = 0; thr_tmp < 0.6; thr_tmp = thr_tmp + 0.125){
+            cout << thr_tmp << "\t" << predictor_CV->comp_impact_sites(par_impact, thr_tmp + 0.125, thr_tmp) << endl;
+        }
         double impact = 0; 
         cout << "Calculate impact of overlap:" << endl;
-        for(int dist = 0; dist < 15; dist++ ){
+        for(int dist = 0; dist < 17; dist++ ){
 			impact = predictor_CV->comp_impact_overlap(par_impact, dist);
 			cout << dist << "\t" << impact << endl;
 		}
-    //    cout << "Calculate impact of range" << endl;
-    ///    impact = predictor_CV->comp_impact_range(par_impact);
-    //    cout << "RI " << impact << endl;
-	    impact_stream << "Coop";
+        cout << "Calculate impact of range" << endl;
+        for(int range_del = 0; range_del < 150; range_del += 10){
+        impact = predictor_CV->comp_impact_range(par_impact, range_del, range_del+50);
+        cout << range_del << " " << min(range_del + 50, 150) << " " << impact << endl;
+        }
+        
+   	    impact_stream << "Coop";
         for(int tf = 0; tf < nFactors; tf++ ){
 		    impact_stream << "\t" << motifNames[tf];}
 		    impact_stream << endl;
@@ -690,8 +756,8 @@ int main( int argc, char* argv[] )
 			    impact_stream << motifNames[tf_1];
 			    for(int tf_2 = 0; tf_2 < nFactors; tf_2++){
 				    double impact = 0;			
-				    if(tf_2 == tf_1)//if(tf_2 >= tf_1 and SynMat(tf_1, tf_2) == 1 )				
-					    impact = predictor_CV->comp_impact_skew_pair(par_impact, tf_1, tf_2);
+				    if(tf_2 == tf_1)//if(tf_2 >= tf_1 and SynMat(tf_1, tf_2) == 1 )	
+ 					    impact = predictor_CV->comp_impact_skew_pair(par_impact, tf_1, tf_2);
 				    impact_stream << "\t" << impact;
 			    }
 			    impact_stream << endl;
@@ -700,7 +766,7 @@ int main( int argc, char* argv[] )
         impact_stream.close();
         cout << "Impact saved" << endl;
     }
-    if(true){
+    if(false){
         // print the impact
         cout << "Impact of the TF:" << endl; 
         for(int tf = 0; tf < nFactors; tf++ ){
@@ -724,7 +790,6 @@ int main( int argc, char* argv[] )
         }   
     }
 	#endif // PRINT_IMPACT
-
 
 	delete predictor_CV;
     #else // CROSS_VALIDATION

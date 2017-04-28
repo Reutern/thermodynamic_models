@@ -826,10 +826,23 @@ double median( const vector< double > &x )
     if ( x.size() == 0 ) { return 0; }
     
     vector< double > xCopy( x );
-    sort( xCopy.begin(), xCopy.end() );
-    int middle = (int)( ( xCopy.size() - 1 ) / 2.0 );
-    return xCopy[ middle ];	
+    double median;
+    size_t size = xCopy.size();
+
+    sort(xCopy.begin(), xCopy.end());
+
+    if (size  % 2 == 0)
+    {
+        median = (xCopy[size / 2 - 1] + xCopy[size / 2]) / 2;
+    }
+    else 
+    {
+        median = xCopy[size / 2];
+    }
+
+  return median;
 }
+
 
 double std_dev( const vector< double >& x )
 {

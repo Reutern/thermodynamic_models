@@ -224,12 +224,11 @@ int readSequences( const string& file, const string& accfile, vector< Sequence >
 
                  // append the sequence
 		double ac = 1.0;
-
 	    getline( facc, line_acc );
         for ( int i = start; i < last; i++ ) {
                 int nt = symbolToInt( line_tmp[ i ] );	// could be a NNN or gap
 		        getline( facc, line_acc );
-			    ac = std::stod (line_acc);	// read in according accessibility
+			    //ac = std::stod (line_acc);	// read in according accessibility
  	            std::size_t pos = line_acc.find("\t");      // position of next gap in line_acc
 		    	line_acc = line_acc.substr(pos+1);   	// Truncate line_acc for next read-out
 			    ac = std::stod (line_acc);	// read in according accessibility
@@ -241,6 +240,7 @@ int readSequences( const string& file, const string& accfile, vector< Sequence >
          	        return RET_ERROR;	
       	     	}           
          	   } 
+   	    getline( facc, line_acc );
         	}			
     	}
         // add the last sequence

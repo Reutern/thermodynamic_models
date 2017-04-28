@@ -12,7 +12,7 @@
 ExprPar::ExprPar( int _nFactors, int _nSeqs ) : factorIntMat(), factorSynMat(), factorSkewMat()
 {	
     assert( _nFactors > 0 );
-	overlap = 0;
+	overlap = 1e6;
     for ( int i = 0; i < _nFactors; i++ ) {
         maxBindingWts.push_back( ExprPar::default_weight );	
     }	
@@ -53,7 +53,7 @@ ExprPar::ExprPar( int _nFactors, int _nSeqs ) : factorIntMat(), factorSynMat(), 
 	
 ExprPar::ExprPar( const vector< double >& _maxBindingWts, const Matrix& _factorIntMat, const Matrix& _factorSynMat, const Matrix& _factorSkewMat, const vector< double >& _IntRange, const vector< double >& _txpEffects, const vector< double >& _repEffects, const vector < double >& _basalTxps, int _nSeqs, double _acc_scale) : maxBindingWts( _maxBindingWts ), factorIntMat( _factorIntMat ), factorSynMat( _factorSynMat ), factorSkewMat( _factorSkewMat ), IntRange(_IntRange), txpEffects( _txpEffects ), repEffects( _repEffects ), basalTxps( _basalTxps ), nSeqs( _nSeqs  ), acc_scale(_acc_scale)
 {
-	overlap = 0;
+	overlap = 1e6;
     if ( !factorIntMat.isEmpty() ) assert( factorIntMat.nRows() == maxBindingWts.size() && factorIntMat.isSquare() ); 	
     if ( !factorSynMat.isEmpty() ) assert( factorSynMat.nRows() == maxBindingWts.size() && factorSynMat.isSquare() ); 	
     assert( txpEffects.size() == maxBindingWts.size() && repEffects.size() == maxBindingWts.size() );
@@ -67,7 +67,7 @@ ExprPar::ExprPar( const vector< double >& _maxBindingWts, const Matrix& _factorI
 
 ExprPar::ExprPar( const vector< double >& pars, const IntMatrix& coopMat, const IntMatrix& SynMat, const vector< bool >& actIndicators, const vector< bool >& repIndicators, int _nSeqs ) : factorIntMat(), factorSynMat(), factorSkewMat()
 {		
-    overlap = 0;
+    overlap = 1e6;
     int _nFactors = actIndicators.size();
     assert( coopMat.isSquare() && coopMat.nRows() == _nFactors );
     assert( SynMat.isSquare() && SynMat.nRows() == _nFactors );
@@ -342,7 +342,7 @@ double ExprPar::parameter_L1_norm_interactions() const
 	double range_norm = 0;
 	#if TRAIN_RANGE
     for ( int i = 0; i < nFactors(); i++ ) {
-		range_norm += IntRange[i] / 1500.0;	
+		range_norm += IntRange[i] / 150.0;	
 	}	
 	#endif // TRAIN_RANGE
 	return L1_norm_coop + L1_norm_syn + range_norm;
@@ -489,7 +489,13 @@ void ExprPar::print( ostream& os, const vector< string >& motifNames, const vect
     os << "Cooperativity Factor:"  << endl;				// TODO: if structure for orientation and Range 
     for ( int i = 0; i < nFactors(); i++ ) {
         for ( int j = 0; j <= i; j++ ) {
-            if ( coopMat( i, j ) ) os << motifNames[i] << "\t" << motifNames[j] << "\t" << factorIntMat( i, j ) << "\t" << factorSkewMat(i, j) << "\t"<< IntRange[i] << endl;			
+            if ( coopMat( i, j ) ){
+			os << motifNames[i] << "\t" << motifNames[j] << "\t" << factorIntMat( i, j ) << "\t" << factorSkewMat(i, j);
+			#if TRAIN_RANGE
+			os << "\t"<< IntRange[i]; 
+			#endif // TRAIN_RANGE
+			os << endl;	
+			}		
         }
     }
 
@@ -560,21 +566,23 @@ int ExprPar::load( const string& file )
 	while( getline(fin, line) ){
 		if( line == "Synergy Factor:") break;
 	    istringstream iss(line);
-		#if RANGE_TRAIN
+		#if TRAIN_RANGE
 		iss >> factor1 >> factor2 >> coopVal >> skewVal >> rangeVal;
 		#else
 		iss >> factor1 >> factor2 >> coopVal >> skewVal;
-		#endif // RANGE_TRAIN
-		if( !factorIdxMap.count( factor1 ) || !factorIdxMap.count( factor2 ) ) return RET_ERROR;
+		#endif // TRAIN_RANGE
+		if( !factorIdxMap.count( factor1 ) || !factorIdxMap.count( factor2 ) ){
+		    cout << "Cannot read Cooperativity: " << factor1 << "\t" << factor2 << endl;  
+		    return RET_ERROR;}
         int idx1 = factorIdxMap[factor1];
         int idx2 = factorIdxMap[factor2];
         factorIntMat( idx1, idx2 ) = coopVal;
         factorIntMat( idx2, idx1 ) = coopVal;
         factorSkewMat( idx1, idx2 ) = skewVal;
         factorSkewMat( idx2, idx1 ) = skewVal;
-		#if RANGE_TRAIN
+		#if TRAIN_RANGE
 		IntRange[idx1] = rangeVal;
-		#endif // RANGE_TRAIN
+		#endif // TRAIN_RANGE
     }
 
     // read the synergy interactions
@@ -617,7 +625,10 @@ int ExprPar::load( const string& file, const vector <string>& seqNames, const ve
     string symbol, eqSign, value;
     #if ACCESSIBILITY
     fin >> symbol >> eqSign >> value;
-    if (symbol != "Accessibility" || eqSign != "=") return RET_ERROR;
+    if (symbol != "Accessibility" || eqSign != "="){
+        cout << "Cannot read Accessibility" << endl;
+        return RET_ERROR;
+    }   
     acc_scale = atof( value.c_str() );
     #endif // ACCESSIBILITY
     // read the basal transcription
@@ -637,7 +648,10 @@ int ExprPar::load( const string& file, const vector <string>& seqNames, const ve
     }
     else{
 	fin >> symbol >> eqSign >> value;
-	if ( symbol != "basal_transcription" || eqSign != "=" ) return RET_ERROR;
+	if ( symbol != "basal_transcription" || eqSign != "=" ){
+        cout << "Cannot read basal transcription rate" << endl;
+        return RET_ERROR;
+    }  
 	double basalTxp_val = atof( value.c_str() );
 	basalTxps[ 0 ] =  basalTxp_val ;
     }
@@ -654,21 +668,23 @@ int ExprPar::load( const string& file, const vector <string>& seqNames, const ve
 	while( getline(fin, line) ){
 		if( line == "Synergy Factor:") break;
 	    istringstream iss(line);
-		#if RANGE_TRAIN
+		#if TRAIN_RANGE
 		iss >> factor1 >> factor2 >> coopVal >> skewVal >> rangeVal;
 		#else
 		iss >> factor1 >> factor2 >> coopVal >> skewVal;
-		#endif // RANGE_TRAIN
-		if( !factorIdxMap.count( factor1 ) || !factorIdxMap.count( factor2 ) ) return RET_ERROR;
+		#endif // TRAIN_RANGE
+		if( !factorIdxMap.count( factor1 ) || !factorIdxMap.count( factor2 ) ){
+		    cout << "Cannot read Cooperativity: " << factor1 << "\t" << factor2 << endl;  
+		    return RET_ERROR;}
         int idx1 = factorIdxMap[factor1];
         int idx2 = factorIdxMap[factor2];
         factorIntMat( idx1, idx2 ) = coopVal;
         factorIntMat( idx2, idx1 ) = coopVal;
         factorSkewMat( idx1, idx2 ) = skewVal;
         factorSkewMat( idx2, idx1 ) = skewVal;
-		#if RANGE_TRAIN
+		#if TRAIN_RANGE
 		IntRange[idx1] = rangeVal;
-		#endif // RANGE_TRAIN
+		#endif // TRAIN_RANGE
     }
 
     // read the synergy interactions
@@ -860,7 +876,7 @@ int ExprPar::estBindingOption = 1;  // 1. estimate binding parameters; 0. not es
 // training parameter limits / range
 
 double ExprPar::delta = 0.0001;
-double ExprPar::default_acc_scale = 1;
+double ExprPar::default_acc_scale = 10;
 double ExprPar::weight_penalty = 0.05;
 double ExprPar::effect_penalty = 0.05;
 double ExprPar::interaction_penalty = 1;
@@ -873,7 +889,7 @@ double ExprPar::default_effect_Thermo = 1.0;
 double ExprPar::default_repression = 1.0E-2;
 double ExprPar::default_basal_Logistic = -5.0;
 double ExprPar::default_basal_Thermo = 0.01;
-double ExprPar::min_acc_scale = 0.001;
+double ExprPar::min_acc_scale = 0.01;
 double ExprPar::max_acc_scale = 100.0;
 double ExprPar::min_basal_Logistic = -9.0;	
 double ExprPar::max_basal_Logistic = -1.0;
@@ -919,8 +935,8 @@ double ExprPar::min_synergy = 0.001;
 double ExprPar::max_synergy = 1000;
 double ExprPar::min_skew = -10;	
 double ExprPar::max_skew = 10;
-double ExprPar::min_effect_Thermo = 0.0001;	
-double ExprPar::max_effect_Thermo = 10000;
+double ExprPar::min_effect_Thermo = 0.001;	
+double ExprPar::max_effect_Thermo = 1000;
 double ExprPar::min_repression = 1.0E-3;
 double ExprPar::max_repression = 500; 
 double ExprPar::min_basal_Thermo = 1.0E-7;	
@@ -960,10 +976,8 @@ void ExprFunc::set_sites( SiteVec _sites )
 		for (l = 1; l < k; l++) {
 				int dist_a = motifs[sites[k].factorIdx].length();
 				int dist_b = motifs[sites[l].factorIdx].length();
-				if(par.overlap != 0){
-					dist_a -= par.overlap;
-					dist_b -= par.overlap;
-				}
+				dist_a = min(par.overlap, dist_a);
+				dist_b = min(par.overlap, dist_b);
 	    	if ((sites[k].start - sites[l].start) <= range or siteOverlap( sites[k], sites[l], dist_a, dist_b)) {break;} 
 		}
     	_boundaries[k] = l - 1;
@@ -1206,10 +1220,8 @@ void ExprFunc::compProb_scanning_mode(const vector< double >& factorConcs, vecto
         for ( int j = max(i - 30,0); j < min(i + 30 , n); j++ ) {
 				int dist_a = motifs[sites[i].factorIdx].length();
 				int dist_b = motifs[sites[j].factorIdx].length();
-				if(par.overlap != 0){
-					dist_a -= par.overlap;
-					dist_b -= par.overlap;
-				}
+				dist_a = min(par.overlap, dist_a);
+				dist_b = min(par.overlap, dist_b);
                 if ( siteOverlap( sites[ i ], sites[ j ], dist_a, dist_b)) 
 					weight_competition += bindingWts[ j ] * factorConcs[sites[ j ].factorIdx];
 		else weight_cooperativity += (compFactorInt( sites[ i ], sites[ j ] )-1) *  bindingWts[ j ] * factorConcs[sites[ j ].factorIdx];
@@ -1240,10 +1252,8 @@ double ExprFunc::compPartFuncOff(const vector< double >& factorConcs) const
         for ( int j = boundaries[i] + 1; j < i; j++ ) {
 				int dist_a = motifs[sites[i].factorIdx].length();
 				int dist_b = motifs[sites[j].factorIdx].length();
-				if(par.overlap != 0){
-					dist_a -= par.overlap;
-					dist_b -= par.overlap;
-				}
+				dist_a = min(par.overlap, dist_a);
+				dist_b = min(par.overlap, dist_b);
                 if ( siteOverlap( sites[ i ], sites[ j ], dist_a, dist_b)) continue;
                 sum += compFactorInt( sites[ i ], sites[ j ] ) * Z[ j ];	
         }
@@ -1417,10 +1427,8 @@ double ExprFunc::compPartFuncOffChrMod(const vector< double >& factorConcs) cons
         for ( int j = boundaries[i] + 1; j < i; j++ ) {
 				int dist_a = motifs[sites[i].factorIdx].length();
 				int dist_b = motifs[sites[j].factorIdx].length();
-				if(par.overlap != 0){
-					dist_a -= par.overlap;
-					dist_b -= par.overlap;
-				}
+				dist_a = min(par.overlap, dist_a);
+				dist_b = min(par.overlap, dist_b);
             if ( siteOverlap( sites[ i ], sites[ j ], dist_a, dist_b ) ) continue;
             int dist = sites[i].start - sites[j].start;
             
@@ -1469,10 +1477,8 @@ double ExprFunc::compPartFuncOnDirect(const vector< double >& factorConcs) const
         for ( int j = boundaries[i] + 1; j < i; j++ ) {
 				int dist_a = motifs[sites[i].factorIdx].length();
 				int dist_b = motifs[sites[j].factorIdx].length();
-				if(par.overlap != 0){
-					dist_a -= par.overlap;
-					dist_b -= par.overlap;
-				}
+				dist_a = min(par.overlap, dist_a);
+				dist_b = min(par.overlap, dist_b);
             if ( siteOverlap( sites[ i ], sites[ j ], dist_a, dist_b )) continue;
             	sum += compFactorSyn( sites[ i ], sites[ j ] ) * compFactorInt( sites[ i ], sites[ j ] ) * Z[ j ];
         }
@@ -1496,10 +1502,8 @@ double ExprFunc::compPartFuncOnQuenching(const vector< double >& factorConcs) co
         for ( int j = 1; j < i; j++ ) {
 				int dist_a = motifs[sites[i].factorIdx].length();
 				int dist_b = motifs[sites[j].factorIdx].length();
-				if(par.overlap != 0){
-					dist_a -= par.overlap;
-					dist_b -= par.overlap;
-				}
+				dist_a = min(par.overlap, dist_a);
+				dist_b = min(par.overlap, dist_b);
             if ( siteOverlap( sites[ i ], sites[ j ], dist_a, dist_b)) continue;
             bool R = testRepression( sites[j], sites[i] );
             double term = compFactorInt( sites[ i ], sites[ j ] ) * ( Z1[0][j] + Z0[0][j] );
@@ -1522,10 +1526,8 @@ double ExprFunc::compPartFuncOnQuenching(const vector< double >& factorConcs) co
             for ( int j = 1; j < i; j++ ) {
 				int dist_a = motifs[sites[i].factorIdx].length();
 				int dist_b = motifs[sites[j].factorIdx].length();
-				if(par.overlap != 0){
-					dist_a -= par.overlap;
-					dist_b -= par.overlap;
-				}
+				dist_a = min(par.overlap, dist_a);
+				dist_b = min(par.overlap, dist_b);
                 if ( siteOverlap( sites[ i ], sites[ j ], dist_a, dist_b ) ) continue;
                 bool R = testRepression( sites[j], sites[i] );
                 double effect = actIndicators[sites[j].factorIdx] * ( 1 - testRepression( sites[i], sites[j] ) ) * Z1[k - 1][j] * par.txpEffects[sites[j].factorIdx];
@@ -1580,10 +1582,8 @@ double ExprFunc::compPartFuncOnChrMod_Unlimited(const vector< double >& factorCo
             int dist = sites[i].start - sites[j].start;
 				int dist_a = motifs[sites[i].factorIdx].length();
 				int dist_b = motifs[sites[j].factorIdx].length();
-				if(par.overlap != 0){
-					dist_a -= par.overlap;
-					dist_b -= par.overlap;
-				}
+				dist_a = min(par.overlap, dist_a);
+				dist_b = min(par.overlap, dist_b);
             if ( siteOverlap( sites[ i ], sites[ j ], dist_a, dist_b ) ) continue;
 
             // sum for Z0
@@ -1650,10 +1650,8 @@ double ExprFunc::compPartFuncOnChrMod_Limited(const vector< double >& factorConc
                 int dist = sites[i].start - sites[j].start;
 				int dist_a = motifs[sites[i].factorIdx].length();
 				int dist_b = motifs[sites[j].factorIdx].length();
-				if(par.overlap != 0){
-					dist_a -= par.overlap;
-					dist_b -= par.overlap;
-				}
+				dist_a = min(par.overlap, dist_a);
+				dist_b = min(par.overlap, dist_b);
                 if ( siteOverlap( sites[ i ], sites[ j ], dist_a, dist_b)) continue;
 
                 // sum for Z0
@@ -1684,6 +1682,12 @@ double ExprFunc::compPartFuncOnChrMod_Limited(const vector< double >& factorConc
     return sum( Zt[n] );         
 }
 
+// TODO delete global variables
+
+int range_del_max = 0;
+int range_del_min = 0;
+
+
 // The interaction function for direct model
 double ExprFunc::compFactorInt( const Site& a, const Site& b ) const
 {
@@ -1694,6 +1698,9 @@ double ExprFunc::compFactorInt( const Site& a, const Site& b ) const
     unsigned dist = abs( a.start - b.start );
     assert( dist >= 0 );
 
+    if(dist <= range_del_max && dist > range_del_min)
+        return 1.0;
+
     double orientationTerm = 1; 
     #if ORIENTATION
     double x = 3 * float(dist)/float(coopDistThr); // Sigma is one third of coopDistThr
@@ -1702,7 +1709,6 @@ double ExprFunc::compFactorInt( const Site& a, const Site& b ) const
     else
         orientationTerm = 1 + erf( - par.factorSkewMat(a.factorIdx, b.factorIdx) * x);
     #endif //ORIENTATION
-
 	int range = coopDistThr;
 	#if TRAIN_RANGE
 	range = par.IntRange[a.factorIdx];
@@ -1731,6 +1737,7 @@ double ExprFunc::compFactorInt( const Site& a, const Site& b ) const
 	    spacingTerm = ( dist < range ? maxInt * orientationTerm * exp( - 4.5 * ( d * d ) ) + 1: 1.0 );	// Sigma is one third of coopDistThr
 		#endif //NEGATIVE_COOP  
 	}
+
     return spacingTerm;
 }
 
@@ -1817,7 +1824,7 @@ ExprPredictor::ExprPredictor(){
     IntMatrix _repressionMat;    
 }
 */
-ExprPredictor::ExprPredictor( const vector< SiteVec >& _seqSites, const vector< int >& _seqLengths, const Matrix& _exprData, const vector< Motif >& _motifs, const Matrix& _factorExprData, const IntMatrix& _coopMat, const IntMatrix& _SynMat, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr, int _coopDistThr, int _SynDistThr, const vector < bool >& _indicator_bool, const vector <string>& _motifNames, const vector <string>& _seqNames, const vector< Sequence >& _seqs  ) : seqSites( _seqSites ), seqLengths( _seqLengths ), exprData( _exprData ), motifs( _motifs ), factorExprData( _factorExprData ), actIndicators( _actIndicators ), maxContact( _maxContact ), repIndicators( _repIndicators ), repressionMat( _repressionMat ), repressionDistThr( _repressionDistThr ), coopDistThr( _coopDistThr ), SynDistThr( _SynDistThr ), indicator_bool ( _indicator_bool ), seqs(_seqs)
+ExprPredictor::ExprPredictor(vector< SiteVec >& _seqSites, const vector< int >& _seqLengths, const Matrix& _exprData, const vector< Motif >& _motifs, const Matrix& _factorExprData, const IntMatrix& _coopMat, const IntMatrix& _SynMat, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr, int _coopDistThr, int _SynDistThr, const vector < bool >& _indicator_bool, const vector <string>& _motifNames, const vector <string>& _seqNames, const vector< Sequence >& _seqs  ) : seqSites( _seqSites ), seqLengths( _seqLengths ), exprData( _exprData ), motifs( _motifs ), factorExprData( _factorExprData ), actIndicators( _actIndicators ), maxContact( _maxContact ), repIndicators( _repIndicators ), repressionMat( _repressionMat ), repressionDistThr( _repressionDistThr ), coopDistThr( _coopDistThr ), SynDistThr( _SynDistThr ), indicator_bool ( _indicator_bool ), seqs(_seqs)
 {
 
     motifNames = _motifNames;
@@ -1852,13 +1859,17 @@ ExprPredictor::ExprPredictor( const vector< SiteVec >& _seqSites, const vector< 
     ExprPar::estBindingOption = estBindingOption;
 }
 
-double ExprPredictor::objFunc( const ExprPar& par) 
+double ExprPredictor::objFunc(const ExprPar& par) 
 {
 
     ExprFunc* func = createExprFunc( par );
     double squaredErr = 0;
-    double correlation = 0;
+	vector<double> correlation (nSeqs(), 0.0);
+    vector<double> correlation_capped (nSeqs(), 0.0);
     double pgp_score = 0;
+    double vcorr = 0;
+    double mcorr = 0;
+    double ccorr = 0;
     #if TIMER 
     timeval start, end;
     gettimeofday(&start, 0);
@@ -1871,13 +1882,13 @@ double ExprPredictor::objFunc( const ExprPar& par)
 		    vector< double > observedExprs (nConds(), 1);
 		    vector < vector < double > > concs (nConds(), vector <double> (factorExprData.nRows(), 0) );
 		    
-			#pragma omp parallel for schedule(dynamic)
+			//#pragma omp parallel for schedule(dynamic)
 			for (int j = 0; j < nConds(); j++ ) {		
 				concs[j] = factorExprData.getCol( j );
 				predictedEfficiency[j] = func->predictExpr_scalefree( seqLengths[ i ], concs[j], i );	
 				observedExprs[j] = exprData( i, j );									// observed expression for the i-th sequence at the j-th condition
 			}
-			correlation += train_btr(predictedEfficiency, observedExprs, i);
+			correlation[i] = train_btr(predictedEfficiency, observedExprs, i);
 
 			double beta = 1.0;
 			//squaredErr += least_square( predictedExprs, observedExprs, beta );
@@ -1886,25 +1897,27 @@ double ExprPredictor::objFunc( const ExprPar& par)
 		}	
 	}
 	else{
+	    vector< vector<double> > predictedExprs (nSeqs(), vector <double> (nConds(), 0) );
+	    vector< vector<double> > observedExprs (nSeqs(), vector <double> (nConds(), 0) ); 
 		for ( int i = 0; i < nSeqs(); i++ ) {
 			// Initiate the sites for func
 			func->set_sites(seqSites[ i ]);        
-			vector< double > predictedExprs (nConds(), -1);
-		    vector< double > observedExprs (nConds(), 1);
 		    vector < vector < double > > concs (nConds(), vector <double> (factorExprData.nRows(), 0) );
-		    
-			#pragma omp parallel for schedule(dynamic)
+			//#pragma omp parallel for schedule(dynamic)
 			for (int j = 0; j < nConds(); j++ ) {		
 				concs[j] = factorExprData.getCol( j );
-				predictedExprs[j] = func->predictExpr( seqLengths[ i ], concs[j], i );	
-				observedExprs[j] = exprData( i, j );									// observed expression for the i-th sequence at the j-th condition
+				predictedExprs[i][j] = func->predictExpr( seqLengths[ i ], concs[j], i );	
+				observedExprs[i][j] = exprData( i, j );									// observed expression for the i-th sequence at the j-th condition
 			}
 
 			double beta = 1.0;
-			squaredErr += least_square( predictedExprs, observedExprs, beta );
-			correlation += corr( predictedExprs, observedExprs ); 
-			pgp_score += pgp( predictedExprs, observedExprs, beta );
-		}	
+			squaredErr += least_square(predictedExprs[i], observedExprs[i], beta);
+			correlation[i] = corr(predictedExprs[i], observedExprs[i]); 
+			correlation_capped[i] = min(max(correlation[i], 0.0), 0.75);
+			pgp_score += pgp(predictedExprs[i], observedExprs[i], beta);
+		}
+        vcorr = corr_vertical(predictedExprs, observedExprs);
+			
 	}
     #if TIMER 
     gettimeofday(&end, 0);
@@ -1912,9 +1925,12 @@ double ExprPredictor::objFunc( const ExprPar& par)
     #endif // TIMER
 
     delete func;
-    obj_corr = correlation / nSeqs();
+    
+    obj_corr = accumulate(correlation.begin(), correlation.end(), 0.0) / nSeqs();
     obj_sse = sqrt( squaredErr / ( nSeqs() * nConds() ) ); 
     obj_pgp = pgp_score / nSeqs();
+    mcorr = median(correlation);
+    ccorr = accumulate(correlation_capped.begin(), correlation_capped.end(), 0.0) / nSeqs();
 	double penalty = 0;
 	if (PenaltyOption == L1) 
 		penalty = par.weight_penalty * par.weight_L1_norm() + par.effect_penalty * par.effect_L1_norm() + par.interaction_penalty * par.parameter_L1_norm_interactions();
@@ -1928,6 +1944,9 @@ double ExprPredictor::objFunc( const ExprPar& par)
     if (objOption == SSE)	return obj_sse + penalty;
     else if (objOption == CORR)	return -obj_corr + penalty;
     else if (objOption == PGP)	return -obj_pgp + penalty;
+    else if (objOption == VERTICAL_CORR) return -vcorr + penalty;
+    else if (objOption == MEDIAN_CORR) return -mcorr + penalty;
+    else if (objOption == CAPPED_CORR) return -ccorr + penalty;
     return 0;
 }
 
@@ -2009,16 +2028,16 @@ int ExprPredictor::train( const ExprPar& par_init )
             cout << endl;
 		}
 		else if(optimizationOption == Simplex){
+            //par_model.adjust();
 			cout << "Simplex minimization " << i + 1 << " of " << nAlternations << ":" << endl; 
             #if FULL_RESTART          
 			simplex_minimize(par_tmp, obj_tmp);
             #else
 			simplex_minimize(par_result, obj_result);
             #endif // FULL_RESTART
-            par_model.adjust();
             cout << endl;
 		}
-		else if(optimizationOption == BFGS){
+		else if(optimizationOption == BFGS){        
 			cout << "Gradient minimization step " << i + 1 << " of " << nAlternations << ":" << endl; 
             #if FULL_RESTART          
 			gradient_minimize(par_tmp, obj_tmp);
@@ -2374,7 +2393,7 @@ bool ExprPredictor::testPar( const ExprPar& par ) const
 
 void ExprPredictor::printPar( const ExprPar& par ) const
 {
-    cout.setf( ios::fixed );
+//    cout.setf( ios::fixed );
 //    cout.precision( 3 ); 
 //     cout.width( 8 ); 
     
@@ -2446,20 +2465,49 @@ double ExprPredictor::comp_impact_overlap( const ExprPar& par, int dist )
 	double obj_full = objFunc(par_full);	
 	double impact = (obj_full - obj_deleted);
 
-	if (objOption == SSE) return -impact;	// SSE gets minimised
-	else return impact;
+	if (objOption == SSE) return impact;	// SSE gets minimised
+	else return -impact;
 }
 
-double ExprPredictor::comp_impact_range( const ExprPar& par )
+
+double ExprPredictor::comp_impact_sites( const ExprPar& par, double upper_threshold, double lower_threshold )
 {
 	double obj_full = objFunc(par);	
-   // set_coopDistThr(50);
+	vector< SiteVec > seqSites_full = seqSites;
+	vector< SiteVec > seqSites_deleted = seqSites;
+	int N_sites = 0;
+	double weight_deleted = 0;
+	for(int seq_idx = 0; seq_idx < nSeqs(); seq_idx++){
+        for(auto site = seqSites_deleted[seq_idx].begin(); site!= seqSites_deleted[seq_idx].end(); ++site){
+            int tf_tmp = site->factorIdx;
+            if( site->energy <= upper_threshold * motifs[tf_tmp].getMaxLLR() && site->energy >=  lower_threshold * motifs[tf_tmp].getMaxLLR()){
+                weight_deleted += site->wtRatio;
+                site->wtRatio = 0;
+                N_sites++;}
+        }
+	}
+    cout << N_sites << "\t";
+	set_sites(seqSites_deleted);	
 	double obj_deleted = objFunc(par);
- //   set_coopDistThr(100);
+	set_sites(seqSites_full);
 	double impact = (obj_full - obj_deleted);
 
-	if (objOption == SSE) return -impact;	// SSE gets minimised
-	else return impact;
+	if (objOption == SSE) return impact;	// SSE gets minimised
+	else return -impact;
+}
+
+double ExprPredictor::comp_impact_range( const ExprPar& par, int _range_del_min, int _range_del_max)
+{
+	double obj_full = objFunc(par);	
+    range_del_max = _range_del_max;
+    range_del_min = _range_del_min;
+	double obj_deleted = objFunc(par);
+	range_del_max = 0;
+    range_del_min = 0;
+	double impact = (obj_full - obj_deleted);
+
+	if (objOption == SSE) return impact;	// SSE gets minimised
+	else return -impact;
 }
 
 double ExprPredictor::comp_impact( const ExprPar& par, int tf ) 
@@ -2630,7 +2678,7 @@ double ExprPredictor::comp_impact_coop_pair( const ExprPar& par, int tf1, int tf
 
 double ExprPredictor::comp_impact_skew_pair( const ExprPar& par, int tf1, int tf2 ) 
 {
-	// Calculate the objecttive function without cooperativity between tf1 and tf2
+	// Calculate the objecttive function without strand bias between tf1 and tf2
 	ExprPar par_deleted = par;
 	ExprPar par_full = par;
 	par_full.weight_penalty = 0;
@@ -2639,9 +2687,10 @@ double ExprPredictor::comp_impact_skew_pair( const ExprPar& par, int tf1, int tf
 	par_deleted.effect_penalty = 0;    
 	par_full.interaction_penalty = 0;
 	par_deleted.interaction_penalty = 0;
-	par_deleted.factorSkewMat( tf1, tf2 ) = 0;
-	double obj_deleted = objFunc(par_deleted);
 	double obj_full = objFunc(par_full);	
+	cout << par_deleted.factorSkewMat( tf1, tf2 ) << endl;
+	par_deleted.factorSkewMat( tf1, tf2 ) = 10;
+	double obj_deleted = objFunc(par_deleted);
 	double impact = obj_full - obj_deleted;
 
 	if (objOption == SSE)	return	impact;	// SSE gets minimised
@@ -2708,7 +2757,7 @@ double ExprPredictor::compAvgCorr( const ExprPar& par )
         for ( int k = 1; k < n; k++ ) {
 		double access_tmp = 1.0;
 		#if ACCESSIBILITY
-		access_tmp = exp( -par_model.acc_scale * (1- seqSites[i][k].accessibility) ) ;
+		access_tmp = exp( -par_model.acc_scale * (0.5- seqSites[i][k].accessibility) ) ;
 		#endif //ACCESSIBILITY
 		_bindingWts[k] = access_tmp * par_model.maxBindingWts[ seqSites[i][k].factorIdx ] * seqSites[i][k].wtRatio ;
         }
@@ -2721,8 +2770,8 @@ double ExprPredictor::compAvgCorr( const ExprPar& par )
 		for( int _i = 0; _i < sizeof ( indices_of_crm_in_gene ) / sizeof ( int ); _i++ ){
 			if( i == indices_of_crm_in_gene[ _i ] ){
 				gene_crm_fout << i << "\t" << j << "\t";
-            			//predicted = func->predictExpr_scanning_mode( seqLengths[ i ], concs, i, gene_crm_fout );
-            			predicted = func->predictExpr( seqLengths[ i ], concs, i );
+            			predicted = func->predictExpr_scanning_mode( seqLengths[ i ], concs, i );
+            			//predicted = func->predictExpr( seqLengths[ i ], concs, i );
 				break;
 			}
 		}	
@@ -2880,7 +2929,7 @@ int ExprPredictor::simplex_minimize( ExprPar& par_result, double& obj_result )
 
         // print the current parameter and function values
 	#if FILE_OUTPUT
-	if(iter % 1000 == 0){
+	if(iter % 10 == 0){
     		printf( "\r %zu \t SSE = %8.5f \t Corr = %8.5f \t PGP = %8.5f", iter, obj_sse, obj_corr, obj_pgp);
 		fflush(stdout);
 	}	
@@ -2979,8 +3028,8 @@ int ExprPredictor::gradient_minimize( ExprPar& par_result, double& obj_result )
 // 	cout << "binding at the initial value of parameters = " << gsl_obj_f( x, (void*)this ) << endl; 
 		
 	// choose the method of optimization and set its parameters
- 	const gsl_multimin_fdfminimizer_type* T = gsl_multimin_fdfminimizer_conjugate_pr;	
-//    const gsl_multimin_fdfminimizer_type* T = gsl_multimin_fdfminimizer_conjugate_fr; // Chose Broyden-Fletcher-Goldfarb-Shanno (BFGS) algorithm 
+// 	const gsl_multimin_fdfminimizer_type* T = gsl_multimin_fdfminimizer_conjugate_pr;	
+    const gsl_multimin_fdfminimizer_type* T = gsl_multimin_fdfminimizer_vector_bfgs; // Chose Broyden-Fletcher-Goldfarb-Shanno (BFGS) algorithm 
 		
     // create the minimizer
     gsl_multimin_fdfminimizer* s = gsl_multimin_fdfminimizer_alloc( T, my_func.n );
@@ -3287,7 +3336,7 @@ double gsl_obj_f( const gsl_vector* v, void* params )
 
 void gsl_obj_df( const gsl_vector* v, void* params, gsl_vector* grad )
 {
-    double step = 1.0E-3;
+    double step = 1.0E-6;
     numeric_deriv( grad, gsl_obj_f, v, params, step );		
 }
 

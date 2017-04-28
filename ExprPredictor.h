@@ -15,7 +15,7 @@
 class ExprPar {
 public:
     // constructors 
-    ExprPar() : factorIntMat(), factorSynMat(), factorSkewMat() {overlap = 0;}
+    ExprPar() : factorIntMat(), factorSynMat(), factorSkewMat() {overlap = 1e6;}
     ExprPar( int _nFactors, int _nSeqs );		// default values of parameters
     ExprPar( const vector< double >& _maxBindingWts, const Matrix& _factorIntMat, const Matrix& _factorSynMat, const Matrix& _factorSkewMat, const vector <double>& _IntRange, const vector< double >& _txpEffects, const vector< double >& _repEffects, const vector < double >&  _basalTxps, int _nSeqs, double _acc_scale);
     ExprPar( const vector< double >& pars, const IntMatrix& coopMat, const IntMatrix& SynMat, const vector< bool >& actIndicators, const vector< bool >& repIndicators, int _nSeqs );	// construct from a "flat" vector of free parameters (assuming they are in the correct/uniform scale)
@@ -215,7 +215,7 @@ class ExprPredictor {
 public:
     // constructors
 //	ExprPredictor();
-    ExprPredictor( const vector< SiteVec >& _seqSites, const vector< int >& _seqLengths, const Matrix& _exprData, const vector< Motif >& _motifs, const Matrix& _factorExprData, const IntMatrix& _coopMat, const IntMatrix& _SynMat, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr, int _coopDistThr, int _SynDistThr, const vector < bool >& _indicator_bool, const vector <string>& _motifNames, const vector <string>& _seqNames, const vector< Sequence >& _seqs  );
+    ExprPredictor( vector< SiteVec >& _seqSites, const vector< int >& _seqLengths, const Matrix& _exprData, const vector< Motif >& _motifs, const Matrix& _factorExprData, const IntMatrix& _coopMat, const IntMatrix& _SynMat, const vector< bool >& _actIndicators, int _maxContact, const vector< bool >& _repIndicators, const IntMatrix& _repressionMat, int _repressionDistThr, int _coopDistThr, int _SynDistThr, const vector < bool >& _indicator_bool, const vector <string>& _motifNames, const vector <string>& _seqNames, const vector< Sequence >& _seqs  );
 
     // access methods
     int nSeqs() const {
@@ -246,6 +246,7 @@ public:
     const void setPar(ExprPar& par) { par_model = par; }
     double getObj() const { return obj_model; }
     double set_coopDistThr(int _coopDistThr) {coopDistThr = _coopDistThr;}    
+    void set_sites(vector< SiteVec > _sites) {seqSites = _sites;}
 
     // the objective function to be minimized
     double objFunc( const ExprPar& par );
@@ -258,8 +259,9 @@ public:
 
     // predict expression values of a sequence (across the same conditions)
     int predict( const SiteVec& targetSites, int targetSeqLength, vector< double >& targetExprs, int seq_num ); 
+    double comp_impact_sites( const ExprPar& par, double upper_threshold, double lower_threshold );
     double comp_impact_overlap( const ExprPar& par, int dist );
-    double comp_impact_range( const ExprPar& par );
+    double comp_impact_range( const ExprPar& par, int _range_del_min, int _range_del_max);
     double comp_impact( const ExprPar& par, int tf );		// The impact of the parameter
     double comp_impact_coop( const ExprPar& par, int tf );		// The impact of all cooperativity parameters with tf involved
     double comp_impact_acc( const ExprPar& par );		// The impact of the accessibility
@@ -311,7 +313,7 @@ public:
 
 private:
     // training data
-    const vector< SiteVec >& seqSites;		// the extracted sites for all sequences
+    vector< SiteVec >& seqSites;		// the extracted sites for all sequences
     const vector< int >& seqLengths;           // lengths of all sequences
     const Matrix& exprData;		// expressions of the corresponding sequences across multiple conditions         
     const vector< Motif >& motifs;		// TF binding motifs

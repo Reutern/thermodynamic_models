@@ -458,6 +458,7 @@ int readMatrix( const string& file, vector< string >& rowLabels, vector< string 
 {
     ifstream fin( file.c_str() );
     if ( !fin ) {
+        cout << file.c_str() << endl;
         return RET_ERROR;
     }
 
